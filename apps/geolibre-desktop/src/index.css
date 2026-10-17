@@ -3215,6 +3215,45 @@ body,
   color: hsl(var(--popover-foreground));
 }
 
+/* Lucide glyphs (lucide-static v1.51.0, ISC) for the Fullscreen and Layer
+   Control buttons, matching the icon set used across the rest of the UI. Each
+   is a CSS mask filled with currentColor, so it follows the theme on its own;
+   the dark-mode invert applied to native background-image icons is cancelled. */
+:root {
+  --geolibre-icon-maximize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3H5a2 2 0 0 0-2 2v3'/%3E%3Cpath d='M21 8V5a2 2 0 0 0-2-2h-3'/%3E%3Cpath d='M3 16v3a2 2 0 0 0 2 2h3'/%3E%3Cpath d='M16 21h3a2 2 0 0 0 2-2v-3'/%3E%3C/svg%3E");
+  --geolibre-icon-minimize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3v3a2 2 0 0 1-2 2H3'/%3E%3Cpath d='M21 8h-3a2 2 0 0 1-2-2V3'/%3E%3Cpath d='M3 16h3a2 2 0 0 1 2 2v3'/%3E%3Cpath d='M16 21v-3a2 2 0 0 1 2-2h3'/%3E%3C/svg%3E");
+  --geolibre-icon-layers: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z'/%3E%3Cpath d='M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12'/%3E%3Cpath d='M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17'/%3E%3C/svg%3E");
+}
+
+.maplibregl-map
+  .maplibregl-ctrl
+  button:is(.maplibregl-ctrl-fullscreen, .maplibregl-ctrl-shrink)
+  .maplibregl-ctrl-icon {
+  background-color: currentColor;
+  background-image: none;
+  filter: none;
+  -webkit-mask: var(--geolibre-icon-maximize) center / 18px 18px no-repeat;
+  mask: var(--geolibre-icon-maximize) center / 18px 18px no-repeat;
+}
+
+.maplibregl-map .maplibregl-ctrl button.maplibregl-ctrl-shrink .maplibregl-ctrl-icon {
+  -webkit-mask-image: var(--geolibre-icon-minimize);
+  mask-image: var(--geolibre-icon-minimize);
+}
+
+.maplibregl-ctrl-layer-control .layer-control-icon svg {
+  display: none;
+}
+
+.maplibregl-ctrl-layer-control .layer-control-icon::before {
+  background-color: currentColor;
+  content: "";
+  height: 20px;
+  -webkit-mask: var(--geolibre-icon-layers) center / contain no-repeat;
+  mask: var(--geolibre-icon-layers) center / contain no-repeat;
+  width: 20px;
+}
+
 /* The vendor floats these panels outside the control group, including menus
    attached to body. Scope by their own classes, never by cartographic symbols. */
 html
