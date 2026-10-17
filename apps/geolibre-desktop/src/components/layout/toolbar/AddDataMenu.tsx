@@ -5,11 +5,14 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@geolibre/ui";
 import { Database } from "lucide-react";
 import { useAppStore, type MapRendererKind } from "@geolibre/core";
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { AddDataKind } from "../AddDataDialog";
 import { isMobile } from "../../../lib/is-mobile";
@@ -21,6 +24,7 @@ import {
   DATA_SOURCE_CATALOG,
   DATA_SOURCE_SECTION_LABEL_KEYS,
   DATA_SOURCE_SECTION_ORDER,
+  type DataSourceCatalogEntry,
   isDataSourceVisible,
 } from "../../../lib/ui-profile";
 import type { AddLayerHandlers, ToolbarChrome } from "./constants";
@@ -40,6 +44,9 @@ interface AddDataItem {
   onSelect: () => void;
   disabled?: boolean;
 }
+
+/** Catalog ids also offered at the top level of the menu, above the sections. */
+const TOP_LEVEL_SHORTCUT_IDS = new Set(["vector", "raster"]);
 
 function unsupportedTitleKey(renderer: MapRendererKind, id: string) {
   // eslint-disable-next-line local/no-renderer-kind-checks -- the message names the engine
@@ -153,6 +160,29 @@ export function AddDataMenu({
     ),
   })).filter((group) => group.entries.length > 0);
 
+  // Swiftmap (UI_CUSTOMISATION.md, Change 04): the most-used types sit at the
+  // top level as well as inside Files, so they stay one click away while each
+  // section collapses into a submenu.
+  const shortcuts = sections
+    .flatMap((group) => group.entries)
+    .filter((entry) => TOP_LEVEL_SHORTCUT_IDS.has(entry.id));
+
+  const renderEntry = (entry: DataSourceCatalogEntry, keyPrefix = "") => {
+    const item = handlers[entry.id];
+    if (!item) return null;
+    const supported = supportsAddDataRenderer(entry.id, renderer, capabilities.deckOverlay);
+    return (
+      <DropdownMenuItem
+        key={`${keyPrefix}${entry.id}`}
+        disabled={item.disabled || !supported}
+        title={supported ? undefined : t(unsupportedTitleKey(renderer, entry.id))}
+        onSelect={item.onSelect}
+      >
+        {t(entry.labelKey)}
+      </DropdownMenuItem>
+    );
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -175,32 +205,21 @@ export function AddDataMenu({
       <DropdownMenuContent align="start">
         <DropdownMenuLabel>{t("toolbar.menu.addData")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {sections.map((group, index) => (
-          <Fragment key={group.section}>
-            {index > 0 ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
+        {shortcuts.length > 0 ? (
+          <>
+            {shortcuts.map((entry) => renderEntry(entry, "shortcut:"))}
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
+        {sections.map((group) => (
+          <DropdownMenuSub key={group.section}>
+            <DropdownMenuSubTrigger>
               {t(DATA_SOURCE_SECTION_LABEL_KEYS[group.section])}
-            </DropdownMenuLabel>
-            {group.entries.map((entry) => {
-              const item = handlers[entry.id];
-              if (!item) return null;
-              const supported = supportsAddDataRenderer(
-                entry.id,
-                renderer,
-                capabilities.deckOverlay,
-              );
-              return (
-                <DropdownMenuItem
-                  key={entry.id}
-                  disabled={item.disabled || !supported}
-                  title={supported ? undefined : t(unsupportedTitleKey(renderer, entry.id))}
-                  onSelect={item.onSelect}
-                >
-                  {t(entry.labelKey)}
-                </DropdownMenuItem>
-              );
-            })}
-          </Fragment>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {group.entries.map((entry) => renderEntry(entry))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         ))}
         <PluginMenuContributions target="addData" />
       </DropdownMenuContent>

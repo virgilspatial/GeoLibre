@@ -10758,5 +10758,13 @@
     "updated": "Saved related record {{id}}.",
     "unchanged": "Nothing changed, so nothing was sent.",
     "deleted": "Deleted related record {{id}}."
+  },
+  "swiftmap": {
+    "notifications": {
+      "layerAdded": {
+        "title": "Layer added",
+        "description": "Your ‘{{name}}’ file is in the Layers panel."
+      }
+    }
   }
 }

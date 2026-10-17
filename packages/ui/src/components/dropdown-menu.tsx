@@ -10,6 +10,18 @@ export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
+/* Swiftmap (UI_CUSTOMISATION.md, Change 05): classes follow the current shadcn
+   Dropdown Menu, translated from its Base UI attributes to Radix ones and to
+   logical (RTL-safe) spacing. GeoLibre's sizing fixes below are kept. */
+
+/** shadcn's panel look and open/close motion, shared by menus and submenus. */
+const MENU_PANEL_CLASS =
+  "rounded-lg bg-popover p-1 text-popover-foreground ring-1 ring-foreground/10 outline-none origin-(--radix-dropdown-menu-content-transform-origin) duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 motion-reduce:animate-none";
+
+/** Icons inside items. Not shadcn's `gap-1.5` + default `size-4`: the app's ~700
+    menu items already space their icons with `me-2` at 14px, which would double up. */
+const MENU_ICON_CLASS = "[&_svg]:pointer-events-none [&_svg]:shrink-0";
+
 export const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
@@ -25,14 +37,15 @@ export const DropdownMenuSubTrigger = React.forwardRef<
       // (Radix already blocks the submenu from opening while disabled). Unlike
       // DropdownMenuItem, a disabled SubTrigger therefore still receives pointer
       // events; callers that need clicks suppressed must handle that themselves.
-      "flex min-w-0 cursor-default select-none items-center gap-2 overflow-hidden rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[disabled]:opacity-50 data-[state=open]:bg-accent",
+      "flex min-w-0 cursor-default select-none items-center gap-2 overflow-hidden rounded-md px-1.5 py-1 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
+      MENU_ICON_CLASS,
       inset && "ps-8",
       className,
     )}
     {...props}
   >
     {children}
-    <ChevronRight className="ms-auto h-4 w-4 shrink-0 rtl:rotate-180" />
+    <ChevronRight className="ms-auto size-4 shrink-0 rtl:rotate-180" />
   </DropdownMenuPrimitive.SubTrigger>
 ));
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName;
@@ -82,7 +95,8 @@ export const DropdownMenuSubContent = React.forwardRef<
         className={cn(
           // No min-w-[8rem] here, unlike DropdownMenuContent: the floor is set
           // below so it can yield to the available-width cap on a narrow screen.
-          "z-50 max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg",
+          "z-50 max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto shadow-lg",
+          MENU_PANEL_CLASS,
           className,
         )}
         style={{
@@ -133,7 +147,8 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 max-w-[calc(100vw-1rem)] min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+        "z-50 max-w-[calc(100vw-1rem)] min-w-[8rem] overflow-x-hidden overflow-y-auto shadow-md",
+        MENU_PANEL_CLASS,
         className,
       )}
       style={{
@@ -156,7 +171,8 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex min-w-0 cursor-default select-none items-center overflow-hidden rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex min-w-0 cursor-default select-none items-center overflow-hidden rounded-md px-1.5 py-1 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      MENU_ICON_CLASS,
       inset && "ps-8",
       className,
     )}
@@ -175,7 +191,8 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
+      "relative flex cursor-default select-none items-center rounded-md py-1 ps-8 pe-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      MENU_ICON_CLASS,
       className,
     )}
     checked={checked}
@@ -193,7 +210,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
         )}
       >
         {checked === true ? (
-          <Check className="h-3 w-3" />
+          <Check className="size-3" />
         ) : checked === "indeterminate" ? (
           <span className="h-0.5 w-2 rounded-full bg-current" />
         ) : null}
@@ -201,7 +218,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
     ) : (
       <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
+          <Check className="size-4" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
     )}
@@ -217,14 +234,15 @@ export const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground",
+      "relative flex cursor-default select-none items-center rounded-md py-1 ps-8 pe-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      MENU_ICON_CLASS,
       className,
     )}
     {...props}
   >
     <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Circle className="h-2 w-2 fill-current" />
+        <Circle className="size-2 fill-current" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -240,7 +258,11 @@ export const DropdownMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("px-2 py-1.5 text-sm font-semibold", inset && "ps-8", className)}
+    className={cn(
+      "px-1.5 py-1 text-xs font-medium text-muted-foreground",
+      inset && "ps-8",
+      className,
+    )}
     {...props}
   />
 ));
@@ -252,7 +274,7 @@ export const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-muted", className)}
+    className={cn("-mx-1 my-1 h-px bg-border", className)}
     {...props}
   />
 ));
@@ -264,7 +286,7 @@ export const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => (
   <span
     className={cn(
-      "ms-auto shrink-0 whitespace-nowrap ps-4 text-xs text-muted-foreground",
+      "ms-auto shrink-0 whitespace-nowrap ps-4 text-xs tracking-widest text-muted-foreground",
       className,
     )}
     {...props}

@@ -1,4 +1,4 @@
-import { cn } from "@geolibre/ui";
+import { Alert, AlertAction, AlertDescription, AlertTitle, Button, cn } from "@geolibre/ui";
 import { Bug, CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,18 +18,18 @@ const KIND_ICON: Record<NotificationKind, typeof Info> = {
   error: CircleAlert,
 };
 
-const KIND_ACCENT: Record<NotificationKind, string> = {
-  success: "border-s-emerald-500",
-  info: "border-s-primary",
-  warning: "border-s-amber-500",
-  error: "border-s-destructive",
-};
-
-const KIND_ICON_CLASS: Record<NotificationKind, string> = {
-  success: "text-emerald-600 dark:text-emerald-400",
-  info: "text-primary",
-  warning: "text-amber-600 dark:text-amber-400",
-  error: "text-destructive dark:text-red-400",
+/* Swiftmap: toasts follow the shadcn Alert examples (UI_CUSTOMISATION.md,
+   Change 03). Success and info are the plain alert, with the icon in the text
+   colour. Warning is the amber "custom colors" alert. Error is the destructive
+   alert, but with red-700/red-400: our --destructive red fails AA contrast on
+   the light card. tailwind-merge lets these override the variant's colours. */
+const KIND_CLASS: Record<NotificationKind, string> = {
+  success: "",
+  info: "",
+  warning:
+    "border-amber-200 bg-amber-50 text-amber-900 *:data-[slot=alert-description]:text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 dark:*:data-[slot=alert-description]:text-amber-200",
+  error:
+    "text-red-700 *:data-[slot=alert-description]:text-red-700 dark:text-red-400 dark:*:data-[slot=alert-description]:text-red-400",
 };
 
 function NotificationToast({ notification }: { notification: AppNotification }) {
@@ -37,71 +37,72 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
   const Icon = KIND_ICON[notification.kind];
   const close = () => dismissNotification(notification.id);
   return (
-    <div
+    <Alert
+      // The region's role="status"/"alert" wrappers announce; a role on each
+      // toast would make every one assertive.
+      role={undefined}
+      variant={notification.kind === "error" ? "destructive" : "default"}
       data-testid="notification"
       data-kind={notification.kind}
       data-notification-id={notification.id}
       className={cn(
-        "pointer-events-auto flex w-full items-start gap-3 rounded-md border border-s-4 bg-background px-3 py-2.5 text-sm text-foreground shadow-lg",
+        "pointer-events-auto shadow-lg",
         "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2",
-        KIND_ACCENT[notification.kind],
+        // AlertAction always holds the ✕; widen the reserve when it also
+        // holds an action button.
+        notification.action
+          ? "has-data-[slot=alert-action]:pe-28"
+          : "has-data-[slot=alert-action]:pe-9",
+        KIND_CLASS[notification.kind],
       )}
     >
-      <Icon
-        aria-hidden="true"
-        className={cn("mt-0.5 h-4 w-4 shrink-0", KIND_ICON_CLASS[notification.kind])}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="break-words font-medium">
-          {notification.message}
-          {notification.count > 1 ? (
-            <span className="ms-1.5 rounded bg-muted px-1 py-0.5 text-xs font-normal text-muted-foreground">
-              {t("notifications.repeated", { count: notification.count })}
-            </span>
-          ) : null}
-        </p>
-        {notification.description ? (
-          <p className="mt-0.5 break-words text-xs text-muted-foreground">
-            {notification.description}
-          </p>
+      <Icon aria-hidden="true" />
+      <AlertTitle className="break-words">
+        {notification.message}
+        {notification.count > 1 ? (
+          <span className="ms-1.5 rounded bg-muted px-1 py-0.5 text-xs font-normal text-muted-foreground">
+            {t("notifications.repeated", { count: notification.count })}
+          </span>
         ) : null}
-        {notification.action || notification.diagnostic ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {notification.action ? (
-              <button
-                type="button"
-                className="rounded border px-2 py-0.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
-                onClick={() => {
-                  notification.action?.onClick();
-                  close();
-                }}
-              >
-                {notification.action.label}
-              </button>
-            ) : null}
-            {notification.diagnostic ? (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent hover:text-accent-foreground"
-                onClick={() => reportIssue(notification.diagnostic ?? null)}
-              >
-                <Bug aria-hidden="true" className="h-3 w-3" />
-                {t("notifications.reportIssue")}
-              </button>
-            ) : null}
-          </div>
+      </AlertTitle>
+      {notification.description ? (
+        <AlertDescription className="break-words">{notification.description}</AlertDescription>
+      ) : null}
+      {notification.diagnostic ? (
+        <button
+          type="button"
+          className="col-start-2 mt-0.5 inline-flex items-center gap-1 justify-self-start text-xs underline underline-offset-3 opacity-90 hover:opacity-100"
+          onClick={() => reportIssue(notification.diagnostic ?? null)}
+        >
+          <Bug aria-hidden="true" className="h-3 w-3" />
+          {t("notifications.reportIssue")}
+        </button>
+      ) : null}
+      <AlertAction className="flex items-center gap-1">
+        {notification.action ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2"
+            onClick={() => {
+              notification.action?.onClick();
+              close();
+            }}
+          >
+            {notification.action.label}
+          </Button>
         ) : null}
-      </div>
-      <button
-        type="button"
-        aria-label={t("notifications.dismiss")}
-        title={t("notifications.dismiss")}
-        className="-me-1 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        onClick={close}
-      >
-        <X aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
-    </div>
+        <button
+          type="button"
+          aria-label={t("notifications.dismiss")}
+          title={t("notifications.dismiss")}
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          onClick={close}
+        >
+          <X aria-hidden="true" className="h-3.5 w-3.5" />
+        </button>
+      </AlertAction>
+    </Alert>
   );
 }
 
