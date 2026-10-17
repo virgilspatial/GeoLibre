@@ -3433,18 +3433,78 @@ html
   cursor: not-allowed;
 }
 
-.layer-control-panel :is(.layer-control-opacity, .style-control-slider) {
-  background: linear-gradient(to right, hsl(var(--muted)), hsl(var(--primary)));
+/* SWIFTMAP (UI_CUSTOMISATION.md, Change 06): every native range input, mostly
+   in plugin panels and the layer-control panel (plain DOM, engine code), gets
+   an approximation of the shadcn Slider: a 4px muted track and a 12px white
+   thumb with a soft ring on hover, focus and drag. Chromium can't paint the
+   filled part of a native track without script, so only Firefox shows the
+   primary-coloured fill (::-moz-range-progress). React screens use the
+   shared <Slider> instead. This replaces GeoLibre's gradient track for the
+   layer-control opacity and style sliders. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: transparent;
+  cursor: pointer;
 }
 
-.layer-control-panel :is(.layer-control-opacity, .style-control-slider)::-webkit-slider-thumb {
-  background: hsl(var(--background));
-  border-color: hsl(var(--primary));
+input[type="range"]:focus-visible {
+  outline: none;
 }
 
-.layer-control-panel :is(.layer-control-opacity, .style-control-slider)::-moz-range-thumb {
-  background: hsl(var(--background));
-  border-color: hsl(var(--primary));
+input[type="range"]:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: hsl(var(--muted));
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: hsl(var(--muted));
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 1px solid hsl(var(--ring));
+  border-radius: 9999px;
+  background: #fff;
+  transition: box-shadow 150ms;
+}
+
+input[type="range"]::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 1px solid hsl(var(--ring));
+  border-radius: 9999px;
+  background: #fff;
+  transition: box-shadow 150ms;
+}
+
+input[type="range"]:is(:hover, :focus-visible, :active):not(:disabled)::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.5);
+}
+
+input[type="range"]:is(:hover, :focus-visible, :active):not(:disabled)::-moz-range-thumb {
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.5);
 }
 
 .layer-control-panel

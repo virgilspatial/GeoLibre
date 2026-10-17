@@ -1,7 +1,7 @@
 import { useAppStore } from "@geolibre/core";
 import type { MapEngine } from "@geolibre/map";
 import { gridPixelAt, type LocalNetcdfGrid, type LocalNetcdfWindow } from "@geolibre/plugins";
-import { Button, ColorRampSelect, Label } from "@geolibre/ui";
+import { Button, ColorRampSelect, Label, Slider } from "@geolibre/ui";
 import { Boxes, GripVertical, Settings2, X } from "lucide-react";
 import {
   lazy,
@@ -492,26 +492,24 @@ export function NetcdfCubeWindow({ mapControllerRef }: NetcdfCubeWindowProps) {
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-1.5">
             {t("netcdfCube.zScale")}
-            <input
-              type="range"
+            <Slider
               min={0.25}
               max={3}
               step={0.25}
-              value={zScale}
-              onChange={(event) => setZScale(Number(event.target.value))}
+              value={[zScale]}
+              onValueChange={([next]) => setZScale(next)}
               className="w-24"
               aria-label={t("netcdfCube.zScale")}
             />
           </label>
           <label className="flex items-center gap-1.5">
             {t("netcdfCube.slice")}
-            <input
-              type="range"
+            <Slider
               min={0}
               max={1}
               step={0.005}
-              value={sliceFraction}
-              onChange={(event) => setSliceFraction(Number(event.target.value))}
+              value={[sliceFraction]}
+              onValueChange={([next]) => setSliceFraction(next)}
               className="w-28"
               aria-label={t("netcdfCube.slice")}
               disabled={!cube}

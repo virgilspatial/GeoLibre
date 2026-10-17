@@ -26,21 +26,26 @@ export const RangeSlider = React.forwardRef<
 >(({ className, minLabel, maxLabel, ...props }, ref) => (
   <SliderPrimitive.Root
     ref={ref}
-    className={cn("relative flex w-full touch-none select-none items-center", className)}
+    className={cn(
+      "relative flex w-full touch-none select-none items-center data-[disabled]:opacity-50",
+      className,
+    )}
     minStepsBetweenThumbs={0}
     {...props}
   >
-    <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-primary/20">
-      <SliderPrimitive.Range className="absolute h-full bg-primary" />
+    {/* Swiftmap (UI_CUSTOMISATION.md, Change 06): shadcn's "Range" slider look,
+        the same track and thumb classes as `Slider`. */}
+    <SliderPrimitive.Track
+      data-slot="slider-track"
+      className="relative h-1 w-full grow overflow-hidden rounded-full bg-muted select-none"
+    >
+      <SliderPrimitive.Range data-slot="slider-range" className="absolute h-full bg-primary" />
     </SliderPrimitive.Track>
-    <SliderPrimitive.Thumb
-      aria-label={minLabel}
-      className="block h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    />
-    <SliderPrimitive.Thumb
-      aria-label={maxLabel}
-      className="block h-4 w-4 rounded-full border border-primary/50 bg-background shadow transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    />
+    <SliderPrimitive.Thumb data-slot="slider-thumb" aria-label={minLabel} className={THUMB_CLASS} />
+    <SliderPrimitive.Thumb data-slot="slider-thumb" aria-label={maxLabel} className={THUMB_CLASS} />
   </SliderPrimitive.Root>
 ));
+
+const THUMB_CLASS =
+  "relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 data-[disabled]:pointer-events-none";
 RangeSlider.displayName = "RangeSlider";

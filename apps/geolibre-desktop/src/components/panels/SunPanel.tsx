@@ -319,24 +319,19 @@ interface SunTimelineProps {
 }
 
 function SunTimeline({ value, label, onChange }: SunTimelineProps) {
-  // React's onChange already fires continuously while dragging a range input and
-  // on keyboard steps, so a single handler covers both without the redundant
-  // double-fire of also binding onInput.
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(Number(event.currentTarget.value));
-  };
-
   return (
     <div className="space-y-1.5">
-      <input
+      {/* Swiftmap (Change 06): the shared shadcn slider, keeping the day/night
+          gradient as its track. The track stays 8px so the gradient reads, and
+          the range fill is hidden because the gradient is the scale, not progress. */}
+      <Slider
         aria-label={label}
-        type="range"
         min={0}
         max={MINUTES_PER_DAY - 1}
         step={1}
-        value={value}
-        onChange={handleChange}
-        className="h-5 w-full cursor-ew-resize appearance-none bg-transparent accent-amber-500 [&::-moz-range-progress]:h-2 [&::-moz-range-progress]:rounded-full [&::-moz-range-progress]:bg-amber-500 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-amber-600 [&::-moz-range-thumb]:bg-background [&::-moz-range-thumb]:shadow [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[linear-gradient(90deg,#111827_0%,#334155_20%,#f59e0b_28%,#f8fafc_50%,#f59e0b_72%,#334155_80%,#111827_100%)] [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-[linear-gradient(90deg,#111827_0%,#334155_20%,#f59e0b_28%,#f8fafc_50%,#f59e0b_72%,#334155_80%,#111827_100%)] [&::-webkit-slider-thumb]:mt-[-4px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-amber-600 [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow"
+        value={[value]}
+        onValueChange={([next]) => onChange(next)}
+        className="h-5 cursor-ew-resize [&_[data-slot=slider-range]]:bg-transparent [&_[data-slot=slider-track]]:h-2 [&_[data-slot=slider-track]]:bg-[linear-gradient(90deg,#111827_0%,#334155_20%,#f59e0b_28%,#f8fafc_50%,#f59e0b_72%,#334155_80%,#111827_100%)]"
       />
       <div className="grid grid-cols-5 text-[10px] tabular-nums text-muted-foreground">
         <span>00</span>
