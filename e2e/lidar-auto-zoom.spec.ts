@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { COPC_URL, openMenuBarMenu, waitForMap } from "./helpers";
+import { COPC_URL, openRailMenu, waitForMap } from "./helpers";
 
 /**
  * Loading a point cloud flies the camera to its extent (maplibre-gl-lidar's
@@ -19,7 +19,7 @@ test("flies to the point cloud on the first load of a session", async ({ page })
   const status = page.locator("footer");
   await expect(status).toContainText("Zoom: 2.00");
 
-  await openMenuBarMenu(page, "Add data");
+  await openRailMenu(page, "Add Data");
   await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
   await page
     .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })

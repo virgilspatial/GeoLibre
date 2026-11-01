@@ -2,7 +2,14 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "./test";
-import { COPC_URL, dropGeoJson, layerRow, openMenuBarMenu, waitForMap } from "./helpers";
+import {
+  COPC_URL,
+  dropGeoJson,
+  layerRow,
+  openMenuBarMenu,
+  openRailMenu,
+  waitForMap,
+} from "./helpers";
 
 /**
  * Point Cloud Annotation (opengeos/GeoLibre#2749): select LiDAR points with a
@@ -66,7 +73,7 @@ function readLas(buffer: Buffer): { count: number; format: number; classes: Map<
 }
 
 async function loadCopc(page: Page): Promise<void> {
-  await openMenuBarMenu(page, "Add data");
+  await openRailMenu(page, "Add Data");
   await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
   await page
     .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })
@@ -85,7 +92,7 @@ async function startSession(page: Page, options: { restored?: boolean } = {}) {
     await expect(rail).toBeVisible({ timeout: 30_000 });
     await rail.click();
   } else {
-    await openMenuBarMenu(page, "Plugins");
+    await openRailMenu(page, "Tools");
     await page.getByRole("menuitem", { name: "Point cloud annotation", exact: true }).click();
   }
   const start = page.getByTestId("pc-annotation-start");
@@ -101,7 +108,7 @@ test.describe("point cloud annotation", () => {
     await captureSavedFiles(page);
     await waitForMap(page);
 
-    await openMenuBarMenu(page, "Add data");
+    await openRailMenu(page, "Add Data");
     await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
     await page
       .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })
@@ -110,7 +117,7 @@ test.describe("point cloud annotation", () => {
     await expect(page.getByText("1,065 points", { exact: true })).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Close panel", exact: true }).click();
 
-    await openMenuBarMenu(page, "Plugins");
+    await openRailMenu(page, "Tools");
     await page.getByRole("menuitem", { name: "Point cloud annotation", exact: true }).click();
     const start = page.getByTestId("pc-annotation-start");
     await expect(start).toBeEnabled({ timeout: 15_000 });
@@ -312,7 +319,7 @@ test.describe("point cloud annotation", () => {
     // The exported LAZ opens in GeoLibre again (LAS 1.4, LASzip-compressed).
     const lazPath = join(dir, "annotated.laz");
     await writeFile(lazPath, laz!);
-    await openMenuBarMenu(page, "Add data");
+    await openRailMenu(page, "Add Data");
     await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
     await page.locator('input[type="file"][accept*=".laz"]').first().setInputFiles(lazPath);
     await expect(
@@ -823,7 +830,7 @@ test.describe("point cloud annotation", () => {
     test.setTimeout(120_000);
     await waitForMap(page);
     await loadCopc(page);
-    await openMenuBarMenu(page, "Plugins");
+    await openRailMenu(page, "Tools");
     await page.getByRole("menuitem", { name: "Point cloud annotation", exact: true }).click();
     // The fitted view streams a coarse level of detail; full detail loads
     // every node in view (here, the whole 1,065-point test cloud) and pins it.

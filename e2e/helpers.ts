@@ -22,9 +22,11 @@ export const COPC_URL =
   "https://raw.githubusercontent.com/PDAL/PDAL/3b2942bf5874070bd00f4de2907c90dade2c0a20/test/data/copc/1.2-with-color.copc.laz";
 
 /**
- * SWIFTMAP (Change 15): GeoLibre's old menu bar (Project, Edit, View, Add data,
- * Processing, Controls, Plugins, Settings, Help) sits in the header's temporary
- * overflow, "More menus", until branch 3b. These helpers reach it.
+ * SWIFTMAP (Changes 15, 16): GeoLibre's old menu bar (Project, Edit, View,
+ * Processing, Controls, Help and tool-added menus) sits in the header's
+ * temporary overflow, "More menus". These helpers reach it. Add data, Plugins and
+ * Settings moved to the rail as "Add Data", "Tools" and "Settings": use
+ * {@link openRailMenu} and {@link railButton} for those.
  */
 export function menuBarOverflow(page: Page) {
   return page.getByTestId("menu-bar-overflow");
@@ -50,6 +52,19 @@ export async function openMenuBar(page: Page): Promise<void> {
 export async function openMenuBarMenu(page: Page, name: string): Promise<void> {
   await openMenuBar(page);
   await menuBarOverflow(page).getByRole("button", { name, exact: true }).click();
+}
+
+/**
+ * SWIFTMAP (Change 16): a button on the rail, the icon column left of the side
+ * panel: "Layers", "Legend", "Add Data", "Analysis", "Tools" or "Settings".
+ */
+export function railButton(page: Page, name: string) {
+  return page.getByTestId("swiftmap-rail").getByRole("button", { name, exact: true });
+}
+
+/** Opens a rail menu: "Add Data", "Tools" (GeoLibre's Plugins menu) or "Settings". */
+export async function openRailMenu(page: Page, name: "Add Data" | "Tools" | "Settings"): Promise<void> {
+  await railButton(page, name).click();
 }
 
 /** Waits for MapLibre to mount its WebGL canvas — the app's "map ready" signal. */

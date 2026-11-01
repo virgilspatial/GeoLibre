@@ -33,6 +33,24 @@ export interface AddLayerHandlers {
   duckdb: () => void;
 }
 
+/**
+ * SWIFTMAP: lets the rail open a toolbar menu from its own button (Change 16).
+ * With `trigger` set, the menu uses that element as its trigger and opens to its
+ * right; without it, the menu keeps its toolbar button and opens below.
+ */
+export interface MenuTriggerOverride {
+  trigger?: React.ReactElement;
+  /** Which edge of the menu lines up with the trigger: "end" for a trigger at the bottom of the rail. */
+  triggerAlign?: "start" | "end";
+}
+
+/** The `DropdownMenuContent` placement for a menu with or without a rail trigger. */
+export function menuContentPlacement({ trigger, triggerAlign = "start" }: MenuTriggerOverride) {
+  return trigger
+    ? ({ side: "right", align: triggerAlign, sideOffset: 8 } as const)
+    : ({ align: "start" } as const);
+}
+
 /** Shared styling/affordances passed to each toolbar menu's trigger button. */
 export interface ToolbarChrome {
   buttonClass: string;

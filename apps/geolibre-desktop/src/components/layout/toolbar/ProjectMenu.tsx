@@ -47,6 +47,8 @@ import { useMapCapabilities } from "../../../hooks/useMapCapabilities";
 
 // aria-describedby targets for the "sharing server unavailable" explanation.
 const SHARE_UNAVAILABLE_ID = "project-menu-share-unavailable";
+/** SWIFTMAP: Project menu items Swiftmap removes (Change 16). Their code stays. */
+const SWIFTMAP_REMOVED_ITEMS = new Set(["project.share", "project.collaborate"]);
 const GALLERY_UNAVAILABLE_ID = "project-menu-gallery-unavailable";
 // …and for the "your role does not allow this" explanations. One per privilege,
 // not per item: the four save entries share a reason, and aria-describedby may
@@ -152,6 +154,9 @@ export function ProjectMenu({
   // profile is a decluttering preference the user can undo, while a capability
   // the deployment withheld is not on offer at all (issue #1673).
   const show = (id: string) => {
+    // SWIFTMAP: never offer Share or Collaborate (Change 16). Both send the
+    // project to GeoLibre's public servers, which Swiftmap must never do.
+    if (SWIFTMAP_REMOVED_ITEMS.has(id)) return false;
     const required = projectMenuItemCapability(id);
     if (required && !deploymentCapabilities.has(required)) return false;
     return isMenuItemVisible(uiProfile, id);

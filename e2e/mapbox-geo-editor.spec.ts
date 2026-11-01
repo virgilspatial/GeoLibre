@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, menuBarButton, openMenuBarMenu, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import { layerRow, openMenuBarMenu, railButton, RENDERER_SWAP_TIMEOUT } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // The Geo Editor on the Mapbox renderer (issue #2420). Geoman and the
@@ -185,7 +185,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
       console.warn(`map error: ${event.error?.message}`),
     );
   });
-  await expect(menuBarButton(page, "Add data")).toBeEnabled();
+  await expect(railButton(page, "Add Data")).toBeEnabled();
 }
 
 /** A point inside the map canvas, as a fraction of its box, in page pixels. */

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { openMenuBarMenu, waitForMap } from "./helpers";
+import { openRailMenu, waitForMap } from "./helpers";
 
 // `maplibre-stac.ts` builds its panel by hand and exports nothing to call, so the wiring between
 // the catalog tree, the collection list and the search only exists here. An API is the half that
@@ -211,7 +211,7 @@ test("Planetary Computer COG assets are signed before raster reads", async ({ pa
 });
 
 async function connect(page: Page, url: string): Promise<void> {
-  await openMenuBarMenu(page, "Plugins");
+  await openRailMenu(page, "Tools");
   await page.getByRole("menuitem", { name: "Web services" }).click();
   await page.getByRole("menuitem", { name: "STAC catalogs" }).click();
   await page.getByPlaceholder("https://example.org/stac/").fill(url);

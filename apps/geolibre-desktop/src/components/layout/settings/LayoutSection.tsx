@@ -1,9 +1,7 @@
 import { Button } from "@geolibre/ui";
 import {
   FolderCog,
-  FolderTree,
   ListCollapse,
-  MessageSquare,
   PanelBottom,
   PanelLeft,
   PanelRight,
@@ -119,34 +117,8 @@ export function LayoutSection() {
           <PanelRight className="h-4 w-4 text-muted-foreground" />
           <span>{t("settings.layout.showStylePanel")}</span>
         </label>
-        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
-          <input
-            className="h-4 w-4"
-            type="checkbox"
-            checked={draftDesktopSettings.layout.browserPanelVisible}
-            onChange={(event) =>
-              updateDraftLayoutSettings({
-                browserPanelVisible: event.target.checked,
-              })
-            }
-          />
-          <FolderTree className="h-4 w-4 text-muted-foreground" />
-          <span>{t("settings.layout.showBrowserPanel")}</span>
-        </label>
-        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
-          <input
-            className="h-4 w-4"
-            type="checkbox"
-            checked={draftDesktopSettings.layout.commentsPanelVisible}
-            onChange={(event) =>
-              updateDraftLayoutSettings({
-                commentsPanelVisible: event.target.checked,
-              })
-            }
-          />
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <span>{t("settings.layout.showCommentsPanel")}</span>
-        </label>
+        {/* SWIFTMAP: no Browser or Comments panel toggles; Swiftmap removed both
+            panels (Change 16). */}
         <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
           <input
             className="h-4 w-4"

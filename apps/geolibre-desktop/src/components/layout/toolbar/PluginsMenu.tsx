@@ -41,7 +41,13 @@ import type { usePluginRegistry } from "../../../hooks/usePlugins";
 import { isExternalPluginId } from "../../../lib/external-plugins";
 import { pluginDisplayName, sortPluginsByDisplayName } from "../../../lib/plugin-display-name";
 import { toolbarMenusByOwner, withPluginMenuFolded } from "../../../lib/plugin-toolbar-menus";
-import { type AppApi, PLUGIN_POSITION_ITEMS, type ToolbarChrome } from "./constants";
+import {
+  type AppApi,
+  menuContentPlacement,
+  type MenuTriggerOverride,
+  PLUGIN_POSITION_ITEMS,
+  type ToolbarChrome,
+} from "./constants";
 import { renderItems } from "./PluginToolbarMenus";
 
 type PluginRegistry = ReturnType<typeof usePluginRegistry>;
@@ -53,7 +59,7 @@ const WEB_SERVICE_PLUGIN_ID_SET = new Set<string>(WEB_SERVICE_PLUGIN_IDS);
 // The discrete global grids (H3, S2, A5) grouped under the "DGGS" submenu.
 const DGGS_PLUGIN_ID_SET = new Set<string>(DGGS_PLUGIN_IDS);
 
-interface PluginsMenuProps {
+interface PluginsMenuProps extends MenuTriggerOverride {
   chrome: ToolbarChrome;
   appApi: AppApi;
   plugins: RegisteredPlugin[];
@@ -81,6 +87,8 @@ export function PluginsMenu({
   setMapControlPosition,
   hiddenPluginIds,
   onOpenManagePlugins,
+  trigger,
+  triggerAlign,
 }: PluginsMenuProps) {
   const { t, i18n } = useTranslation();
   const primaryRenderer = useAppStore((state) => state.primaryRenderer);
@@ -261,17 +269,19 @@ export function PluginsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          className={chrome.buttonClass}
-          variant="ghost"
-          size={chrome.buttonSize}
-          aria-label={t("toolbar.menu.plugins")}
-        >
-          <Puzzle className={chrome.iconClassName} />
-          {chrome.renderLabel(t("toolbar.menu.plugins"))}
-        </Button>
+        {trigger ?? (
+          <Button
+            className={chrome.buttonClass}
+            variant="ghost"
+            size={chrome.buttonSize}
+            aria-label={t("toolbar.menu.plugins")}
+          >
+            <Puzzle className={chrome.iconClassName} />
+            {chrome.renderLabel(t("toolbar.menu.plugins"))}
+          </Button>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent {...menuContentPlacement({ trigger, triggerAlign })}>
         <DropdownMenuLabel>{t("toolbar.item.activatePlugin")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {plugins.map((p) => {

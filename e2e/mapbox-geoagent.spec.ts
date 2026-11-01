@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
-import { menuBarButton, openMenuBarMenu } from "./helpers";
+import { openRailMenu, railButton } from "./helpers";
 
 // GeoAgent on the Mapbox renderer (issue #2420). Four of its tools could not
 // stay on the Style Spec surface both engines share, and each broke differently
@@ -152,7 +152,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
   );
   await page.goto(`/?project=${baseURL}${PROJECT_PATH}${theme === "dark" ? "&theme=dark" : ""}`);
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
-  await expect(menuBarButton(page, "Add data")).toBeEnabled();
+  await expect(railButton(page, "Add Data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -187,7 +187,7 @@ for (const theme of ["light", "dark"] as const) {
 
       // Plugins → GeoAgent docks the agent in the side panel. The entry was
       // greyed out on this renderer before the plugin declared Mapbox.
-      await openMenuBarMenu(page, "Plugins");
+      await openRailMenu(page, "Tools");
       const item = page.getByRole("menuitem", { name: "GeoAgent", exact: true });
       await expect(item).toBeEnabled();
       await item.click();

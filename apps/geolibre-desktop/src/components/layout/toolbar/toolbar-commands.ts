@@ -170,6 +170,14 @@ export interface ToolbarCommandContext {
  * @param context - The toolbar handlers and state the commands call and read.
  * @returns Every command the toolbar can offer in the current context.
  */
+/**
+ * SWIFTMAP: commands Swiftmap removes from the palette and shortcuts (Change 16);
+ * their code stays. Share and Collaborate send the project to GeoLibre's public
+ * servers, which Swiftmap must never do. "Add comment" went with the Comments
+ * panel, which Swiftmap removed.
+ */
+const SWIFTMAP_REMOVED_COMMANDS = new Set(["project.share", "project.collaborate", "add.comment"]);
+
 export function buildToolbarCommands(context: ToolbarCommandContext): Command[] {
   const {
     t,
@@ -948,5 +956,5 @@ export function buildToolbarCommands(context: ToolbarCommandContext): Command[] 
       run: onSimplifyInterface,
     },
   ];
-  return commands;
+  return commands.filter((command) => !SWIFTMAP_REMOVED_COMMANDS.has(command.id));
 }

@@ -131,10 +131,11 @@ jobs:
           # vite.config.ts, the same shape as the Google Maps key above.
           VITE_CESIUM_TOKEN: ${{ secrets.VITE_CESIUM_TOKEN }}
           CESIUM_TOKEN: ${{ secrets.CESIUM_TOKEN }}
-          # Public relay URL (baked into the client bundle), not a secret. Lights
-          # up live collaboration; requires the workers/collab relay to be
-          # deployed (see docs/collaboration.md).
-          VITE_GEOLIBRE_COLLAB_URL: wss://collab.geolibre.app
+          # SWIFTMAP (Change 16): no VITE_GEOLIBRE_COLLAB_URL. GeoLibre's build set
+          # it to wss://collab.geolibre.app, GeoLibre's public relay; Swiftmap must
+          # never send project data to GeoLibre's servers, so live collaboration
+          # stays off (unset means off). Swiftmap's UI hides Share and Collaborate
+          # as well.
           # Google Analytics measurement ID for the demo app served under
           # geolibre.app/demo/, so it reports to the same stream as the
           # documentation pages around it. Empty (the default, including on

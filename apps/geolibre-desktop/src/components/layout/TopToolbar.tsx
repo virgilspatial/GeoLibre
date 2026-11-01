@@ -16,8 +16,19 @@ import {
   REVERSE_GEOCODE_PLUGIN_ID,
 } from "@geolibre/plugins";
 import { Button, cn } from "@geolibre/ui";
-import { Eye, Moon, Share, Sun, User, UserPlus } from "lucide-react";
+import {
+  Database,
+  Eye,
+  Moon,
+  Settings as SettingsIcon,
+  Share,
+  Sun,
+  User,
+  UserPlus,
+  Wrench,
+} from "lucide-react";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useConsentGatedActions } from "../../hooks/useConsentGatedActions";
 import type { CollaborationApi } from "../../hooks/useCollaboration";
@@ -84,6 +95,8 @@ import { ViewMenu } from "./toolbar/ViewMenu";
 import { EditHistoryButtons } from "./header/EditHistoryButtons";
 import { HeaderIconButton } from "./header/HeaderIconButton";
 import { MenuBarOverflow } from "./header/MenuBarOverflow";
+import { RailButton, railLucideProps } from "./rail/RailButton";
+import { SwiftmapRail } from "./rail/SwiftmapRail";
 import { ProjectSwitcher } from "./header/ProjectSwitcher";
 import { SwiftmapMark } from "./header/SwiftmapMark";
 
@@ -111,6 +124,12 @@ interface TopToolbarProps {
   /** Activates the map tool for placing an anchored review comment. */
   onAddComment: () => void;
   viewer?: boolean;
+  /**
+   * SWIFTMAP: where DesktopShell wants the rail drawn (Change 16). The toolbar
+   * draws it there through a portal, because the rail's Add Data, Tools and
+   * Settings menus (and their dialogs) live here. Null: no rail.
+   */
+  railHost?: HTMLElement | null;
 }
 
 export function TopToolbar({
@@ -128,6 +147,7 @@ export function TopToolbar({
   onOpenBasemapExtract,
   onAddComment,
   viewer = false,
+  railHost = null,
 }: TopToolbarProps) {
   const { t } = useTranslation();
   const deploymentCapabilities = useAppStore((state) => state.deploymentCapabilities);
@@ -289,6 +309,69 @@ export function TopToolbar({
     iconClassName: toolbarIconClassName,
     renderLabel: renderToolbarLabel,
   };
+
+  // SWIFTMAP: the rail's Add Data, Tools and Settings items (Change 16) are
+  // GeoLibre's menus with rail buttons, opening to the right, until branches 5
+  // and 6 replace them. Same gates as when they sat in the menu bar.
+  const railAddData =
+    !viewer && isMenuVisible(uiProfile, "addData") && deploymentCapabilities.has("data:add") ? (
+      <AddDataMenu
+        trigger={
+          <RailButton label={t("rail.addData")}>
+            <Database {...railLucideProps} />
+          </RailButton>
+        }
+        disabled={!addDataReady}
+        chrome={chrome}
+        addLayer={addLayer}
+        osmPbfBusy={osmPbf.busy}
+        tilePackageBusy={tilePackage.busy}
+        onSetAddDataKind={openAddDataKind}
+        onAddGltfModel={() => {
+          addData.setAddDataDeckVizKind("scenegraph");
+          openAddDataKind("deckgl-viz");
+        }}
+        onOpenOsmPbfDialog={() => osmPbf.setDialogOpen(true)}
+        onOpenTilePackageDialog={() => tilePackage.setDialogOpen(true)}
+      />
+    ) : null;
+  const railTools =
+    !viewer &&
+    isMenuVisible(uiProfile, "plugins") &&
+    deploymentCapabilities.has("plugins:install") ? (
+      <PluginsMenu
+        trigger={
+          <RailButton label={t("rail.tools")}>
+            <Wrench {...railLucideProps} />
+          </RailButton>
+        }
+        chrome={chrome}
+        appApi={appApi}
+        plugins={plugins}
+        isActive={isActive}
+        toggle={toggle}
+        getMapControlPosition={getMapControlPosition}
+        setMapControlPosition={setMapControlPosition}
+        hiddenPluginIds={hiddenPluginIds}
+        onOpenManagePlugins={IS_MAS_BUILD ? undefined : () => dialogs.setManagePluginsOpen(true)}
+      />
+    ) : null;
+  const railSettings =
+    !viewer && deploymentCapabilities.has("settings:manage") ? (
+      <SettingsDialog
+        trigger={
+          <RailButton label={t("rail.settings")}>
+            <SettingsIcon {...railLucideProps} />
+          </RailButton>
+        }
+        triggerAlign="end"
+        mapControllerRef={mapControllerRef}
+        onOpenManagePlugins={() => dialogs.setManagePluginsOpen(true)}
+        profilePlugins={profilePlugins}
+        themeMode={themeMode}
+        onToggleThemeMode={onToggleThemeMode}
+      />
+    ) : null;
 
   return (
     <header className="relative z-40 flex h-14 min-w-0 shrink-0 items-center gap-3 border-b bg-background px-3 sm:gap-6 sm:px-5">
@@ -452,22 +535,6 @@ export function TopToolbar({
               onZoomOut={() => mapControllerRef.current?.zoomOut()}
             />
           )}
-          {!viewer && isMenuVisible(uiProfile, "addData") && deploymentCapabilities.has("data:add") && (
-            <AddDataMenu
-              disabled={!addDataReady}
-              chrome={chrome}
-              addLayer={addLayer}
-              osmPbfBusy={osmPbf.busy}
-              tilePackageBusy={tilePackage.busy}
-              onSetAddDataKind={openAddDataKind}
-              onAddGltfModel={() => {
-                addData.setAddDataDeckVizKind("scenegraph");
-                openAddDataKind("deckgl-viz");
-              }}
-              onOpenOsmPbfDialog={() => osmPbf.setDialogOpen(true)}
-              onOpenTilePackageDialog={() => tilePackage.setDialogOpen(true)}
-            />
-          )}
           {!viewer &&
             isMenuVisible(uiProfile, "processing") &&
             deploymentCapabilities.has("processing:run") && (
@@ -513,41 +580,11 @@ export function TopToolbar({
               onOpenRecordVideo={() => dialogs.setRecordVideoOpen(true)}
             />
           )}
-          {!viewer &&
-            isMenuVisible(uiProfile, "plugins") &&
-            deploymentCapabilities.has("plugins:install") && (
-              <PluginsMenu
-                chrome={chrome}
-                appApi={appApi}
-                plugins={plugins}
-                isActive={isActive}
-                toggle={toggle}
-                getMapControlPosition={getMapControlPosition}
-                setMapControlPosition={setMapControlPosition}
-                hiddenPluginIds={hiddenPluginIds}
-                onOpenManagePlugins={
-                  IS_MAS_BUILD ? undefined : () => dialogs.setManagePluginsOpen(true)
-                }
-              />
-            )}
           {/* Top-level toolbar menus registered by built-in plugins via
               app.registerToolbarMenu(); external plugin menus render after Help
               (below). Renders nothing when none exist. */}
           {!viewer && deploymentCapabilities.has("plugins:install") ? (
             <PluginToolbarMenus chrome={chrome} placement="builtin" />
-          ) : null}
-          {!viewer && deploymentCapabilities.has("settings:manage") ? (
-            <SettingsDialog
-              buttonClassName={toolbarButtonClass}
-              buttonSize={toolbarButtonSize}
-              iconClassName={toolbarIconClassName}
-              mapControllerRef={mapControllerRef}
-              showLabels={showLabels}
-              onOpenManagePlugins={() => dialogs.setManagePluginsOpen(true)}
-              profilePlugins={profilePlugins}
-              themeMode={themeMode}
-              onToggleThemeMode={onToggleThemeMode}
-            />
           ) : null}
           {isMenuVisible(uiProfile, "help") && (
             <HelpMenu
@@ -576,6 +613,13 @@ export function TopToolbar({
             <PluginToolbarMenus chrome={chrome} placement="external" />
           ) : null}
       </MenuBarOverflow>
+      {/* SWIFTMAP: the rail (Change 16), drawn into DesktopShell's workspace row. */}
+      {railHost
+        ? createPortal(
+            <SwiftmapRail addData={railAddData} tools={railTools} settings={railSettings} />,
+            railHost,
+          )
+        : null}
       {/* Placeholder until accounts (Stage 1): no menu and no name to show. */}
       <span
         aria-hidden

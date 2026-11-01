@@ -3473,6 +3473,18 @@
     "share": "Share",
     "moreMenus": "More menus"
   },
+  "rail": {
+    "label": "Panels",
+    "layers": "Layers",
+    "legend": "Legend",
+    "addData": "Add Data",
+    "analysis": "Analysis",
+    "tools": "Tools",
+    "settings": "Settings",
+    "comingLater": "Coming in a later update.",
+    "resizePanel": "Resize panel. Double-click to reset.",
+    "resizeHint": "Drag to resize · Double-click to reset"
+  },
   "toolbar": {
     "menu": {
       "project": "Project",
@@ -9389,8 +9401,8 @@
     "moveSelectedToGroup": "Move selected layers to group",
     "removeFromGroup": "Remove from group",
     "hiddenByGroup": "Hidden because its group is not visible",
-    "empty": "No data layers. Add data from the toolbar.",
-    "emptyBeginner": "No layers yet. Add basemaps via Plugins → Basemaps, or your own data via the Add data menu.",
+    "empty": "No data layers. Use Add Data in the rail to add one.",
+    "emptyBeginner": "No layers yet. Add basemaps via Tools → Basemaps, or your own data via Add Data in the rail.",
     "hideAllLayers": "Hide all layers",
     "showAllLayers": "Show all layers",
     "compactView": "Compact view",
