@@ -41,7 +41,7 @@ test("reorders layers and removes one through the confirm dialog", async ({ page
 
   // Remove one layer through the confirm dialog; the other must survive.
   await layerRow(page, "aaa").locator('button[aria-label="Remove layer"]').click();
-  const dialog = page.getByRole("dialog", { name: "Remove layer?" });
+  const dialog = page.getByRole("alertdialog", { name: "Remove this layer?" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Remove", exact: true }).click();
 

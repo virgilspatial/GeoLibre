@@ -1,34 +1,35 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 3.9%;
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
-    /* Neutrals sit at ~16% saturation rather than the stock 40%, so the chrome
-       reads as grey next to the map instead of tinting blue. --accent is one
+    /* SWIFTMAP (Change 10): neutrals are shadcn's "neutral" palette (zero
+       saturation), so the chrome reads as grey next to the map instead of
+       tinting blue. --accent is one
        step darker than --muted so hover fills register on white surfaces. */
-    --secondary: 220 16% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 220 16% 96%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
     /* Darkened from 46.9% L so secondary text meets WCAG AA (4.5:1) even on the
        muted/secondary backgrounds it is paired with (e.g. kbd badges). */
-    --muted-foreground: 215.4 16.3% 40%;
-    --accent: 220 16% 94%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     /* --border is decorative (dividers, panel edges); --input is a control
        boundary, so it is deliberately darker. See the note in .dark below. */
-    --border: 220 15% 88%;
-    --input: 220 13% 76%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 76%;
     --ring: 221.2 83.2% 53.3%;
-    /* 0.375rem rather than shadcn's stock 0.5rem: a dense tool UI reads sharper,
-       and the derived md/sm steps (calc -2px/-4px) stay positive. */
-    --radius: 0.375rem;
+    /* SWIFTMAP (Change 09): shadcn's current 0.625rem (was 0.375rem). The
+       derived md/sm steps (calc -2px/-4px) stay positive. */
+    --radius: 0.625rem;
 
     /* Elevation shadow colours, consumed by the --shadow-* scale the app defines
        in index.css. Two layers: penumbra is the wide soft spread, umbra the
@@ -53,40 +54,41 @@
      app canvas and only a 1px border separated them. Each step below is a
      distinct surface:
 
-       background  9%   app canvas / base chrome
-       card       12%   toolbar, docked panels
-       popover    15%   menus, tooltips, dialogs
-       muted      20%   inset fills (status bar, wells)
-       accent     22%   hover fill — must read above popover, since menu items
-                        sit on it
+       background  3.9%  app canvas / base chrome
+       card        7%    toolbar, docked panels
+       popover     9%    menus, tooltips, dialogs
+       muted      14.9%  inset fills (status bar, wells)
+       accent     14.9%  hover fill — must read above popover, since menu items
+                         sit on it
 
-     Saturation also drops from 84% to ~22%: the old value was a strongly
-     blue-tinted near-black that clashed with satellite imagery in the map view.
-     Every foreground/surface pair here clears WCAG AA 4.5:1 (lowest is
-     muted-foreground on accent at 4.82:1). */
+     SWIFTMAP (Change 10): values are shadcn's "neutral" palette (zero
+     saturation; popover = its #171717), keeping the ladder where shadcn uses
+     one colour for card and popover. GeoLibre's earlier slate tint clashed with
+     satellite imagery in the map view. Every foreground/surface pair here
+     clears WCAG AA 4.5:1 (lowest is muted-foreground on accent at ~6:1). */
   .dark {
-    --background: 222 24% 9%;
-    --foreground: 210 40% 98%;
-    --card: 222 22% 12%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 21% 15%;
-    --popover-foreground: 210 40% 98%;
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 98%;
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 220 18% 20%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 220 18% 20%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 220 18% 22%;
-    --accent-foreground: 210 40% 98%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
     /* Destructive is also the app-wide error-text and invalid-control colour.
        Keep it light enough to clear WCAG AA on every dark surface, including
        accent (4.70:1). Its foreground is correspondingly dark so destructive
        buttons retain strong contrast (6.78:1). */
     --destructive: 0 84.2% 72%;
     --destructive-foreground: 222.2 47.4% 11.2%;
-    --border: 220 14% 26%;
-    --input: 220 12% 38%;
+    --border: 0 0% 16%;
+    --input: 0 0% 32%;
     /* Tailwind's built-in shadow scale bakes in a 10%-black colour, which is
        all but invisible against these surfaces — so before this, every one of
        the app's ~65 shadow utilities did nothing in dark mode and elevation was
@@ -96,7 +98,9 @@
     --elev-umbra: hsl(0 0% 0% / 0.55);
 
     /* Matches --primary, so the focus ring stays visible against the lifted
-       surfaces (4.98:1 on --background, 4.64:1 on --card). The violet, rose and
+       surfaces (4.98:1 on --background, 4.64:1 on --card, measured on the
+       earlier, lighter slate surfaces; the darker neutral ones only raise
+       it). The violet, rose and
        amber schemes below already pair ring with primary this way; emerald was
        the one exception and is brought into line there, since the lifted
        surfaces left its darker ring almost no headroom. */

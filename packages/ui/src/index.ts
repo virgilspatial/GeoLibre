@@ -31,6 +31,18 @@ export {
   DialogDescription,
   DialogClose,
 } from "./components/dialog";
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./components/alert-dialog";
 export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./components/table";
 export {
   DropdownMenu,

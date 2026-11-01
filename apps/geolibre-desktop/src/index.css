@@ -143,6 +143,13 @@ html:lang(fa) {
   --shadow-xl: 0 8px 16px -4px var(--elev-penumbra), 0 24px 40px -8px var(--elev-umbra);
 }
 
+/* SWIFTMAP (Change 09): shadcn's rounded-xl step derives from --radius (14px at
+   0.625rem) instead of Tailwind's fixed 0.75rem. lg/md/sm come from
+   tailwind.config.js. */
+@theme {
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
 /* Map UI inherits the app theme, independently of prefers-color-scheme.
    Keep these aliases on the map AND body-hosted annotation dialogs; map data,
    authored HTML, legend swatches and branding are deliberately not recolored. */

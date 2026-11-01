@@ -2,12 +2,14 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "@geolibre/core";
 import type { GeoLibreLayer } from "@geolibre/core";
 import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@geolibre/ui";
 import { unregisterPostgisConnection } from "../../../lib/postgis-connections";
 
@@ -23,41 +25,36 @@ export function RemoveLayerDialog({ layer, onClose }: RemoveLayerDialogProps) {
   const { t } = useTranslation();
   const removeLayer = useAppStore((s) => s.removeLayer);
   return (
-    <Dialog
+    <AlertDialog
       open={!!layer}
       onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("layers.removeLayerConfirmTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("layers.removeLayerConfirmBody", {
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("layers.removeLayerAlertTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("layers.removeLayerAlertBody", {
               name: layer?.name ?? t("layers.thisLayerFallback"),
             })}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            {t("common.cancel")}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogAction
             onClick={() => {
               if (!layer) return;
               // Drop the removed layer's PostGIS session state (connection
               // string, baseline keys) so credentials don't outlive it.
               unregisterPostgisConnection(layer.id);
               removeLayer(layer.id);
-              onClose();
             }}
           >
             {t("common.remove")}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

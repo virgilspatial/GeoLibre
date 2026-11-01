@@ -9179,6 +9179,8 @@
     },
     "removeLayerConfirmTitle": "Remove layer?",
     "removeLayerConfirmBody": "This removes {{name}} from the project and map.",
+    "removeLayerAlertTitle": "Remove this layer?",
+    "removeLayerAlertBody": "This removes {{name}} from the map. You can undo with Ctrl+Z.",
     "thisLayerFallback": "this layer",
     "refreshingAuto": "Auto refreshing...",
     "refreshing": "Refreshing...",

@@ -225,7 +225,7 @@ for (const theme of ["light", "dark"] as const) {
       .getByRole("button", { name: "Remove layer", exact: true })
       .click();
     await page
-      .getByRole("dialog", { name: "Remove layer?" })
+      .getByRole("alertdialog", { name: "Remove this layer?" })
       .getByRole("button", { name: "Remove", exact: true })
       .click();
     await expect(layerRow(page, "AGI HQ")).toHaveCount(0);

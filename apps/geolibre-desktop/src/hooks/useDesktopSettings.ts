@@ -294,7 +294,7 @@ export function setSettingsKeychainWritable(writable: boolean): void {
 export const DEFAULT_DESKTOP_LAYOUT_SETTINGS: DesktopLayoutSettings = {
   browserPanelVisible: true,
   commentsPanelVisible: true,
-  compactLayerList: false,
+  compactLayerList: true, /* SWIFTMAP: compact layer list by default (Change 11) */
   layerPanelVisible: true,
   showProjectInfo: true,
   stylePanelVisible: true,

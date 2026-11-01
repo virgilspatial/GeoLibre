@@ -29,6 +29,21 @@ const UNLOAD_TIMEOUT_MS = 20_000;
  */
 export const test = base.extend({
   context: async ({ context }, use, testInfo) => {
+    /* SWIFTMAP (Change 11): the app defaults to the compact layer list, which
+       hides each unselected row's controls. The specs were written against the
+       full layer cards, so start every page with them unless the setting is
+       already stored (a spec seeding its own settings, or a reload). */
+    await context.addInitScript(() => {
+      try {
+        const key = "geolibre.desktopSettings";
+        const settings = JSON.parse(window.localStorage.getItem(key) ?? "{}");
+        if (typeof settings?.layout?.compactLayerList === "boolean") return;
+        settings.layout = { ...settings.layout, compactLayerList: false };
+        window.localStorage.setItem(key, JSON.stringify(settings));
+      } catch {
+        // Storage unavailable or unparseable: leave the app's own handling.
+      }
+    });
     await use(context);
     if (testInfo.status !== testInfo.expectedStatus) return;
     // The unload runs after the test body, so give it its own budget rather
