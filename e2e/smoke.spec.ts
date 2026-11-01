@@ -4,6 +4,8 @@ import {
   collectPageProblems,
   dropGeoJson,
   layerRow,
+  menuBarOverflow,
+  openMenuBar,
   readFixture,
   waitForMap,
   waitForMapLoaded,
@@ -82,16 +84,24 @@ test("Identify owns the MapLibre cursor across the whole interactive surface", a
   await expect(canvasContainer).toHaveCSS("cursor", "grab");
 });
 
+// SWIFTMAP (Change 15): GeoLibre's menu bar moved into the header's
+// temporary overflow ("More menus"). The header itself must stay one row on a
+// small screen, and the overflow still reaches every menu by scrolling.
 test("keeps every toolbar menu on one scrollable row on small screens", async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 720 });
   await waitForMap(page);
 
-  // The menu bar stays a single row and scrolls horizontally instead of
-  // wrapping onto a second row.
+  // The header stays one 56px row, nothing wraps or spills past the screen.
   const header = page.locator("header").first();
   const box = await header.boundingBox();
-  expect(box?.height).toBeLessThan(56);
-  expect(await header.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect(box?.height).toBeLessThanOrEqual(57);
+  expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(page.getByRole("button", { name: "More menus", exact: true })).toBeInViewport();
+
+  // The overflow is one row that scrolls horizontally instead of wrapping.
+  await openMenuBar(page);
+  const overflow = menuBarOverflow(page);
+  expect(await overflow.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
 
   for (const menu of [
     "Project",
@@ -103,13 +113,13 @@ test("keeps every toolbar menu on one scrollable row on small screens", async ({
     "Plugins",
     "Help",
   ]) {
-    const trigger = page.getByRole("button", { name: menu, exact: true });
+    const trigger = overflow.getByRole("button", { name: menu, exact: true });
     await expect(trigger).toBeVisible();
     await trigger.scrollIntoViewIfNeeded();
     await expect(trigger).toBeInViewport();
   }
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await overflow.getByRole("button", { name: "View", exact: true }).click();
   const renderingEngine = page.getByRole("menuitem", { name: "Rendering engine" });
   await expect(renderingEngine).toBeVisible();
   await expect(renderingEngine).toBeInViewport();

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "./test";
 import { createEmptyProject, DEFAULT_LAYER_STYLE } from "@geolibre/core";
-import { readFixture } from "./helpers";
+import { menuBarButton, readFixture } from "./helpers";
 
 // Real CDN checks are opt-in; no Esri service or API key is needed.
 test.skip(process.env.ARCGIS_E2E !== "1", "Set ARCGIS_E2E=1 to test CDN/CSP/offline boot");
@@ -30,7 +30,7 @@ project.layers = [
 
 async function openProject(page: Page, waitUntilReady = true) {
   await page.getByTestId("desktop-shell").waitFor();
-  await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled({
+  await expect(menuBarButton(page, "Add data")).toBeEnabled({
     timeout: 60_000,
   });
   await page.evaluate((text) => {
@@ -146,6 +146,6 @@ test.describe("unavailable CDN", () => {
     await expect(page.getByTestId("arcgis-canvas").getByRole("alert")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByRole("button", { name: "View", exact: true })).toBeEnabled();
+    await expect(menuBarButton(page, "View")).toBeEnabled();
   });
 });

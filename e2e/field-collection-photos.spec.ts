@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { waitForMap } from "./helpers";
+import { openMenuBarMenu, waitForMap } from "./helpers";
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
@@ -24,7 +24,7 @@ test("field collection appends, removes, validates and saves multiple photos", a
     };
   });
   await waitForMap(page, "/?lang=en");
-  await page.getByRole("button", { name: "Controls", exact: true }).click();
+  await openMenuBarMenu(page, "Controls");
   await page.getByRole("menuitem", { name: "Field collection" }).click();
   const dialog = page.getByRole("dialog", { name: "Field collection" });
   await dialog.getByLabel("Layer name", { exact: true }).fill("Photos");
@@ -74,7 +74,7 @@ test("field collection appends, removes, validates and saves multiple photos", a
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Project", exact: true }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
   const stream = await (await downloadPromise).createReadStream();

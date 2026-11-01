@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { openMenuBarMenu, waitForMap } from "./helpers";
 
 test("Reverse Geocode results remain readable in both themes", async ({ page }) => {
   let reverseRequests = 0;
@@ -19,7 +19,7 @@ test("Reverse Geocode results remain readable in both themes", async ({ page }) 
   );
 
   await waitForMap(page, "/?theme=dark");
-  await page.getByRole("button", { name: "Controls", exact: true }).click();
+  await openMenuBarMenu(page, "Controls");
   await page.getByRole("menuitem", { name: "Reverse geocode", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 

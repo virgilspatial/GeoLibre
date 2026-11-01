@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "./test";
+import { openMenuBarMenu } from "./helpers";
 
 /** Waits for MapLibre to mount its WebGL canvas — the app's "map ready" signal. */
 async function waitForMap(page: Page): Promise<void> {
@@ -21,7 +22,7 @@ async function waitForMap(page: Page): Promise<void> {
 test("submits a fractional zoom the native validator would reject", async ({ page }) => {
   await waitForMap(page);
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "Set view" });
@@ -60,7 +61,7 @@ test("submits a fractional zoom the native validator would reject", async ({ pag
 test("rejects out-of-range input via the dialog's own validation", async ({ page }) => {
   await waitForMap(page);
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "Set view" });
@@ -87,7 +88,7 @@ test("rejects out-of-range input via the dialog's own validation", async ({ page
 test("accepts a center entered in degrees/minutes/seconds", async ({ page }) => {
   await waitForMap(page);
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "Set view" });
@@ -130,7 +131,7 @@ test("accepts a center entered in degrees/minutes/seconds", async ({ page }) => 
 test("accepts a center entered in degrees and decimal minutes", async ({ page }) => {
   await waitForMap(page);
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "Set view" });
@@ -166,7 +167,7 @@ test("accepts a center entered in degrees and decimal minutes", async ({ page })
 test("fills the fields from a pasted string only after Process input", async ({ page }) => {
   await waitForMap(page);
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
 
   const dialog = page.getByRole("dialog", { name: "Set view" });

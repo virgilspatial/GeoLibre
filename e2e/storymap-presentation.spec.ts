@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { bindMapLibreMap } from "./helpers";
+import { bindMapLibreMap, openMenuBarMenu } from "./helpers";
 
 // Exercise the real presenter and renderer without a tile/geocoding service.
 // Route by pathname so the ?project= page URL is not intercepted as JSON.
@@ -301,7 +301,7 @@ test("Escape respects an editable control and still exits back to the story edit
 }) => {
   await openPresentation(page, baseURL!);
   await page.getByRole("button", { name: "Exit", exact: true }).click();
-  await page.getByRole("button", { name: "Project", exact: true }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Story map…", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Present", exact: true }).click();
   await page.getByRole("button", { name: "Presentation tools", exact: true }).click();
@@ -324,7 +324,7 @@ test("chapter duration stays editable until blur and then normalizes", async ({
 }) => {
   await openPresentation(page, baseURL!);
   await page.getByRole("button", { name: "Exit", exact: true }).click();
-  await page.getByRole("button", { name: "Project", exact: true }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Story map…", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: /1 City overview/ }).click();

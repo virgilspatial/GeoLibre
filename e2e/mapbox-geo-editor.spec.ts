@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import { layerRow, menuBarButton, openMenuBarMenu, RENDERER_SWAP_TIMEOUT } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // The Geo Editor on the Mapbox renderer (issue #2420). Geoman and the
@@ -134,7 +134,7 @@ async function editableFeatureCount(page: Page) {
 }
 
 async function switchRenderer(page: Page, name: "MapLibre" | "Mapbox") {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
   // The swap runs inside this click's own handler and is charged against the
   // action budget, which CI's software renderer can outrun. See
@@ -185,7 +185,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
       console.warn(`map error: ${event.error?.message}`),
     );
   });
-  await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled();
+  await expect(menuBarButton(page, "Add data")).toBeEnabled();
 }
 
 /** A point inside the map canvas, as a fraction of its box, in page pixels. */

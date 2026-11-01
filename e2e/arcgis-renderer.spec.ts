@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { layerRow, readFixture } from "./helpers";
+import { layerRow, menuBarButton, openMenuBarMenu, readFixture } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Opt-in: this drives the ArcGIS Maps SDK for JavaScript from Esri's real CDN
@@ -31,7 +31,7 @@ test("ArcGIS renderer draws the project basemap, a dropped GeoJSON layer and ide
     { key: DESKTOP_SETTINGS_STORAGE_KEY, apiKey: process.env.ARCGIS_API_KEY! },
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
   await page.getByRole("menuitemradio", { name: "ArcGIS", exact: true }).click();
 
@@ -93,7 +93,7 @@ test("ArcGIS renderer draws the project basemap, a dropped GeoJSON layer and ide
   await page.getByRole("button", { name: "ArcGIS Streets", exact: true }).click();
 
   // Sources without an SDK adapter are greyed out while ArcGIS is primary.
-  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  await openMenuBarMenu(page, "Add data");
   for (const name of ["Gaussian splatting", "Cesium Ion asset", "CZML dynamic 3D scene"]) {
     await expect(page.getByRole("menuitem", { name, exact: true })).toBeDisabled();
   }
@@ -179,7 +179,7 @@ for (const keyed of [false, true]) {
     await page.goto("/");
     // An empty device setting falls back to build-time credentials. Override
     // both runtime names so this also exercises the keyless path on keyed builds.
-    await page.getByRole("button", { name: "View", exact: true }).waitFor();
+    await menuBarButton(page, "View").waitFor({ state: "attached" });
     if (!keyed)
       await page.evaluate(() => {
         window.__GEOLIBRE_RUNTIME_ENV__ = {
@@ -189,7 +189,7 @@ for (const keyed of [false, true]) {
         };
         window.dispatchEvent(new CustomEvent("geolibre:runtime-env-change"));
       });
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "ArcGIS", exact: true }).click();
     await expect(page.locator("[data-testid=arcgis-canvas] .esri-view")).toBeVisible({

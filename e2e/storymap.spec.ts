@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
+import { openMenuBarMenu } from "./helpers";
 
 /** Waits for MapLibre to mount its WebGL canvas — the app's "map ready" signal. */
 async function waitForMap(page: Page, path = "/"): Promise<void> {
@@ -15,7 +16,7 @@ async function waitForMap(page: Page, path = "/"): Promise<void> {
 
 /** Opens Project → Story Map and returns the dialog locator. */
 async function openStoryMapPanel(page: Page) {
-  await page.getByRole("button", { name: "Project" }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Story map…" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "Story map" })).toBeVisible();
@@ -50,7 +51,7 @@ test("persists a story map across save and reopen", async ({ page }) => {
 
   // 2. Save the project and capture the downloaded `.geolibre.json`.
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Project" }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   // Browsers without the File System Access picker (deleted above) prompt for a
   // file name before downloading; accept the pre-filled default and confirm.
@@ -78,7 +79,7 @@ test("persists a story map across save and reopen", async ({ page }) => {
   //    then reopen the saved project through the real file-open flow.
   await waitForMap(page);
   const chooserPromise = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Project" }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Open from" }).click();
   await page.getByRole("menuitem", { name: "File…" }).click();
   const chooser = await chooserPromise;
@@ -166,7 +167,7 @@ test("presents and composes a story on Mapbox", async ({ page }) => {
   );
   await waitForMap(page, "/?loading=1");
 
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Rendering engine" }).hover();
   await page.getByRole("menuitemradio", { name: "Mapbox" }).click();
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible({ timeout: 30_000 });

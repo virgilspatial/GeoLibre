@@ -21,6 +21,37 @@ export function readFixture(name: string): string {
 export const COPC_URL =
   "https://raw.githubusercontent.com/PDAL/PDAL/3b2942bf5874070bd00f4de2907c90dade2c0a20/test/data/copc/1.2-with-color.copc.laz";
 
+/**
+ * SWIFTMAP (Change 15): GeoLibre's old menu bar (Project, Edit, View, Add data,
+ * Processing, Controls, Plugins, Settings, Help) sits in the header's temporary
+ * overflow, "More menus", until branch 3b. These helpers reach it.
+ */
+export function menuBarOverflow(page: Page) {
+  return page.getByTestId("menu-bar-overflow");
+}
+
+/**
+ * A menu-bar button, found whether or not the overflow is open, for state
+ * checks such as `toBeEnabled()` that shouldn't leave the overflow open over
+ * the map. Use {@link openMenuBarMenu} to open the menu.
+ */
+export function menuBarButton(page: Page, name: string) {
+  return menuBarOverflow(page).getByRole("button", { name, exact: true, includeHidden: true });
+}
+
+/** Opens the header's overflow, unless it is already open. */
+export async function openMenuBar(page: Page): Promise<void> {
+  const more = page.getByRole("button", { name: "More menus", exact: true });
+  if ((await more.getAttribute("aria-expanded")) !== "true") await more.click();
+  await expect(menuBarOverflow(page)).toBeVisible();
+}
+
+/** Opens the header's overflow if needed, then the named menu-bar menu. */
+export async function openMenuBarMenu(page: Page, name: string): Promise<void> {
+  await openMenuBar(page);
+  await menuBarOverflow(page).getByRole("button", { name, exact: true }).click();
+}
+
 /** Waits for MapLibre to mount its WebGL canvas — the app's "map ready" signal. */
 export async function waitForMap(page: Page, path = "/"): Promise<void> {
   await page.goto(path);
@@ -309,7 +340,7 @@ export async function setViewAndSettle(
   lat: number,
   zoom: number,
 ): Promise<number> {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
   const dialog = page.getByRole("dialog", { name: "Set view" });
   await dialog.locator("#set-view-longitude").fill(String(lng));

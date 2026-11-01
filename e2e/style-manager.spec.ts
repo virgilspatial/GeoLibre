@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "./test";
 import { readFile } from "node:fs/promises";
-import { dropGeoJson, readFixture, waitForMap } from "./helpers";
+import { dropGeoJson, openMenuBarMenu, readFixture, waitForMap } from "./helpers";
 
 async function openStyleManager(page: Page) {
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await openMenuBarMenu(page, "Settings");
   await page.getByRole("menuitem", { name: "Style manager", exact: true }).click();
   return page.getByRole("region", { name: "Style manager", exact: true });
 }

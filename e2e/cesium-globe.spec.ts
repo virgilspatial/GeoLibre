@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { openMenuBarMenu, waitForMap } from "./helpers";
 
 /**
  * Smoke test for the CesiumJS 3D globe pane.
@@ -46,7 +46,7 @@ async function pickPaneRenderer(page: Page, label: "MapLibre" | "Cesium"): Promi
 
 /** Split the workspace into two panes via View → Split View → Two columns. */
 async function splitIntoTwoPanes(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Split view" }).click();
   await page.getByRole("menuitemradio", { name: "Two columns" }).click();
   await expect(page.getByTestId("map-grid")).toBeVisible();

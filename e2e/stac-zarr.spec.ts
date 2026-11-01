@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { openMenuBarMenu, waitForMap } from "./helpers";
 
 // A Zarr store is a directory read key by key, so only a run through the real panel shows that the
 // store URL, the chosen variable and the reader's own requests line up.
@@ -148,7 +148,7 @@ test("a Zarr asset from a STAC item reaches the map as the chosen variable", asy
   await serveStore(page, reads);
   await waitForMap(page);
 
-  await page.getByRole("button", { name: "Plugins", exact: true }).click();
+  await openMenuBarMenu(page, "Plugins");
   await page.getByRole("menuitem", { name: "Web services" }).click();
   await page.getByRole("menuitem", { name: "STAC catalogs" }).click();
   await page.getByPlaceholder("https://example.org/stac/").fill(API);

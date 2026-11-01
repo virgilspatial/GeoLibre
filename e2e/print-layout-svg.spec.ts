@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { dropGeoJson, layerRow, readFixture, waitForMap } from "./helpers";
+import { dropGeoJson, layerRow, openMenuBarMenu, readFixture, waitForMap } from "./helpers";
 
 async function downloadSvg(page: Page): Promise<string> {
   const pending = page.waitForEvent("download");
@@ -23,7 +23,7 @@ for (const theme of ["light", "dark"]) {
     await waitForMap(page, `/?theme=${theme}`);
     await dropGeoJson(page, "smoke", readFixture("smoke.geojson"));
     await expect(layerRow(page, "smoke")).toBeVisible();
-    await page.getByRole("button", { name: "Project", exact: true }).click();
+    await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Print layout…", exact: true }).click();
 
     const title = "Map <SVG> & café 地図";

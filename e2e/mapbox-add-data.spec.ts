@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow } from "./helpers";
+import { layerRow, openMenuBarMenu } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Opt-in: these integration tests use real Mapbox services and public datasets.
@@ -8,7 +8,7 @@ test.skip(!process.env.MAPBOX_TOKEN, "Set MAPBOX_TOKEN to test the Mapbox render
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  await openMenuBarMenu(page, "Add data");
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
@@ -36,12 +36,12 @@ for (const theme of ["light", "dark"] as const) {
     if (theme === "dark") {
       await page.getByRole("button", { name: "Switch to dark mode" }).click();
     }
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
 
-    await page.getByRole("button", { name: "Add data", exact: true }).click();
+    await openMenuBarMenu(page, "Add data");
     for (const name of ["MBTiles layer", "Gaussian splatting"]) {
       await expect(page.getByRole("menuitem", { name, exact: true })).toBeDisabled();
     }

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { openMenuBarMenu, waitForMap } from "./helpers";
 
 /**
  * Picks an entry from the 3D Tiles panel's "Load sample data..." menu.
@@ -18,7 +18,7 @@ async function pickSample(page: Page, label: string): Promise<void> {
 // checked, so nothing is fetched from the tileset hosts.
 test("3D Tiles sample picks rename the layer unless the user typed one", async ({ page }) => {
   await waitForMap(page);
-  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  await openMenuBarMenu(page, "Add data");
   await page.getByRole("menuitem", { name: "3D Tiles layer", exact: true }).click();
 
   const url = page.getByRole("textbox", { name: "Tileset URL", exact: true });

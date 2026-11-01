@@ -1,12 +1,14 @@
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { menuBarButton, waitForMap } from "./helpers";
 
 /** Serves `body` as this test's deployment.json. */
 async function serveDeployment(page: Page, body: unknown): Promise<void> {
   await page.route("**/deployment.json", (route) => route.fulfill({ json: body }));
 }
 
-const toolbarButton = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
+// SWIFTMAP (Change 15): the menu bar sits in the header's overflow, so these
+// check that a menu exists, whether or not the overflow is open.
+const toolbarButton = (page: Page, name: string) => menuBarButton(page, name);
 
 test("capabilities restrict the toolbar before first paint", async ({ page }) => {
   // Record any frame in which the gated menu ever existed: a full-grant first
@@ -27,7 +29,7 @@ test("capabilities restrict the toolbar before first paint", async ({ page }) =>
   await serveDeployment(page, { version: 1, capabilities: ["data:add"] });
   await waitForMap(page);
 
-  await expect(toolbarButton(page, "Add data")).toBeVisible();
+  await expect(toolbarButton(page, "Add data")).toBeAttached();
   await expect(toolbarButton(page, "Processing")).toHaveCount(0);
   await expect(toolbarButton(page, "Plugins")).toHaveCount(0);
   expect(
@@ -55,7 +57,7 @@ test("a missing deployment.json leaves the app unchanged and quiet", async ({ pa
   await waitForMap(page);
 
   for (const name of ["Add data", "Processing", "Plugins"]) {
-    await expect(toolbarButton(page, name)).toBeVisible();
+    await expect(toolbarButton(page, name)).toBeAttached();
   }
   expect(errors).toEqual([]);
 });
@@ -74,5 +76,5 @@ test("a hung deployment.json does not block rendering", async ({ page }) => {
     await new Promise(() => {});
   });
   await waitForMap(page);
-  await expect(toolbarButton(page, "Processing")).toBeVisible();
+  await expect(toolbarButton(page, "Processing")).toBeAttached();
 });

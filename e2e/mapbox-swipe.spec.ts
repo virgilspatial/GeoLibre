@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
+import { menuBarButton, openMenuBarMenu } from "./helpers";
 
 // Layer Swipe on the Mapbox renderer (issue #2420). `maplibre-gl-swipe` used to
 // construct a MapLibre `Map` for the clipped comparison pane, which cannot be
@@ -240,7 +241,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
   await page.goto(`/?project=${baseURL}${PROJECT_PATH}${theme === "dark" ? "&theme=dark" : ""}`);
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
   await bindEngine(page);
-  await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled();
+  await expect(menuBarButton(page, "Add data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -272,7 +273,7 @@ for (const theme of ["light", "dark"] as const) {
 
       // Plugins → Layer Swipe. The entry was greyed out on this renderer
       // before the plugin declared Mapbox.
-      await page.getByRole("button", { name: "Plugins", exact: true }).click();
+      await openMenuBarMenu(page, "Plugins");
       const item = page.getByRole("menuitem", { name: "Layer swipe", exact: true });
       await expect(item).toBeEnabled();
       await item.click();
@@ -447,7 +448,7 @@ test("keeps one comparison pane across basemap changes", async ({ page }, info) 
 
   await openMapboxProject(page, info.project.use.baseURL!, "light");
 
-  await page.getByRole("button", { name: "Plugins", exact: true }).click();
+  await openMenuBarMenu(page, "Plugins");
   await page.getByRole("menuitem", { name: "Layer swipe", exact: true }).click();
   await expect(page.locator(".swipe-comparison-map .mapboxgl-canvas")).toBeAttached();
 

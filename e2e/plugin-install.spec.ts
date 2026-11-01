@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { strToU8, zipSync } from "fflate";
 import { createEmptyProject, DEFAULT_LAYER_STYLE } from "@geolibre/core";
+import { menuBarButton, openMenuBarMenu } from "./helpers";
 
 // The fixture exposes activation in the DOM so end-to-end cases can observe
 // real PluginManager lifecycle calls.
@@ -53,7 +54,7 @@ async function openPluginsMenu(
   page: Page,
   { label = "Plugins", installedLabel = "Installed", installed = false } = {},
 ) {
-  await page.getByRole("button", { name: label, exact: true }).click();
+  await openMenuBarMenu(page, label);
   await expect(page.getByRole("menu").first()).toBeVisible();
   const submenu = page.getByRole("menuitem", { name: new RegExp(`^${installedLabel}( ✓)?$`) });
   if (installed) await expect(submenu).toBeVisible();
@@ -66,7 +67,7 @@ async function openManagePluginsSettings(page: Page, locale: "en" | "zh" = "en")
     locale === "zh"
       ? { settings: "设置", managePlugins: "管理插件" }
       : { settings: "Settings", managePlugins: "Manage plugins" };
-  await page.getByRole("button", { name: labels.settings, exact: true }).click();
+  await openMenuBarMenu(page, labels.settings);
   await page.getByRole("menuitem", { name: labels.managePlugins }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(labels.managePlugins)).toBeVisible();
@@ -79,9 +80,9 @@ test("installs a plugin from an uploaded zip, persists it across reload, and uni
 }) => {
   await page.goto("/");
   await expect(page.getByTestId("map-canvas")).toBeVisible();
-  // The Settings dropdown trigger is part of the toolbar; wait for it before
-  // driving the menu.
-  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  // The Settings dropdown trigger is part of the toolbar (in the header's
+  // overflow since Change 15); wait for it before driving the menu.
+  await expect(menuBarButton(page, "Settings")).toBeAttached();
 
   // 1. Install from file: the web path reads the uploaded bytes, unpacks and
   //    registers the plugin client-side, and persists it in IndexedDB.
@@ -159,7 +160,7 @@ test("deployment defaultActive applies to fresh projects but respects explicit d
 
   const root = page.locator("html");
   const previousGeneration = await root.getAttribute("data-geolibre-project-generation");
-  await page.getByRole("button", { name: "Project", exact: true }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "New…", exact: true }).click();
   const newProjectDialog = page.getByRole("dialog", { name: "New project" });
   const discardButton = page.getByRole("button", { name: "Do not save", exact: true });
@@ -376,7 +377,7 @@ for (const registryResult of ["delisted", "unavailable", "blocked-id"] as const)
     approved = false;
     // An unrelated settings change must reclassify installed URLs before
     // reusing the plugin scan cache; German keeps the Plugins menu label.
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await openMenuBarMenu(page, "Settings");
     await page.getByRole("menuitem", { name: "Language", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Deutsch (German)", exact: true }).click();
     await expect(page.locator("#registry-plugin-active")).toHaveCount(0);

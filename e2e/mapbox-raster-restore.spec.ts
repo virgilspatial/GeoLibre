@@ -1,5 +1,6 @@
 import { expect, test } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
+import { openMenuBarMenu } from "./helpers";
 
 const COG_URL = "https://data.source.coop/giswqs/opengeos/dem.tif";
 const LAYER_NAME = "dem.tif";
@@ -35,7 +36,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Switch to dark mode" }).click();
     }
 
-    await page.getByRole("button", { name: "Add data", exact: true }).click();
+    await openMenuBarMenu(page, "Add data");
     await page.getByRole("menuitem", { name: "Raster layer", exact: true }).click();
     const panel = page.locator(".geolibre-raster-panel");
     await panel.getByRole("textbox", { name: "raster-url", exact: true }).fill(COG_URL);
@@ -45,7 +46,7 @@ for (const theme of ["light", "dark"] as const) {
     });
     await panel.getByRole("button", { name: "Close panel", exact: true }).click();
 
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await expect(page.locator(".mapboxgl-canvas")).toBeVisible({ timeout: 30_000 });
