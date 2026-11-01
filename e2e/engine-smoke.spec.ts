@@ -2,6 +2,7 @@ import { expect, test, type Page } from "./test";
 import {
   dropGeoJsonOnShell,
   layerRow,
+  openMenuBarMenu,
   setViewAndSettle,
   waitForSettledZoom,
   waitForSettledZoomNear,
@@ -128,7 +129,7 @@ for (const engine of ENGINES) {
     await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 30_000 });
     await engine.prepare?.(page);
 
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: engine.label, exact: true }).click();
     await engine.ready(page);

@@ -2,7 +2,7 @@ import { expect, test } from "./test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dropGeoJson, layerRow, readFixture, waitForMap } from "./helpers";
+import { dropGeoJson, layerRow, openMenuBarMenu, readFixture, waitForMap } from "./helpers";
 
 test("reopens a project saved on the web from Open Recent via the file picker", async ({
   page,
@@ -19,7 +19,7 @@ test("reopens a project saved on the web from Open Recent via the file picker", 
     await expect(layerRow(page, "smoke")).toBeVisible();
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Project" }).click();
+    await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Save", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
     const download = await downloadPromise;
@@ -34,7 +34,7 @@ test("reopens a project saved on the web from Open Recent via the file picker", 
     await expect(layerRow(page, "smoke")).toHaveCount(0);
 
     const chooserPromise = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Project" }).click();
+    await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Open recent" }).click();
     await page.getByRole("menuitem").filter({ hasText: fileName }).first().click();
     const chooser = await chooserPromise;

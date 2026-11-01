@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { readFile } from "node:fs/promises";
-import { layerRow } from "./helpers";
+import { layerRow, menuBarButton, openMenuBarMenu } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 const PMTILES = "https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.pmtiles";
@@ -12,7 +12,7 @@ test.skip(!process.env.MAPBOX_TOKEN, "Set MAPBOX_TOKEN to exercise real Mapbox d
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  await openMenuBarMenu(page, "Add data");
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
@@ -71,7 +71,7 @@ for (const theme of ["light", "dark"] as const) {
     );
     await page.goto("/");
     if (theme === "dark") await page.getByRole("button", { name: "Switch to dark mode" }).click();
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await bindEngine(page);
@@ -146,7 +146,7 @@ for (const theme of ["light", "dark"] as const) {
     await layerRow(page, "AGI HQ").getByRole("button", { name: "Hide layer", exact: true }).click();
     await layerRow(page, "AGI HQ").getByRole("button", { name: "Show layer", exact: true }).click();
     const downloading = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Project", exact: true }).click();
+    await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Save", exact: true }).click();
     await page.getByRole("button", { name: "Strip credentials", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Save", exact: true }).click();
@@ -162,7 +162,7 @@ for (const theme of ["light", "dark"] as const) {
 
     await page.reload();
     const choosing = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Project", exact: true }).click();
+    await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Open from" }).click();
     await page.getByRole("menuitem", { name: "File…", exact: true }).click();
     await (
@@ -195,13 +195,13 @@ for (const theme of ["light", "dark"] as const) {
     });
     // Reuse the same project across native engine teardown and reattachment.
     for (const renderer of ["MapLibre", "Mapbox"]) {
-      await page.getByRole("button", { name: "View", exact: true }).click();
+      await openMenuBarMenu(page, "View");
       await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
       await page.getByRole("menuitemradio", { name: renderer, exact: true }).click();
       await expect(
         page.locator(renderer === "Mapbox" ? ".mapboxgl-canvas" : ".maplibregl-canvas").first(),
       ).toBeVisible();
-      await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled();
+      await expect(menuBarButton(page, "Add data")).toBeEnabled();
     }
     await bindEngine(page);
     await openSource(page, "LiDAR layer");
@@ -258,7 +258,7 @@ for (const theme of ["light", "dark"]) {
     );
     await page.goto("/");
     if (theme === "dark") await page.getByRole("button", { name: "Switch to dark mode" }).click();
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await bindEngine(page);
@@ -332,7 +332,7 @@ for (const theme of ["light", "dark"]) {
     );
     await page.goto("/");
     if (theme === "dark") await page.getByRole("button", { name: "Switch to dark mode" }).click();
-    await page.getByRole("button", { name: "View", exact: true }).click();
+    await openMenuBarMenu(page, "View");
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await bindEngine(page);

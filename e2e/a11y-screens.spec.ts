@@ -1,6 +1,13 @@
 import { expect, test, type Page } from "./test";
 import { expectAccessible } from "./a11y";
-import { bindMapLibreMap, dropGeoJson, layerRow, readFixture, waitForMap } from "./helpers";
+import {
+  bindMapLibreMap,
+  dropGeoJson,
+  layerRow,
+  openMenuBarMenu,
+  readFixture,
+  waitForMap,
+} from "./helpers";
 
 /**
  * The axe sweep past the five screens `a11y.spec.ts` gates every pull request
@@ -26,7 +33,7 @@ const BROKEN_TILE_HOST = "https://broken-tiles.a11y.test";
 
 /** Opens a toolbar menu and picks one of its items. */
 async function openMenuItem(page: Page, menu: string, item: string): Promise<void> {
-  await page.getByRole("button", { name: menu, exact: true }).click();
+  await openMenuBarMenu(page, menu);
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
 
@@ -102,7 +109,7 @@ test("Processing toolbox", async ({ page }, testInfo) => {
   await expect(layerRow(page, "smoke")).toBeVisible();
 
   // A Vector tool opens the toolbox on that tool, with the layer picker shown.
-  await page.getByRole("button", { name: "Processing", exact: true }).click();
+  await openMenuBarMenu(page, "Processing");
   await page.getByRole("menuitem", { name: "Vector", exact: true }).click();
   await page.getByRole("menuitem", { name: "Geometry Processing", exact: true }).click();
   await page.getByRole("menuitem", { name: "Centroid Vector", exact: true }).click();

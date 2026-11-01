@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { openMenuBarMenu, waitForMap } from "./helpers";
 
 // The catalog tree paints its selection through inline styles, which only a real browser resolves:
 // `hsl(var(--primary))` is a string until a CSSOM accepts it and a stylesheet defines the variable.
@@ -118,7 +118,7 @@ async function serveCatalog(
 }
 
 async function openStacPanel(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Plugins", exact: true }).click();
+  await openMenuBarMenu(page, "Plugins");
   await page.getByRole("menuitem", { name: "Web services" }).click();
   await page.getByRole("menuitem", { name: "STAC catalogs" }).click();
   await page.getByPlaceholder("https://example.org/stac/").fill(ROOT);

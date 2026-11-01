@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "./test";
-import { bindMapLibreMap, layerRow, readFixture, waitForMap } from "./helpers";
+import { bindMapLibreMap, layerRow, menuBarOverflow, readFixture, waitForMap } from "./helpers";
 
 /**
  * A keyboard-only pass over the core data loop (#2858): add a GeoJSON layer
@@ -34,6 +34,17 @@ async function tabTo(page: Page, target: Locator, maxPresses = 80): Promise<void
   await expect(target, `not reached within ${maxPresses} Tab presses`).toBeFocused();
 }
 
+/**
+ * Opens the header's menu-bar overflow, "More menus" (Swiftmap, Change 15),
+ * from the keyboard: Tab to its button, then Enter. GeoLibre's old menu bar
+ * sits there until branch 3b.
+ */
+async function openMenuBarByKeyboard(page: Page): Promise<void> {
+  await tabTo(page, page.getByRole("button", { name: "More menus", exact: true }));
+  await page.keyboard.press("Enter");
+  await expect(menuBarOverflow(page)).toBeVisible();
+}
+
 test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async ({ page }) => {
   test.setTimeout(120_000);
   // The anchor-download fallback, so the export lands as a download event.
@@ -50,6 +61,7 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   await waitForMap(page);
 
   // Add Data → OGC API - Features, reached by Tab and menu type-ahead.
+  await openMenuBarByKeyboard(page);
   await tabTo(page, page.getByRole("button", { name: "Add data", exact: true }));
   await page.keyboard.press("Enter");
   await expect(page.getByRole("menu", { name: "Add data" })).toBeVisible();
@@ -127,6 +139,7 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
 
 test("moves across the top menus with the arrow keys (#3232)", async ({ page }) => {
   await waitForMap(page);
+  await openMenuBarByKeyboard(page);
   const banner = page.getByRole("banner");
   const project = banner.getByRole("button", { name: "Project", exact: true });
   const edit = banner.getByRole("button", { name: "Edit", exact: true });
@@ -170,8 +183,12 @@ test("wraps, jumps with Home/End, and leaves text fields alone (#3232)", async (
   // Not getByRole("banner"): an open (modal) menu hides the header from the
   // accessibility tree.
   const header = page.locator("header");
-  // Visible only, matching the handler's own filter.
-  const triggers = header.locator('[aria-haspopup="menu"]').filter({ visible: true });
+  await openMenuBarByKeyboard(page);
+  // Visible only, matching the handler's own filter. The handler sits on the
+  // overflow panel, so the project switcher's menu is not one of them.
+  const triggers = menuBarOverflow(page)
+    .locator('[aria-haspopup="menu"]')
+    .filter({ visible: true });
   const first = triggers.first();
   const last = triggers.last();
 
@@ -230,8 +247,8 @@ test("wraps, jumps with Home/End, and leaves text fields alone (#3232)", async (
 
 test("mirrors the menu-bar arrow keys in a right-to-left locale (#3232)", async ({ page }) => {
   await waitForMap(page, "/?locale=ar");
-  const triggers = page
-    .locator("header")
+  await openMenuBarByKeyboard(page);
+  const triggers = menuBarOverflow(page)
     .locator('[aria-haspopup="menu"]')
     .filter({ visible: true });
 

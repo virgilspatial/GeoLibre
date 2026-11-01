@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
+import { menuBarButton, openMenuBarMenu } from "./helpers";
 
 // Street View on the Mapbox renderer (issue #2420). The upstream control used
 // to drop a `maplibre-gl` `Marker` on the map, whose position update reads
@@ -108,7 +109,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
   );
   await page.goto(`/?project=${baseURL}${PROJECT_PATH}${theme === "dark" ? "&theme=dark" : ""}`);
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled();
+  await expect(menuBarButton(page, "Add data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -141,7 +142,7 @@ for (const theme of ["light", "dark"] as const) {
 
       // Plugins → Street View → Activate. The menu item was greyed out on this
       // renderer before the plugin declared Mapbox.
-      await page.getByRole("button", { name: "Plugins", exact: true }).click();
+      await openMenuBarMenu(page, "Plugins");
       const item = page.getByRole("menuitem", { name: "Street View", exact: true });
       await expect(item).toBeEnabled();
       await item.hover();

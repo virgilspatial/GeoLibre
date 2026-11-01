@@ -1,5 +1,4 @@
 import {
-  DEFAULT_PROJECT_NAME,
   excludeHiddenFieldsFromProject,
   redactProjectCredentials,
   serializeProject,
@@ -16,9 +15,9 @@ import {
   PRECIPITATION_PLUGIN_ID,
   REVERSE_GEOCODE_PLUGIN_ID,
 } from "@geolibre/plugins";
-import { Button, cn, Input } from "@geolibre/ui";
-import { Map, Moon, Sun } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Button, cn } from "@geolibre/ui";
+import { Eye, Moon, Share, Sun, User, UserPlus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConsentGatedActions } from "../../hooks/useConsentGatedActions";
 import type { CollaborationApi } from "../../hooks/useCollaboration";
@@ -38,12 +37,9 @@ import { usePluginLabelSync } from "../../hooks/toolbar/usePluginLabelSync";
 import { usePaletteCommands } from "../../hooks/toolbar/usePaletteCommands";
 import { openSimplifyInterface, useToolbarCommands } from "../../hooks/toolbar/useToolbarCommands";
 import { useToolbarDialogs } from "../../hooks/toolbar/useToolbarDialogs";
-import { resolveAppName } from "../../lib/app-name";
 import { IS_MAS_BUILD } from "../../lib/build-flags";
 import { googleEarthUrl, googleMapsUrl } from "../../lib/external-map-links";
-import { isMobile } from "../../lib/is-mobile";
 import { resolveShareHost } from "../../lib/share-geolibre";
-import { isTauri } from "../../lib/tauri-io";
 import { MENU_MANAGED_PLUGIN_IDS, isMenuVisible, isPluginVisible } from "../../lib/ui-profile";
 import { FieldCollectionDialog } from "./FieldCollectionDialog";
 import { PrintLayoutDialog } from "./PrintLayoutDialog";
@@ -85,9 +81,14 @@ import {
   resetRuntimeControlsForNewProject,
 } from "./toolbar/toolbar-actions";
 import { ViewMenu } from "./toolbar/ViewMenu";
-import { handleMenubarKeyDown } from "./toolbar/menubarKeyboard";
+import { EditHistoryButtons } from "./header/EditHistoryButtons";
+import { HeaderIconButton } from "./header/HeaderIconButton";
+import { MenuBarOverflow } from "./header/MenuBarOverflow";
+import { ProjectSwitcher } from "./header/ProjectSwitcher";
+import { SwiftmapMark } from "./header/SwiftmapMark";
 
 interface TopToolbarProps {
+  /** Unused since Change 15: the Swiftmap header has one layout. Kept for DesktopShell. */
   compact?: boolean;
   diagnosticsErrorCount: number;
   mapControllerRef: React.RefObject<MapEngine | null>;
@@ -113,7 +114,6 @@ interface TopToolbarProps {
 }
 
 export function TopToolbar({
-  compact = false,
   diagnosticsErrorCount,
   mapControllerRef,
   mapReadyGeneration,
@@ -148,9 +148,7 @@ export function TopToolbar({
   const loadEditorFeaturesOpen = useAppStore((s) => s.ui.loadEditorFeaturesOpen);
   const loadEditorFeaturesLayerId = useAppStore((s) => s.ui.loadEditorFeaturesLayerId);
   const projectName = useAppStore((s) => s.projectName);
-  const projectPath = useAppStore((s) => s.projectPath);
   const projectGeneration = useAppStore((s) => s.projectGeneration);
-  const setProjectName = useAppStore((s) => s.setProjectName);
   // The Collaborate dialog's visibility lives in the store so the on-canvas
   // session-status badge can reopen it from outside this component tree (#754).
   // The dialog itself is rendered by DesktopShell (not here) so it survives
@@ -210,10 +208,6 @@ export function TopToolbar({
     mapReadyGeneration,
     projectGeneration,
   );
-
-  // Tracks an active IME composition so pressing Enter to confirm a CJK
-  // candidate doesn't blur the project-name field mid-composition.
-  const projectNameComposingRef = useRef(false);
 
   const { controlsVisible, setControlsVisible, toggleMapControl } = useMapControlVisibility(
     mapControllerRef,
@@ -283,17 +277,12 @@ export function TopToolbar({
     openNetworkTool: consent.openNetworkTool,
   });
 
-  const toolbarButtonSize = compact ? "icon" : "sm";
-  const toolbarButtonClass = compact ? "h-8 w-8 shrink-0" : "shrink-0";
-  const toolbarIconClassName = cn("h-3.5 w-3.5", showLabels && "sm:me-1");
-  // "GeoLibre Desktop" is the *desktop* product name. `isTauri()` alone is true
-  // on iOS and Android too — where the app is named plain "GeoLibre" (the bundle
-  // name from tauri.ios.conf.json, the home-screen icon, and the store listing),
-  // so titling it "GeoLibre Desktop" there contradicts every other surface.
-  // A deployment can replace either with its own name (GEOLIBRE_APP_NAME).
-  const appTitle = resolveAppName(isTauri() && !isMobile() ? "GeoLibre Desktop" : "GeoLibre");
-  const renderToolbarLabel = (label: string) =>
-    showLabels ? <span className="hidden sm:inline">{label}</span> : null;
+  // SWIFTMAP: the old menus now sit in the header's overflow panel (Change 15),
+  // which has room for their labels at every width, so they always show them.
+  const toolbarButtonSize = "sm";
+  const toolbarButtonClass = "shrink-0";
+  const toolbarIconClassName = cn("h-3.5 w-3.5", showLabels && "me-1");
+  const renderToolbarLabel = (label: string) => (showLabels ? <span>{label}</span> : null);
   const chrome: ToolbarChrome = {
     buttonClass: toolbarButtonClass,
     buttonSize: toolbarButtonSize,
@@ -301,114 +290,299 @@ export function TopToolbar({
     renderLabel: renderToolbarLabel,
   };
 
-  // The header's key handler only routes arrow keys between the menu buttons inside.
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <header
-      onKeyDown={handleMenubarKeyDown}
-      className={cn(
-        // One row at every width: menus that don't fit scroll horizontally
-        // instead of wrapping onto a second row (#871).
-        "flex min-h-11 min-w-0 shrink-0 flex-nowrap items-center gap-1 overflow-x-auto border-b bg-card py-1",
-        compact ? "px-1.5" : "px-2",
-      )}
-    >
-      <span className="me-1 flex shrink-0 items-center gap-1.5 text-sm font-semibold text-primary md:me-2">
-        <Map className="h-4 w-4" />
-        {showProjectInfo ? <span className="hidden sm:inline">{appTitle}</span> : null}
+    <header className="relative z-40 flex h-14 min-w-0 shrink-0 items-center gap-3 border-b bg-background px-3 sm:gap-6 sm:px-5">
+      {/* SWIFTMAP: the Swiftmap header (Change 15). GeoLibre's menu bar row
+          moved into the temporary overflow at the end; every dialog it opens
+          stays mounted here as before. */}
+      <div className="flex min-w-0 items-center gap-3">
+        <SwiftmapMark className="h-7 w-6 shrink-0 text-foreground" label={t("header.label")} />
+        <svg
+          width="14"
+          height="24"
+          viewBox="0 0 14 24"
+          aria-hidden
+          className="shrink-0 stroke-input rtl:-scale-x-100"
+        >
+          <path d="M10 3 4 21" strokeWidth="1.25" strokeLinecap="round" />
+        </svg>
+        {showProjectInfo ? (
+          <ProjectSwitcher
+            readOnly={viewer}
+            onOpenRecent={(path) => {
+              void projectFiles.handleOpenRecent(path).then((error) => {
+                if (error) projectFiles.setActionError(error);
+              });
+            }}
+            onOpenAllProjects={() => void projectFiles.handleOpenFromFile()}
+          />
+        ) : null}
+      </div>
+      {!viewer ? (
+        <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          <EditHistoryButtons onSave={() => void projectFiles.handleSave()} />
+          {/* Preview and Publish arrive with branch 8 (Stage 1). */}
+          <Button
+            type="button"
+            variant="outline"
+            disabled
+            className="hidden h-8 gap-1.5 rounded-lg border-input bg-transparent px-3 text-[13px] disabled:opacity-100 disabled:text-muted-foreground sm:inline-flex [&_svg]:size-[15px]"
+          >
+            <Eye aria-hidden />
+            {t("header.preview")}
+          </Button>
+          <Button
+            type="button"
+            disabled
+            className="hidden h-8 gap-1.5 rounded-lg px-3 text-[13px] disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:inline-flex [&_svg]:size-[15px]"
+          >
+            <Share aria-hidden />
+            {t("header.publish")}
+          </Button>
+        </div>
+      ) : null}
+      <div className={cn("flex shrink-0 items-center gap-1.5 sm:gap-2.5", viewer && "ms-auto")}>
+        {!viewer ? (
+          // Swiftmap's Share dialog arrives with branch 8.
+          <HeaderIconButton label={t("header.share")} unavailable>
+            <UserPlus aria-hidden />
+          </HeaderIconButton>
+        ) : null}
+        <HeaderIconButton
+          label={
+            themeMode === "dark"
+              ? t("toolbar.command.switchToLight")
+              : t("toolbar.command.switchToDark")
+          }
+          onClick={onToggleThemeMode}
+        >
+          {themeMode === "dark" ? <Sun aria-hidden /> : <Moon aria-hidden />}
+        </HeaderIconButton>
+      </div>
+      <MenuBarOverflow>
+          {!viewer && isMenuVisible(uiProfile, "project") && (
+            <ProjectMenu
+              chrome={chrome}
+              collaborationEnabled={collaboration.enabled}
+              shareHostStatus={shareHost.status}
+              onNewProject={() => dialogs.setNewProjectDialogOpen(true)}
+              onOpenFromFile={() => void projectFiles.handleOpenFromFile()}
+              onOpenFromUrl={() => projectFiles.setProjectUrlDialogOpen(true)}
+              onOpenGallery={() => dialogs.setGalleryDialogOpen(true)}
+              onImportQgisProject={() => void projectFiles.handleImportQgisProject()}
+              onImportArcgisProject={() => void projectFiles.handleImportArcgisProject()}
+              onImportLayerStyles={() => void projectFiles.handleImportLayerStyles()}
+              onOpenRecent={(path) => {
+                void projectFiles.handleOpenRecent(path).then((error) => {
+                  if (error) projectFiles.setActionError(error);
+                });
+              }}
+              onOpenHistory={onOpenProjectHistory}
+              onSave={() => void projectFiles.handleSave()}
+              onSaveAs={() => void projectFiles.handleSaveAs()}
+              onDuplicate={() => projectFiles.handleDuplicate()}
+              onSaveAsTemplate={() => projectFiles.handleSaveAsTemplate()}
+              onShare={() => dialogs.setShareDialogOpen(true)}
+              onExportHtml={() => void projectFiles.handleExportHtml()}
+              onExportLayerStyles={() => void projectFiles.handleExportLayerStyles()}
+              onExportLayers={() => void projectFiles.handleExportLayers()}
+              onCollaborate={() => setCollaborateDialogOpen(true)}
+              onPrintLayout={() => dialogs.setPrintLayoutOpen(true)}
+              onOpenOfflineBasemap={onOpenBasemapExtract}
+            />
+          )}
+          {!viewer && isMenuVisible(uiProfile, "edit") && (
+            <EditMenu chrome={chrome} mapControllerRef={mapControllerRef} />
+          )}
+          {/* `|| primaryRenderer !== "maplibre"`: an admin or custom profile can hide
+              the whole "view" menu via `hiddenMenus`, which ViewMenu's own item-level
+              override cannot defeat. Hiding it while a project opens on another
+              renderer (the Cesium globe or Mapbox) would strand the user there with
+              no path back to MapLibre, so the menu stays mounted and renders only
+              the Rendering engine submenu (#2217 review). */}
+          {/* eslint-disable-next-line local/no-renderer-kind-checks -- the renderer picker's way back to MapLibre */}
+          {(isMenuVisible(uiProfile, "view") || primaryRenderer !== "maplibre") && (
+            <ViewMenu
+              chrome={chrome}
+              history={viewportHistory}
+              // Engine-neutral: the camera comes from `readView()`, and the zoom
+              // limits from the project preferences both engines apply — MapLibre
+              // through `setMinZoom`/`setMaxZoom`, the globe by clamping in
+              // `animateTo`. Reading them off the MapLibre map would report `null`
+              // on the globe and leave Zoom In/Out never showing as "at limit".
+              getCamera={() => {
+                const engine = mapControllerRef.current;
+                const view = engine?.readView();
+                if (!view) return null;
+                // Prefer the limits the engine actually enforces: MapLibre's
+                // effective minZoom is raised above the raw preference when
+                // `restrictBounds` is set, so reading the preference alone would
+                // leave Zoom Out enabled at the true floor (#2268 review). The
+                // preference is the fallback for an engine with no native map,
+                // which clamps to it directly.
+                const map = engine?.getMap();
+                const { map: mapPreferences } = useAppStore.getState().preferences;
+                return {
+                  zoom: view.zoom,
+                  bearing: view.bearing,
+                  pitch: view.pitch,
+                  minZoom: map ? map.getMinZoom() : mapPreferences.minZoom,
+                  maxZoom: map ? map.getMaxZoom() : mapPreferences.maxZoom,
+                };
+              }}
+              onResetNorth={() => mapControllerRef.current?.resetNorth()}
+              onResetPitch={() => mapControllerRef.current?.resetPitch()}
+              onResetPitchBearing={() => mapControllerRef.current?.resetNorthPitch()}
+              onSetView={() => dialogs.setSetViewOpen(true)}
+              // `readView()`, not `getMap()`: both hand-offs only need a camera, which
+              // every engine reports, and the MapLibre escape hatch is `null` on the
+              // globe — which would have made these silently do nothing now that the
+              // menu no longer greys them out (#2268 review).
+              onViewInGoogleEarth={() => {
+                const view = mapControllerRef.current?.readView();
+                if (!view) return;
+                void openExternalLink(googleEarthUrl(view.center[1], view.center[0], view.zoom));
+              }}
+              onViewInGoogleMaps={() => {
+                const view = mapControllerRef.current?.readView();
+                if (!view) return;
+                void openExternalLink(googleMapsUrl(view.center[1], view.center[0], view.zoom));
+              }}
+              onZoomIn={() => mapControllerRef.current?.zoomIn()}
+              onZoomOut={() => mapControllerRef.current?.zoomOut()}
+            />
+          )}
+          {!viewer && isMenuVisible(uiProfile, "addData") && deploymentCapabilities.has("data:add") && (
+            <AddDataMenu
+              disabled={!addDataReady}
+              chrome={chrome}
+              addLayer={addLayer}
+              osmPbfBusy={osmPbf.busy}
+              tilePackageBusy={tilePackage.busy}
+              onSetAddDataKind={openAddDataKind}
+              onAddGltfModel={() => {
+                addData.setAddDataDeckVizKind("scenegraph");
+                openAddDataKind("deckgl-viz");
+              }}
+              onOpenOsmPbfDialog={() => osmPbf.setDialogOpen(true)}
+              onOpenTilePackageDialog={() => tilePackage.setDialogOpen(true)}
+            />
+          )}
+          {!viewer &&
+            isMenuVisible(uiProfile, "processing") &&
+            deploymentCapabilities.has("processing:run") && (
+              <ProcessingMenu
+                chrome={chrome}
+                commands={paletteCommands.processingCommands}
+                earthEnginePanel={panels.earthEngine}
+                open={processingMenuOpen}
+                onOpenChange={setProcessingMenuOpen}
+                onOpenNetworkTool={consent.openNetworkTool}
+                onOpenPlanetaryComputer={handleOpenPlanetaryComputer}
+                onOpenGeoreferencer={() => dialogs.setGeoreferencerOpen(true)}
+              />
+            )}
+          {isMenuVisible(uiProfile, "controls") && (
+            <ControlsMenu
+              chrome={chrome}
+              viewer={viewer}
+              controlsVisible={controlsVisible}
+              panels={panels}
+              effectsActive={isActive(EFFECTS_PLUGIN_ID)}
+              layerControlActive={isActive(LAYER_CONTROL_PLUGIN_ID)}
+              directionsActive={isActive(DIRECTIONS_PLUGIN_ID)}
+              reverseGeocodeActive={isActive(REVERSE_GEOCODE_PLUGIN_ID)}
+              graticuleActive={isActive(GRATICULE_PLUGIN_ID)}
+              cloudsActive={isActive(CLOUDS_PLUGIN_ID)}
+              precipitationActive={isActive(PRECIPITATION_PLUGIN_ID)}
+              onToggleMapControl={toggleMapControl}
+              onToggleLayerControl={() => toggle(LAYER_CONTROL_PLUGIN_ID, appApi)}
+              onToggleEffects={() => toggle(EFFECTS_PLUGIN_ID, appApi)}
+              getEffectsSettings={getEffectsSettings}
+              onPreviewEffectsSettings={previewEffectsSettings}
+              onCommitEffectsSettings={commitEffectsSettings}
+              onToggleDirections={consent.handleToggleDirections}
+              onToggleReverseGeocode={consent.handleToggleReverseGeocode}
+              onToggleGraticule={() => toggle(GRATICULE_PLUGIN_ID, appApi)}
+              onTogglePointerElevation={consent.handleTogglePointerElevation}
+              onToggleClouds={() => toggle(CLOUDS_PLUGIN_ID, appApi)}
+              onTogglePrecipitation={() => toggle(PRECIPITATION_PLUGIN_ID, appApi)}
+              onOpenFieldCollection={() => dialogs.setFieldCollectionOpen(true)}
+              onOpenGpsTracking={() => dialogs.setGpsTrackingOpen(true)}
+              onOpenRecordTour={() => dialogs.setRecordTourOpen(true)}
+              onOpenRecordVideo={() => dialogs.setRecordVideoOpen(true)}
+            />
+          )}
+          {!viewer &&
+            isMenuVisible(uiProfile, "plugins") &&
+            deploymentCapabilities.has("plugins:install") && (
+              <PluginsMenu
+                chrome={chrome}
+                appApi={appApi}
+                plugins={plugins}
+                isActive={isActive}
+                toggle={toggle}
+                getMapControlPosition={getMapControlPosition}
+                setMapControlPosition={setMapControlPosition}
+                hiddenPluginIds={hiddenPluginIds}
+                onOpenManagePlugins={
+                  IS_MAS_BUILD ? undefined : () => dialogs.setManagePluginsOpen(true)
+                }
+              />
+            )}
+          {/* Top-level toolbar menus registered by built-in plugins via
+              app.registerToolbarMenu(); external plugin menus render after Help
+              (below). Renders nothing when none exist. */}
+          {!viewer && deploymentCapabilities.has("plugins:install") ? (
+            <PluginToolbarMenus chrome={chrome} placement="builtin" />
+          ) : null}
+          {!viewer && deploymentCapabilities.has("settings:manage") ? (
+            <SettingsDialog
+              buttonClassName={toolbarButtonClass}
+              buttonSize={toolbarButtonSize}
+              iconClassName={toolbarIconClassName}
+              mapControllerRef={mapControllerRef}
+              showLabels={showLabels}
+              onOpenManagePlugins={() => dialogs.setManagePluginsOpen(true)}
+              profilePlugins={profilePlugins}
+              themeMode={themeMode}
+              onToggleThemeMode={onToggleThemeMode}
+            />
+          ) : null}
+          {isMenuVisible(uiProfile, "help") && (
+            <HelpMenu
+              chrome={chrome}
+              viewer={viewer}
+              diagnosticsErrorCount={diagnosticsErrorCount}
+              onOpenCommandPalette={() => dialogs.setCommandPaletteOpen(true)}
+              onOpenShortcuts={() => dialogs.setShortcutsOpen(true)}
+              // Only where the Settings dialog is mounted to answer the request.
+              onSimplifyInterface={
+                !viewer && deploymentCapabilities.has("settings:manage")
+                  ? openSimplifyInterface
+                  : undefined
+              }
+              onOpenDiagnostics={onOpenDiagnostics}
+              onCheckForUpdates={() => {
+                dialogs.setAboutOpen(true);
+                dialogs.setCheckForUpdatesRequest((value) => value + 1);
+              }}
+              onAbout={() => dialogs.setAboutOpen(true)}
+            />
+          )}
+          {/* External plugin toolbar menus render after Help so third-party menus
+              sit at the end of the banner, past the built-in menus. */}
+          {!viewer && deploymentCapabilities.has("plugins:install") ? (
+            <PluginToolbarMenus chrome={chrome} placement="external" />
+          ) : null}
+      </MenuBarOverflow>
+      {/* Placeholder until accounts (Stage 1): no menu and no name to show. */}
+      <span
+        aria-hidden
+        className="hidden size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground sm:flex"
+      >
+        <User className="size-4" />
       </span>
-      {!viewer && isMenuVisible(uiProfile, "project") && (
-        <ProjectMenu
-          chrome={chrome}
-          collaborationEnabled={collaboration.enabled}
-          shareHostStatus={shareHost.status}
-          onNewProject={() => dialogs.setNewProjectDialogOpen(true)}
-          onOpenFromFile={() => void projectFiles.handleOpenFromFile()}
-          onOpenFromUrl={() => projectFiles.setProjectUrlDialogOpen(true)}
-          onOpenGallery={() => dialogs.setGalleryDialogOpen(true)}
-          onImportQgisProject={() => void projectFiles.handleImportQgisProject()}
-          onImportArcgisProject={() => void projectFiles.handleImportArcgisProject()}
-          onImportLayerStyles={() => void projectFiles.handleImportLayerStyles()}
-          onOpenRecent={(path) => {
-            void projectFiles.handleOpenRecent(path).then((error) => {
-              if (error) projectFiles.setActionError(error);
-            });
-          }}
-          onOpenHistory={onOpenProjectHistory}
-          onSave={() => void projectFiles.handleSave()}
-          onSaveAs={() => void projectFiles.handleSaveAs()}
-          onDuplicate={() => projectFiles.handleDuplicate()}
-          onSaveAsTemplate={() => projectFiles.handleSaveAsTemplate()}
-          onShare={() => dialogs.setShareDialogOpen(true)}
-          onExportHtml={() => void projectFiles.handleExportHtml()}
-          onExportLayerStyles={() => void projectFiles.handleExportLayerStyles()}
-          onExportLayers={() => void projectFiles.handleExportLayers()}
-          onCollaborate={() => setCollaborateDialogOpen(true)}
-          onPrintLayout={() => dialogs.setPrintLayoutOpen(true)}
-          onOpenOfflineBasemap={onOpenBasemapExtract}
-        />
-      )}
-      {!viewer && isMenuVisible(uiProfile, "edit") && (
-        <EditMenu chrome={chrome} mapControllerRef={mapControllerRef} />
-      )}
-      {/* `|| primaryRenderer !== "maplibre"`: an admin or custom profile can hide
-          the whole "view" menu via `hiddenMenus`, which ViewMenu's own item-level
-          override cannot defeat. Hiding it while a project opens on another
-          renderer (the Cesium globe or Mapbox) would strand the user there with
-          no path back to MapLibre, so the menu stays mounted and renders only
-          the Rendering engine submenu (#2217 review). */}
-      {/* eslint-disable-next-line local/no-renderer-kind-checks -- the renderer picker's way back to MapLibre */}
-      {(isMenuVisible(uiProfile, "view") || primaryRenderer !== "maplibre") && (
-        <ViewMenu
-          chrome={chrome}
-          history={viewportHistory}
-          // Engine-neutral: the camera comes from `readView()`, and the zoom
-          // limits from the project preferences both engines apply — MapLibre
-          // through `setMinZoom`/`setMaxZoom`, the globe by clamping in
-          // `animateTo`. Reading them off the MapLibre map would report `null`
-          // on the globe and leave Zoom In/Out never showing as "at limit".
-          getCamera={() => {
-            const engine = mapControllerRef.current;
-            const view = engine?.readView();
-            if (!view) return null;
-            // Prefer the limits the engine actually enforces: MapLibre's
-            // effective minZoom is raised above the raw preference when
-            // `restrictBounds` is set, so reading the preference alone would
-            // leave Zoom Out enabled at the true floor (#2268 review). The
-            // preference is the fallback for an engine with no native map,
-            // which clamps to it directly.
-            const map = engine?.getMap();
-            const { map: mapPreferences } = useAppStore.getState().preferences;
-            return {
-              zoom: view.zoom,
-              bearing: view.bearing,
-              pitch: view.pitch,
-              minZoom: map ? map.getMinZoom() : mapPreferences.minZoom,
-              maxZoom: map ? map.getMaxZoom() : mapPreferences.maxZoom,
-            };
-          }}
-          onResetNorth={() => mapControllerRef.current?.resetNorth()}
-          onResetPitch={() => mapControllerRef.current?.resetPitch()}
-          onResetPitchBearing={() => mapControllerRef.current?.resetNorthPitch()}
-          onSetView={() => dialogs.setSetViewOpen(true)}
-          // `readView()`, not `getMap()`: both hand-offs only need a camera, which
-          // every engine reports, and the MapLibre escape hatch is `null` on the
-          // globe — which would have made these silently do nothing now that the
-          // menu no longer greys them out (#2268 review).
-          onViewInGoogleEarth={() => {
-            const view = mapControllerRef.current?.readView();
-            if (!view) return;
-            void openExternalLink(googleEarthUrl(view.center[1], view.center[0], view.zoom));
-          }}
-          onViewInGoogleMaps={() => {
-            const view = mapControllerRef.current?.readView();
-            if (!view) return;
-            void openExternalLink(googleMapsUrl(view.center[1], view.center[0], view.zoom));
-          }}
-          onZoomIn={() => mapControllerRef.current?.zoomIn()}
-          onZoomOut={() => mapControllerRef.current?.zoomOut()}
-        />
-      )}
       <MountWhenOpened open={dialogs.newProjectDialogOpen}>
         <NewProjectDialog
           open={dialogs.newProjectDialogOpen}
@@ -421,103 +595,6 @@ export function TopToolbar({
           }
         />
       </MountWhenOpened>
-      {!viewer && isMenuVisible(uiProfile, "addData") && deploymentCapabilities.has("data:add") && (
-        <AddDataMenu
-          disabled={!addDataReady}
-          chrome={chrome}
-          addLayer={addLayer}
-          osmPbfBusy={osmPbf.busy}
-          tilePackageBusy={tilePackage.busy}
-          onSetAddDataKind={openAddDataKind}
-          onAddGltfModel={() => {
-            addData.setAddDataDeckVizKind("scenegraph");
-            openAddDataKind("deckgl-viz");
-          }}
-          onOpenOsmPbfDialog={() => osmPbf.setDialogOpen(true)}
-          onOpenTilePackageDialog={() => tilePackage.setDialogOpen(true)}
-        />
-      )}
-      {!viewer &&
-        isMenuVisible(uiProfile, "processing") &&
-        deploymentCapabilities.has("processing:run") && (
-          <ProcessingMenu
-            chrome={chrome}
-            commands={paletteCommands.processingCommands}
-            earthEnginePanel={panels.earthEngine}
-            open={processingMenuOpen}
-            onOpenChange={setProcessingMenuOpen}
-            onOpenNetworkTool={consent.openNetworkTool}
-            onOpenPlanetaryComputer={handleOpenPlanetaryComputer}
-            onOpenGeoreferencer={() => dialogs.setGeoreferencerOpen(true)}
-          />
-        )}
-      {isMenuVisible(uiProfile, "controls") && (
-        <ControlsMenu
-          chrome={chrome}
-          viewer={viewer}
-          controlsVisible={controlsVisible}
-          panels={panels}
-          effectsActive={isActive(EFFECTS_PLUGIN_ID)}
-          layerControlActive={isActive(LAYER_CONTROL_PLUGIN_ID)}
-          directionsActive={isActive(DIRECTIONS_PLUGIN_ID)}
-          reverseGeocodeActive={isActive(REVERSE_GEOCODE_PLUGIN_ID)}
-          graticuleActive={isActive(GRATICULE_PLUGIN_ID)}
-          cloudsActive={isActive(CLOUDS_PLUGIN_ID)}
-          precipitationActive={isActive(PRECIPITATION_PLUGIN_ID)}
-          onToggleMapControl={toggleMapControl}
-          onToggleLayerControl={() => toggle(LAYER_CONTROL_PLUGIN_ID, appApi)}
-          onToggleEffects={() => toggle(EFFECTS_PLUGIN_ID, appApi)}
-          getEffectsSettings={getEffectsSettings}
-          onPreviewEffectsSettings={previewEffectsSettings}
-          onCommitEffectsSettings={commitEffectsSettings}
-          onToggleDirections={consent.handleToggleDirections}
-          onToggleReverseGeocode={consent.handleToggleReverseGeocode}
-          onToggleGraticule={() => toggle(GRATICULE_PLUGIN_ID, appApi)}
-          onTogglePointerElevation={consent.handleTogglePointerElevation}
-          onToggleClouds={() => toggle(CLOUDS_PLUGIN_ID, appApi)}
-          onTogglePrecipitation={() => toggle(PRECIPITATION_PLUGIN_ID, appApi)}
-          onOpenFieldCollection={() => dialogs.setFieldCollectionOpen(true)}
-          onOpenGpsTracking={() => dialogs.setGpsTrackingOpen(true)}
-          onOpenRecordTour={() => dialogs.setRecordTourOpen(true)}
-          onOpenRecordVideo={() => dialogs.setRecordVideoOpen(true)}
-        />
-      )}
-      {!viewer &&
-        isMenuVisible(uiProfile, "plugins") &&
-        deploymentCapabilities.has("plugins:install") && (
-          <PluginsMenu
-            chrome={chrome}
-            appApi={appApi}
-            plugins={plugins}
-            isActive={isActive}
-            toggle={toggle}
-            getMapControlPosition={getMapControlPosition}
-            setMapControlPosition={setMapControlPosition}
-            hiddenPluginIds={hiddenPluginIds}
-            onOpenManagePlugins={
-              IS_MAS_BUILD ? undefined : () => dialogs.setManagePluginsOpen(true)
-            }
-          />
-        )}
-      {/* Top-level toolbar menus registered by built-in plugins via
-          app.registerToolbarMenu(); external plugin menus render after Help
-          (below). Renders nothing when none exist. */}
-      {!viewer && deploymentCapabilities.has("plugins:install") ? (
-        <PluginToolbarMenus chrome={chrome} placement="builtin" />
-      ) : null}
-      {!viewer && deploymentCapabilities.has("settings:manage") ? (
-        <SettingsDialog
-          buttonClassName={toolbarButtonClass}
-          buttonSize={toolbarButtonSize}
-          iconClassName={toolbarIconClassName}
-          mapControllerRef={mapControllerRef}
-          showLabels={showLabels}
-          onOpenManagePlugins={() => dialogs.setManagePluginsOpen(true)}
-          profilePlugins={profilePlugins}
-          themeMode={themeMode}
-          onToggleThemeMode={onToggleThemeMode}
-        />
-      ) : null}
       {/* No plugin marketplace in the Mac App Store build (all its entry
           points are hidden too; this keeps the install surface out of the
           bundle). */}
@@ -634,32 +711,6 @@ export function TopToolbar({
           }
         />
       </MountWhenOpened>
-      {isMenuVisible(uiProfile, "help") && (
-        <HelpMenu
-          chrome={chrome}
-          viewer={viewer}
-          diagnosticsErrorCount={diagnosticsErrorCount}
-          onOpenCommandPalette={() => dialogs.setCommandPaletteOpen(true)}
-          onOpenShortcuts={() => dialogs.setShortcutsOpen(true)}
-          // Only where the Settings dialog is mounted to answer the request.
-          onSimplifyInterface={
-            !viewer && deploymentCapabilities.has("settings:manage")
-              ? openSimplifyInterface
-              : undefined
-          }
-          onOpenDiagnostics={onOpenDiagnostics}
-          onCheckForUpdates={() => {
-            dialogs.setAboutOpen(true);
-            dialogs.setCheckForUpdatesRequest((value) => value + 1);
-          }}
-          onAbout={() => dialogs.setAboutOpen(true)}
-        />
-      )}
-      {/* External plugin toolbar menus render after Help so third-party menus
-          sit at the end of the banner, past the built-in menus. */}
-      {!viewer && deploymentCapabilities.has("plugins:install") ? (
-        <PluginToolbarMenus chrome={chrome} placement="external" />
-      ) : null}
       <MountWhenOpened open={addData.dialogProps.kind !== null}>
         <AddDataDialog {...addData.dialogProps} mapControllerRef={mapControllerRef} />
       </MountWhenOpened>
@@ -708,72 +759,6 @@ export function TopToolbar({
           />
         </MountWhenOpened>
       )}
-      <div className="ms-auto flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-        <Button
-          aria-label={
-            themeMode === "dark"
-              ? t("toolbar.command.switchToLight")
-              : t("toolbar.command.switchToDark")
-          }
-          className="h-7 w-7 shrink-0"
-          onClick={onToggleThemeMode}
-          size="icon"
-          title={
-            themeMode === "dark"
-              ? t("toolbar.command.switchToLight")
-              : t("toolbar.command.switchToDark")
-          }
-          variant="ghost"
-        >
-          {themeMode === "dark" ? (
-            <Sun className="h-3.5 w-3.5" />
-          ) : (
-            <Moon className="h-3.5 w-3.5" />
-          )}
-        </Button>
-        {showProjectInfo ? (
-          <>
-            <Input
-              aria-label={t("toolbar.item.projectName")}
-              className="hidden h-7 w-44 border-transparent px-2 text-xs shadow-none focus-visible:border-input md:block"
-              value={projectName}
-              readOnly={viewer}
-              onChange={(event) => {
-                if (viewer) return;
-                setProjectName(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !projectNameComposingRef.current &&
-                  !event.nativeEvent.isComposing
-                ) {
-                  event.currentTarget.blur();
-                }
-              }}
-              onCompositionStart={() => {
-                projectNameComposingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                projectNameComposingRef.current = false;
-              }}
-              onBlur={(event) => {
-                if (viewer) return;
-                const nextName = event.target.value.trim();
-                // Persist the canonical, locale-independent default name; a
-                // translated string would otherwise be written into the saved
-                // project file and vary by UI language.
-                if (!nextName) setProjectName(DEFAULT_PROJECT_NAME);
-              }}
-            />
-            {projectPath ? (
-              <span className="hidden truncate lg:inline" title={projectPath}>
-                {projectPath}
-              </span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
     </header>
   );
 }

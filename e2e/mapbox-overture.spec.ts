@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import { layerRow, menuBarButton, openMenuBarMenu, RENDERER_SWAP_TIMEOUT } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Overture Maps on the Mapbox renderer (issue #2420). The upstream control used
@@ -110,7 +110,7 @@ async function renderedBuildingPoint(page: Page) {
 }
 
 async function switchRenderer(page: Page, name: "MapLibre" | "Mapbox") {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
   // The swap runs inside this click's own handler and is charged against the
   // action budget, which CI's software renderer can outrun. See
@@ -161,7 +161,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
       console.warn(`map error: ${event.error?.message}`),
     );
   });
-  await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled();
+  await expect(menuBarButton(page, "Add data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -189,7 +189,7 @@ for (const theme of ["light", "dark"] as const) {
 
       // Plugins → Overture Maps docks the control's panel in the right side
       // panel (it has no Activate/Position submenu since #2814).
-      await page.getByRole("button", { name: "Plugins", exact: true }).click();
+      await openMenuBarMenu(page, "Plugins");
       const item = page.getByRole("menuitem", { name: "Overture Maps", exact: true });
       await expect(item).toBeEnabled();
       await item.click();

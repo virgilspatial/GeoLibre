@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { dropGeoJson, layerRow, waitForMap } from "./helpers";
+import { dropGeoJson, layerRow, openMenuBarMenu, waitForMap } from "./helpers";
 
 /**
  * End-to-end coverage for **View → Rendering engine** (issue #2217): the globe
@@ -91,7 +91,7 @@ function expectSameZoom(actual: number, expected: number): void {
  * is what makes the seed deterministic.
  */
 async function setView(page: Page, lng: number, lat: number, zoom: number): Promise<void> {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: /Set view/ }).click();
   const dialog = page.getByRole("dialog", { name: "Set view" });
   await dialog.locator("#set-view-longitude").fill(String(lng));
@@ -104,7 +104,7 @@ async function setView(page: Page, lng: number, lat: number, zoom: number): Prom
 
 /** Pick a primary renderer from View → Rendering engine. */
 async function chooseRenderer(page: Page, label: "MapLibre" | "Cesium"): Promise<void> {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Rendering engine" }).click();
   await page.getByRole("menuitemradio", { name: label }).click();
 }
@@ -333,7 +333,7 @@ test.describe("Cesium toolbar controls on the globe", () => {
     // built-in control outright, so toggling it did nothing and the checkmark
     // would not even move. The engine now answers for this one id.
     const toggleFullscreen = async () => {
-      await page.getByRole("button", { name: "Controls", exact: true }).click();
+      await openMenuBarMenu(page, "Controls");
       await page.getByRole("menuitem", { name: /^Fullscreen/ }).click();
       await page.keyboard.press("Escape");
     };
@@ -350,7 +350,7 @@ test.describe("Cesium toolbar controls on the globe", () => {
   test("keeps fullscreen hidden across renderer swaps", async ({ page }) => {
     test.setTimeout(120_000);
     await waitForMap(page);
-    await page.getByRole("button", { name: "Controls", exact: true }).click();
+    await openMenuBarMenu(page, "Controls");
     await page.getByRole("menuitem", { name: /^Fullscreen/ }).click();
     await page.keyboard.press("Escape");
     await expect(page.locator(".maplibregl-ctrl-fullscreen")).toHaveCount(0);

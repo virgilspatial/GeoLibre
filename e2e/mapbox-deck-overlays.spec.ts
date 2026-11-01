@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import { layerRow, menuBarButton, openMenuBarMenu, RENDERER_SWAP_TIMEOUT } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Deck.gl Layer, 3D Model and DuckDB on the Mapbox renderer. These draw through
@@ -31,7 +31,7 @@ const DUCKDB_ROWS = 200;
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await page.getByRole("button", { name: "Add data", exact: true }).click();
+  await openMenuBarMenu(page, "Add data");
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
@@ -98,7 +98,7 @@ async function waitForDeckLayer(page: Page, layerName: string) {
 }
 
 async function switchRenderer(page: Page, name: "MapLibre" | "Mapbox") {
-  await page.getByRole("button", { name: "View", exact: true }).click();
+  await openMenuBarMenu(page, "View");
   await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
   // The swap runs inside this click's own handler and is charged against the
   // action budget, which the DuckDB spec outran on CI every first attempt until
@@ -142,7 +142,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
   await bindEngine(page, "mapbox");
   // The menu waits for the engine to finish loading before accepting imports.
-  await expect(page.getByRole("button", { name: "Add data", exact: true })).toBeEnabled();
+  await expect(menuBarButton(page, "Add data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -154,7 +154,7 @@ for (const theme of ["light", "dark"] as const) {
 
     // The menu offers the deck.gl-drawn sources and still withholds the ones
     // that need a MapLibre protocol or custom render pass.
-    await page.getByRole("button", { name: "Add data", exact: true }).click();
+    await openMenuBarMenu(page, "Add data");
     for (const name of ["Deck.gl layer", "3D model (glTF)", "DuckDB layer", "Zarr layer"]) {
       await expect(page.getByRole("menuitem", { name, exact: true })).toBeEnabled();
     }

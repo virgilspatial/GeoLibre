@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { openMenuBarMenu } from "./helpers";
 
 const FIXTURE_PATH = join(__dirname, "fixtures", "smoke.geojson");
 const FIXTURE_TEXT = readFileSync(FIXTURE_PATH, "utf8");
@@ -67,7 +68,7 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
 
   // 3. Save the project and assert the group + membership are serialized.
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Project" }).click();
+  await openMenuBarMenu(page, "Project");
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();
   // Browsers without the File System Access picker (deleted above) prompt for a
   // file name before downloading; accept the pre-filled default and confirm.
@@ -94,7 +95,7 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
     //    rebuilt with the layer still nested inside it.
     await waitForMap(page);
     const chooserPromise = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: "Project" }).click();
+    await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Open from" }).click();
     await page.getByRole("menuitem", { name: "File…" }).click();
     const chooser = await chooserPromise;
