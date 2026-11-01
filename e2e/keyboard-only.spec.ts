@@ -1,5 +1,12 @@
 import { expect, test, type Locator, type Page } from "./test";
-import { bindMapLibreMap, layerRow, menuBarOverflow, readFixture, waitForMap } from "./helpers";
+import {
+  bindMapLibreMap,
+  layerRow,
+  menuBarOverflow,
+  railButton,
+  readFixture,
+  waitForMap,
+} from "./helpers";
 
 /**
  * A keyboard-only pass over the core data loop (#2858): add a GeoJSON layer
@@ -36,8 +43,8 @@ async function tabTo(page: Page, target: Locator, maxPresses = 80): Promise<void
 
 /**
  * Opens the header's menu-bar overflow, "More menus" (Swiftmap, Change 15),
- * from the keyboard: Tab to its button, then Enter. GeoLibre's old menu bar
- * sits there until branch 3b.
+ * from the keyboard: Tab to its button, then Enter. GeoLibre's old menus without
+ * a rail button sit there (Change 16).
  */
 async function openMenuBarByKeyboard(page: Page): Promise<void> {
   await tabTo(page, page.getByRole("button", { name: "More menus", exact: true }));
@@ -60,11 +67,11 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   );
   await waitForMap(page);
 
-  // Add Data → OGC API - Features, reached by Tab and menu type-ahead.
-  await openMenuBarByKeyboard(page);
-  await tabTo(page, page.getByRole("button", { name: "Add data", exact: true }));
+  // Add Data → OGC API - Features, reached by Tab and menu type-ahead. Add Data
+  // is on the rail (Swiftmap, Change 16).
+  await tabTo(page, railButton(page, "Add Data"));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("menu", { name: "Add data" })).toBeVisible();
+  await expect(page.getByRole("menu", { name: "Add Data" })).toBeVisible();
   await page.keyboard.type("OGC A");
   await expect(page.getByRole("menuitem", { name: "OGC API - Features" })).toBeFocused();
   await page.keyboard.press("Enter");

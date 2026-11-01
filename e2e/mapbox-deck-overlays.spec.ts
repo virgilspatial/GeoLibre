@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, menuBarButton, openMenuBarMenu, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import {
+  layerRow,
+  openMenuBarMenu,
+  openRailMenu,
+  railButton,
+  RENDERER_SWAP_TIMEOUT,
+} from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Deck.gl Layer, 3D Model and DuckDB on the Mapbox renderer. These draw through
@@ -31,7 +37,7 @@ const DUCKDB_ROWS = 200;
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await openMenuBarMenu(page, "Add data");
+  await openRailMenu(page, "Add Data");
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
@@ -142,7 +148,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
   await bindEngine(page, "mapbox");
   // The menu waits for the engine to finish loading before accepting imports.
-  await expect(menuBarButton(page, "Add data")).toBeEnabled();
+  await expect(railButton(page, "Add Data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -154,7 +160,7 @@ for (const theme of ["light", "dark"] as const) {
 
     // The menu offers the deck.gl-drawn sources and still withholds the ones
     // that need a MapLibre protocol or custom render pass.
-    await openMenuBarMenu(page, "Add data");
+    await openRailMenu(page, "Add Data");
     for (const name of ["Deck.gl layer", "3D model (glTF)", "DuckDB layer", "Zarr layer"]) {
       await expect(page.getByRole("menuitem", { name, exact: true })).toBeEnabled();
     }

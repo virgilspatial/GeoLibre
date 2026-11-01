@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { readFile } from "node:fs/promises";
-import { layerRow, menuBarButton, openMenuBarMenu } from "./helpers";
+import { layerRow, openMenuBarMenu, openRailMenu, railButton } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 const PMTILES = "https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.pmtiles";
@@ -12,7 +12,7 @@ test.skip(!process.env.MAPBOX_TOKEN, "Set MAPBOX_TOKEN to exercise real Mapbox d
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await openMenuBarMenu(page, "Add data");
+  await openRailMenu(page, "Add Data");
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
 
@@ -201,7 +201,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(
         page.locator(renderer === "Mapbox" ? ".mapboxgl-canvas" : ".maplibregl-canvas").first(),
       ).toBeVisible();
-      await expect(menuBarButton(page, "Add data")).toBeEnabled();
+      await expect(railButton(page, "Add Data")).toBeEnabled();
     }
     await bindEngine(page);
     await openSource(page, "LiDAR layer");

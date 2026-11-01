@@ -68,7 +68,12 @@ interface LayerPanelProps {
   mapControllerRef: RefObject<MapEngine | null>;
   refresh: LayerRefresh;
   collaborationApi?: CollaborationApi;
-  onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  /**
+   * Drag handler for the panel's own resize edge. SWIFTMAP: optional; leave it
+   * out when a container (Swiftmap's side panel, Change 16) owns the resizing,
+   * and the edge is not drawn.
+   */
+  onResizeStart?: (event: ReactPointerEvent<HTMLDivElement>) => void;
   /** Id of the layer currently in a geometry-edit session, or null. */
   geometryEditLayerId: string | null;
   /** Toggle in-place geometry editing for a layer (toggling off saves). */
@@ -536,13 +541,15 @@ export function LayerPanel({
       onKeyDown={handlePanelKeyDown}
       className="relative grid max-h-[min(24rem,42vh)] supports-[max-height:1dvh]:max-h-[min(24rem,42dvh)] w-full shrink-0 grid-rows-[auto_minmax(0,1fr)] border-b bg-card max-md:absolute max-md:inset-x-0 max-md:top-0 max-md:z-30 max-md:shadow-xl md:max-h-none md:w-[var(--layer-panel-width)] md:border-b-0 md:border-e"
     >
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t("layers.resizePanel")}
-        className="absolute -end-1 top-0 z-20 hidden h-full w-2 cursor-col-resize touch-none select-none border-e border-transparent hover:border-primary md:block"
-        onPointerDown={onResizeStart}
-      />
+      {onResizeStart ? (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t("layers.resizePanel")}
+          className="absolute -end-1 top-0 z-20 hidden h-full w-2 cursor-col-resize touch-none select-none border-e border-transparent hover:border-primary md:block"
+          onPointerDown={onResizeStart}
+        />
+      ) : null}
       <div>
         <LayerPanelHeader
           mapControllerRef={mapControllerRef}

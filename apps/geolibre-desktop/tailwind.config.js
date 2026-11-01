@@ -48,6 +48,8 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        // SWIFTMAP: the rail's grey fill (Change 16).
+        sidebar: "hsl(var(--sidebar))",
       },
     },
   },

@@ -62,8 +62,7 @@ const FULL_REGISTRY_IDS = [
   "project.open-url",
   "project.save",
   "project.save-as",
-  "project.share",
-  "project.collaborate",
+  // SWIFTMAP (Change 16): no "project.share" or "project.collaborate".
   "project.print-layout",
   "add.vector",
   "add.raster",
@@ -95,7 +94,7 @@ const FULL_REGISTRY_IDS = [
   "add.splatting",
   "add.3d-tiles",
   "add.duckdb",
-  "add.comment",
+  // SWIFTMAP (Change 16): no "add.comment" (the Comments panel is removed).
   "proc.whitebox",
   "proc.sql",
   "proc.python",
@@ -279,7 +278,6 @@ describe("buildToolbarCommands", () => {
       ["project.open-file", { key: "o", mod: true, shift: false }],
       ["project.save", { key: "s", mod: true, shift: false }],
       ["project.save-as", { key: "s", mod: true, shift: true }],
-      ["add.comment", { key: "c", shift: false }],
       ["view.previous", { key: "[" }],
       ["view.next", { key: "]" }],
       ["view.reset-north", { key: "n" }],

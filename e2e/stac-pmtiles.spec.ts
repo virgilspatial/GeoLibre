@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "./test";
-import { openMenuBarMenu, waitForMap } from "./helpers";
+import { openRailMenu, waitForMap } from "./helpers";
 
 // The PMTiles path is the one asset type the panel cannot fetch and hand over as JSON: the archive
 // stays where it is and the map reads ranges out of it, so only a run through the real panel shows
@@ -102,7 +102,7 @@ test("a PMTiles asset from a STAC item reaches the map", async ({ page }) => {
   await serveArchive(page, reads);
   await waitForMap(page);
 
-  await openMenuBarMenu(page, "Plugins");
+  await openRailMenu(page, "Tools");
   await page.getByRole("menuitem", { name: "Web services" }).click();
   await page.getByRole("menuitem", { name: "STAC catalogs" }).click();
   await page.getByPlaceholder("https://example.org/stac/").fill(API);

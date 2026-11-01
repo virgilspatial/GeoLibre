@@ -19,15 +19,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { BROWSER_PANEL_ID, useRegisterBrowserPanel } from "../../hooks/useRegisterBrowserPanel";
-import { COMMENTS_PANEL_ID, useRegisterCommentsPanel } from "../../hooks/useRegisterCommentsPanel";
+import { BROWSER_PANEL_ID } from "../../hooks/useRegisterBrowserPanel";
 import { useRegisterObiaPanel } from "../../hooks/useRegisterObiaPanel";
 import { MountWhenOpened } from "./MountWhenOpened";
 import { RightDockPortals } from "./RightDockPortals";
-import { CommentMapOverlay } from "../comments/CommentMapOverlay";
 import { useCommentTool } from "../comments/useCommentTool";
 import { AddCommentDialog } from "../comments/AddCommentDialog";
-import { openRightPanel } from "@geolibre/plugins";
 import { getIsMobileViewport } from "../../hooks/useIsMobileViewport";
 import { useProjectFileActions } from "../../hooks/useProjectFileActions";
 import { useLiveMapUrl } from "../../hooks/useLiveMapUrl";
@@ -113,6 +110,8 @@ import { FlightSimulatorPanel } from "../panels/FlightSimulatorPanel";
 import { PluginRightPanel } from "../panels/PluginRightPanel";
 import { StylePanel } from "../panels/StylePanel";
 import { SharedSidebar } from "../panels/SharedSidebar";
+import { SidePanel } from "./rail/SidePanel";
+import { useSidePanelStore } from "./rail/sidePanelStore";
 import { Layers, SlidersHorizontal } from "lucide-react";
 import { StoryMapComposeBar } from "../storymap/StoryMapComposeBar";
 import { StoryMapPanel } from "../storymap/StoryMapPanel";
@@ -262,10 +261,8 @@ export function DesktopShell({
   const [basemapExtractOpen, setBasemapExtractOpen] = useState(false);
   const projectGeneration = useAppStore((s) => s.projectGeneration);
   const layers = useAppStore((s) => s.layers);
-  // Register the Browser as a movable/dockable right panel; its body is portaled
-  // into a dedicated content host (below) that the dock slots adopt.
-  useRegisterBrowserPanel();
-  useRegisterCommentsPanel();
+  // SWIFTMAP: the Browser and Comments panels are not registered, which removes
+  // their tabs (Change 16). Their code stays.
   useRegisterObiaPanel();
   // One shared project-file-actions instance for both the toolbar and the
   // Browser panel, so their "open recent" calls coordinate their aborts (two
@@ -287,10 +284,15 @@ export function DesktopShell({
   // Style (right) or Layers (left) sidebar surface (issue #765).
   const replaceStylePanelId = useReplaceStylePanelId();
   const replaceLayersPanelId = useReplaceLayersPanelId();
+  // SWIFTMAP: the rail's side panel (Change 16). The rail itself is drawn by
+  // TopToolbar into this host, which sits first in the workspace row.
+  const sidePanel = useSidePanelStore((state) => state.active);
+  const [railHost, setRailHost] = useState<HTMLDivElement | null>(null);
   const layerRefresh = useLayerRefresh({
     layers,
     isCollapsed:
       layoutOptions.panelsHidden ||
+      (!replaceLayersPanelId && sidePanel !== "layers") ||
       layoutOptions.viewer ||
       !layoutOptions.layerPanelVisible ||
       layoutOptions.panelsCollapsed ||
@@ -597,6 +599,7 @@ export function DesktopShell({
             onOpenBasemapExtract={() => setBasemapExtractOpen(true)}
             onAddComment={commentTool.toggleTool}
             viewer={layoutOptions.viewer}
+            railHost={layoutOptions.panelsHidden ? null : railHost}
           />
         </SectionErrorBoundary>
       ) : null}
@@ -624,6 +627,9 @@ export function DesktopShell({
             hosts the Browser entry), not just the built-in Layers panel. */}
         {layoutOptions.panelsHidden ? null : (
           <>
+            {/* SWIFTMAP: the rail's host (Change 16); `contents` so the rail
+                TopToolbar draws into it is laid out as a row item. */}
+            <div ref={setRailHost} className="contents" />
             {/* The positional plugin docks flank whichever middle surface the
                 Layers side shows (the shared rail or the standalone Layers
                 panel): a panel moved to left/right-of-layers must stay
@@ -698,38 +704,50 @@ export function DesktopShell({
                   )}
                 />
               </SectionErrorBoundary>
-            ) : layoutOptions.layerPanelVisible ? (
+            ) : (
               <SectionErrorBoundary label="Layer panel" displayName={t("shell.section.layerPanel")}>
-                {layoutOptions.viewer ? (
-                  <ViewerLayerPanel
-                    mapControllerRef={mapControllerRef}
-                    mapReadyGeneration={mapReadyGeneration}
-                  />
-                ) : (
-                  <LayerPanel
-                    refresh={layerRefresh}
-                    themeMode={themeMode}
-                    mapControllerRef={mapControllerRef}
-                    collaborationApi={collaboration}
-                    onResizeStart={startLayerPanelResize}
-                    geometryEditLayerId={geometryEditLayerId}
-                    onToggleGeometryEdit={handleToggleGeometryEdit}
-                    onCancelGeometryEdit={handleCancelGeometryEdit}
-                    onMaterializeDuckDBLayer={handleMaterializeDuckDBLayer}
-                    onOpenRasterStylePanel={() =>
-                      openRasterLayerPanel(createAppAPI(mapControllerRef))
-                    }
-                    onOpenStylePanel={layoutOptions.stylePanelVisible ? openStylePanel : undefined}
-                    onOpenRasterSubset={setRasterSubsetLayer}
-                    autoCollapse={
-                      storymapPresenting ||
-                      layoutOptions.panelsCollapsed ||
-                      autoCollapsedPanel === "layers"
-                    }
-                  />
-                )}
+                <SidePanel
+                  startClosed={layoutOptions.panelsCollapsed}
+                  autoClose={storymapPresenting || autoCollapsedPanel === "layers"}
+                  layers={
+                    !layoutOptions.layerPanelVisible ? null : layoutOptions.viewer ? (
+                      sidePanel === "layers" ? (
+                        <ViewerLayerPanel
+                          mapControllerRef={mapControllerRef}
+                          mapReadyGeneration={mapReadyGeneration}
+                        />
+                      ) : null
+                    ) : (
+                      <LayerPanel
+                        refresh={layerRefresh}
+                        themeMode={themeMode}
+                        mapControllerRef={mapControllerRef}
+                        collaborationApi={collaboration}
+                        geometryEditLayerId={geometryEditLayerId}
+                        onToggleGeometryEdit={handleToggleGeometryEdit}
+                        onCancelGeometryEdit={handleCancelGeometryEdit}
+                        onMaterializeDuckDBLayer={handleMaterializeDuckDBLayer}
+                        onOpenRasterStylePanel={() =>
+                          openRasterLayerPanel(createAppAPI(mapControllerRef))
+                        }
+                        onOpenStylePanel={
+                          layoutOptions.stylePanelVisible ? openStylePanel : undefined
+                        }
+                        onOpenRasterSubset={setRasterSubsetLayer}
+                        // Shown and hidden by the rail; its own collapse button
+                        // closes the side panel.
+                        collapsed={sidePanel !== "layers"}
+                        onCollapsedChange={(collapsed) => {
+                          if (collapsed) useSidePanelStore.getState().close();
+                          else useSidePanelStore.getState().open("layers");
+                        }}
+                        hideOwnRail
+                      />
+                    )
+                  }
+                />
               </SectionErrorBoundary>
-            ) : null}
+            )}
             {!layoutOptions.viewer ? (
               <SectionErrorBoundary
                 label="Plugin panel (right of Layers)"
@@ -852,15 +870,8 @@ export function DesktopShell({
                     mapControllerRef={mapControllerRef}
                     mapReadyGeneration={mapReadyGeneration}
                   />
-                  <CommentMapOverlay
-                    mapControllerRef={mapControllerRef}
-                    mapReadyGeneration={mapReadyGeneration}
-                    onSelectComment={(commentId) => {
-                      setSelectedCommentId(commentId);
-                      openRightPanel(COMMENTS_PANEL_ID);
-                    }}
-                    showResolved={showResolvedComments}
-                  />
+                  {/* SWIFTMAP: no comment pins; the Comments panel they open is
+                      removed (Change 16). */}
                   {/* Isolate the collaboration badge in its own boundary: it renders
                   over the map, so a fault here must never take down the map. */}
                   <SilentErrorBoundary label="Collaboration status">

@@ -6,6 +6,7 @@ import {
   layerRow,
   menuBarOverflow,
   openMenuBar,
+  railButton,
   readFixture,
   waitForMap,
   waitForMapLoaded,
@@ -86,7 +87,8 @@ test("Identify owns the MapLibre cursor across the whole interactive surface", a
 
 // SWIFTMAP (Change 15): GeoLibre's menu bar moved into the header's
 // temporary overflow ("More menus"). The header itself must stay one row on a
-// small screen, and the overflow still reaches every menu by scrolling.
+// small screen, and the overflow still reaches every menu by scrolling. Change 16
+// moved Add data and Plugins to the rail ("Add Data", "Tools"), a row on a phone.
 test("keeps every toolbar menu on one scrollable row on small screens", async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 720 });
   await waitForMap(page);
@@ -103,16 +105,7 @@ test("keeps every toolbar menu on one scrollable row on small screens", async ({
   const overflow = menuBarOverflow(page);
   expect(await overflow.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
 
-  for (const menu of [
-    "Project",
-    "Edit",
-    "View",
-    "Add data",
-    "Processing",
-    "Controls",
-    "Plugins",
-    "Help",
-  ]) {
+  for (const menu of ["Project", "Edit", "View", "Processing", "Controls", "Help"]) {
     const trigger = overflow.getByRole("button", { name: menu, exact: true });
     await expect(trigger).toBeVisible();
     await trigger.scrollIntoViewIfNeeded();
@@ -123,6 +116,12 @@ test("keeps every toolbar menu on one scrollable row on small screens", async ({
   const renderingEngine = page.getByRole("menuitem", { name: "Rendering engine" });
   await expect(renderingEngine).toBeVisible();
   await expect(renderingEngine).toBeInViewport();
+  await page.keyboard.press("Escape");
+
+  // Every rail item is on screen too.
+  for (const item of ["Layers", "Legend", "Add Data", "Analysis", "Tools", "Settings"]) {
+    await expect(railButton(page, item)).toBeInViewport();
+  }
 });
 
 // The accessibility gate now lives in its own multi-screen suite (a11y.spec.ts,

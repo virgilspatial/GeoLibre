@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { COPC_URL, openMenuBarMenu, waitForMap } from "./helpers";
+import { COPC_URL, openMenuBarMenu, openRailMenu, waitForMap } from "./helpers";
 
 /**
  * maplibre-gl-lidar draws point clouds into its own overlaid deck.gl canvas,
@@ -43,7 +43,7 @@ test.describe("measured geometry over a LiDAR point cloud", () => {
   test("redraws the measure line inside the point cloud's own canvas", async ({ page }) => {
     await waitForMap(page);
 
-    await openMenuBarMenu(page, "Add data");
+    await openRailMenu(page, "Add Data");
     await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
     await page
       .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })

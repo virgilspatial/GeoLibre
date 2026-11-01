@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
-import { menuBarButton, openMenuBarMenu } from "./helpers";
+import { openMenuBarMenu, railButton } from "./helpers";
 
 // Flight Simulator on the Mapbox renderer (issue #2420). MapLibre's
 // `calculateCameraOptionsFromCameraLngLatAltRotation` does not exist on a
@@ -162,7 +162,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
   await page.goto(`/?project=${baseURL}${PROJECT_PATH}${theme === "dark" ? "&theme=dark" : ""}`);
   await expect(page.locator(".mapboxgl-canvas")).toBeVisible();
   await bindEngine(page);
-  await expect(menuBarButton(page, "Add data")).toBeEnabled();
+  await expect(railButton(page, "Add Data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {

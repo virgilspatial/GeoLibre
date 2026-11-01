@@ -52,12 +52,8 @@ import {
   type UiProfileSettings,
 } from "../../hooks/useDesktopSettings";
 import { useLanguage } from "../../hooks/useLanguage";
-import { BROWSER_PANEL_ID } from "../../hooks/useRegisterBrowserPanel";
-import { COMMENTS_PANEL_ID } from "../../hooks/useRegisterCommentsPanel";
-import { useRightPanelState } from "../../hooks/useRightPanels";
 import type { ThemeMode } from "../../hooks/useThemeMode";
 import { isTauri } from "../../lib/is-tauri";
-import { applyRightPanelVisibility } from "../../lib/persisted-right-panel";
 import { THEME_SCHEMES, type ThemeScheme } from "../../lib/theme-schemes";
 import { IS_MAS_BUILD } from "../../lib/build-flags";
 import { IS_STORE_BUILD } from "../../lib/updates";
@@ -100,6 +96,7 @@ import {
   type SettingsDraftContextValue,
 } from "./settings/SettingsDraftContext";
 import { useLanguagePack } from "./settings/useLanguagePack";
+import { menuContentPlacement, type MenuTriggerOverride } from "./toolbar/constants";
 import {
   commitLocatorPortalApprovals,
   discardStagedLocatorApprovals,
@@ -149,7 +146,7 @@ export function openSettingsSection(
 /** A plugin offered as a visibility toggle in the Interface section. */
 export type { ProfilePlugin };
 
-interface SettingsDialogProps {
+interface SettingsDialogProps extends MenuTriggerOverride {
   buttonClassName?: string;
   buttonSize?: "default" | "sm" | "lg" | "icon" | null;
   iconClassName?: string;
@@ -218,6 +215,8 @@ export function SettingsDialog({
   profilePlugins,
   themeMode,
   onToggleThemeMode,
+  trigger,
+  triggerAlign,
 }: SettingsDialogProps) {
   const { t } = useTranslation();
   const { language, options: languageOptions, setLanguage } = useLanguage();
@@ -232,17 +231,6 @@ export function SettingsDialog({
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState<SettingsSection>("map");
   const languagePack = useLanguagePack(open, language);
-  // Browser and Comments are dockable right panels: the registry owns whether
-  // they are on screen and `registerPersistedRightPanel` mirrors that into
-  // `layout.browserPanelVisible` / `layout.commentsPanelVisible`, so the toggle
-  // no longer resets on every launch (#1935). Because the mirror is the single
-  // writer, moving the panel is all these controls have to do: the setting
-  // follows, so the two can never disagree about what the checkbox should say.
-  const rightPanelState = useRightPanelState();
-  const browserPanelOpen = rightPanelState.visibleIds.includes(BROWSER_PANEL_ID);
-  const commentsPanelOpen = rightPanelState.visibleIds.includes(COMMENTS_PANEL_ID);
-  const toggleBrowserPanel = (show: boolean) => applyRightPanelVisibility(BROWSER_PANEL_ID, show);
-  const toggleCommentsPanel = (show: boolean) => applyRightPanelVisibility(COMMENTS_PANEL_ID, show);
   // A field a deep-link asked us to focus once its section renders; cleared
   // after the focus lands so a later open without a focus request stays put.
   const [pendingFocus, setPendingFocus] = useState<SettingsFocusTarget | null>(null);
@@ -571,8 +559,8 @@ export function SettingsDialog({
     // the registry owns what is on screen, so move it to match what was just
     // saved (a no-op for a panel already there, so an untouched Save cannot
     // collapse one the user had expanded).
-    applyRightPanelVisibility(BROWSER_PANEL_ID, draftDesktopSettings.layout.browserPanelVisible);
-    applyRightPanelVisibility(COMMENTS_PANEL_ID, draftDesktopSettings.layout.commentsPanelVisible);
+    // SWIFTMAP: Browser and Comments are not registered (Change 16), so there is
+    // nothing to move for them.
     setOpen(false);
   };
 
@@ -611,17 +599,19 @@ export function SettingsDialog({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            className={buttonClassName}
-            variant="ghost"
-            size={buttonSize}
-            aria-label={t("settings.title")}
-          >
-            <Settings className={iconClassName} />
-            {showLabels ? <span className="hidden sm:inline">{t("settings.title")}</span> : null}
-          </Button>
+          {trigger ?? (
+            <Button
+              className={buttonClassName}
+              variant="ghost"
+              size={buttonSize}
+              aria-label={t("settings.title")}
+            >
+              <Settings className={iconClassName} />
+              {showLabels ? <span className="hidden sm:inline">{t("settings.title")}</span> : null}
+            </Button>
+          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent {...menuContentPlacement({ trigger, triggerAlign })} className="w-56">
           <DropdownMenuLabel>{t("settings.title")}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuSub>
@@ -712,20 +702,8 @@ export function SettingsDialog({
               >
                 {t("settings.layout.showStylePanel")}
               </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={browserPanelOpen}
-                onCheckedChange={(checked: boolean) => toggleBrowserPanel(checked === true)}
-                onSelect={(event: Event) => event.preventDefault()}
-              >
-                {t("settings.layout.showBrowserPanel")}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={commentsPanelOpen}
-                onCheckedChange={(checked: boolean) => toggleCommentsPanel(checked === true)}
-                onSelect={(event: Event) => event.preventDefault()}
-              >
-                {t("settings.layout.showCommentsPanel")}
-              </DropdownMenuCheckboxItem>
+              {/* SWIFTMAP: no Browser or Comments panel toggles; Swiftmap
+                  removed both panels (Change 16). */}
               <DropdownMenuCheckboxItem
                 checked={desktopSettings.layout.bottomPanelsUnderMap}
                 onCheckedChange={(checked: boolean) =>

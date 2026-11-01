@@ -5,6 +5,7 @@ import {
   dropGeoJson,
   layerRow,
   openMenuBarMenu,
+  openRailMenu,
   readFixture,
   waitForMap,
 } from "./helpers";
@@ -33,7 +34,9 @@ const BROKEN_TILE_HOST = "https://broken-tiles.a11y.test";
 
 /** Opens a toolbar menu and picks one of its items. */
 async function openMenuItem(page: Page, menu: string, item: string): Promise<void> {
-  await openMenuBarMenu(page, menu);
+  // SWIFTMAP (Change 16): Add data and Settings are rail menus now.
+  if (menu === "Add Data" || menu === "Settings") await openRailMenu(page, menu);
+  else await openMenuBarMenu(page, menu);
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
 
@@ -56,7 +59,7 @@ async function waitForStyleLoaded(page: Page): Promise<void> {
 
 /** Adds an XYZ raster layer through its Add Data dialog. */
 async function addXyzLayer(page: Page, name: string, template: string): Promise<void> {
-  await openMenuItem(page, "Add data", "XYZ layer");
+  await openMenuItem(page, "Add Data", "XYZ layer");
   const dialog = page.getByRole("dialog", { name: "Add XYZ layer" });
   await dialog.getByRole("textbox", { name: "Layer name" }).fill(name);
   await dialog.getByRole("textbox", { name: "XYZ template or TileJSON URL" }).fill(template);
@@ -80,13 +83,13 @@ test("Add Data dialogs", async ({ page }, testInfo) => {
   await waitForStyleLoaded(page);
 
   // The vector and raster entries open map-control panels, not dialogs.
-  await openMenuItem(page, "Add data", "Vector layer");
+  await openMenuItem(page, "Add Data", "Vector layer");
   await expect(page.locator(".geolibre-vector-panel")).toBeVisible();
   await expectAccessible(page, "add-vector-panel", testInfo);
   await page.locator(".geolibre-vector-panel").getByRole("button", { name: "Close panel" }).click();
   await expect(page.locator(".geolibre-vector-panel")).toBeHidden();
 
-  await openMenuItem(page, "Add data", "Raster layer");
+  await openMenuItem(page, "Add Data", "Raster layer");
   await expect(page.locator(".geolibre-raster-panel")).toBeVisible();
   await expectAccessible(page, "add-raster-panel", testInfo);
 
@@ -95,7 +98,7 @@ test("Add Data dialogs", async ({ page }, testInfo) => {
     ["WMS layer", "Add WMS layer"],
     ["OGC API - Features", "Add OGC API - Features layer"],
   ] as const) {
-    await openMenuItem(page, "Add data", item);
+    await openMenuItem(page, "Add Data", item);
     await expect(page.getByRole("dialog", { name: title })).toBeVisible();
     await expectAccessible(page, `add-data-${item.toLowerCase().replace(/\W+/g, "-")}`, testInfo);
     await closeDialog(page, title);

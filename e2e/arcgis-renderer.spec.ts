@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { layerRow, menuBarButton, openMenuBarMenu, readFixture } from "./helpers";
+import { layerRow, menuBarButton, openMenuBarMenu, openRailMenu, readFixture } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Opt-in: this drives the ArcGIS Maps SDK for JavaScript from Esri's real CDN
@@ -93,7 +93,7 @@ test("ArcGIS renderer draws the project basemap, a dropped GeoJSON layer and ide
   await page.getByRole("button", { name: "ArcGIS Streets", exact: true }).click();
 
   // Sources without an SDK adapter are greyed out while ArcGIS is primary.
-  await openMenuBarMenu(page, "Add data");
+  await openRailMenu(page, "Add Data");
   for (const name of ["Gaussian splatting", "Cesium Ion asset", "CZML dynamic 3D scene"]) {
     await expect(page.getByRole("menuitem", { name, exact: true })).toBeDisabled();
   }

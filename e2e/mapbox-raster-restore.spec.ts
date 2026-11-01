@@ -1,6 +1,6 @@
 import { expect, test } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
-import { openMenuBarMenu } from "./helpers";
+import { openMenuBarMenu, openRailMenu } from "./helpers";
 
 const COG_URL = "https://data.source.coop/giswqs/opengeos/dem.tif";
 const LAYER_NAME = "dem.tif";
@@ -36,7 +36,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.getByRole("button", { name: "Switch to dark mode" }).click();
     }
 
-    await openMenuBarMenu(page, "Add data");
+    await openRailMenu(page, "Add Data");
     await page.getByRole("menuitem", { name: "Raster layer", exact: true }).click();
     const panel = page.locator(".geolibre-raster-panel");
     await panel.getByRole("textbox", { name: "raster-url", exact: true }).fill(COG_URL);

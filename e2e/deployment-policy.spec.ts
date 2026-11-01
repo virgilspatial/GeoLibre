@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { menuBarButton, waitForMap } from "./helpers";
+import { menuBarButton, railButton, waitForMap } from "./helpers";
 
 /** Serves `body` as this test's deployment.json. */
 async function serveDeployment(page: Page, body: unknown): Promise<void> {
@@ -7,8 +7,10 @@ async function serveDeployment(page: Page, body: unknown): Promise<void> {
 }
 
 // SWIFTMAP (Change 15): the menu bar sits in the header's overflow, so these
-// check that a menu exists, whether or not the overflow is open.
-const toolbarButton = (page: Page, name: string) => menuBarButton(page, name);
+// check that a menu exists, whether or not the overflow is open. Change 16 moved
+// Add data and Plugins to the rail, as "Add Data" and "Tools".
+const toolbarButton = (page: Page, name: string) =>
+  name === "Add Data" || name === "Tools" ? railButton(page, name) : menuBarButton(page, name);
 
 test("capabilities restrict the toolbar before first paint", async ({ page }) => {
   // Record any frame in which the gated menu ever existed: a full-grant first
@@ -29,9 +31,9 @@ test("capabilities restrict the toolbar before first paint", async ({ page }) =>
   await serveDeployment(page, { version: 1, capabilities: ["data:add"] });
   await waitForMap(page);
 
-  await expect(toolbarButton(page, "Add data")).toBeAttached();
+  await expect(toolbarButton(page, "Add Data")).toBeAttached();
   await expect(toolbarButton(page, "Processing")).toHaveCount(0);
-  await expect(toolbarButton(page, "Plugins")).toHaveCount(0);
+  await expect(toolbarButton(page, "Tools")).toHaveCount(0);
   expect(
     await page.evaluate(() => (window as { __sawProcessing?: boolean }).__sawProcessing),
   ).not.toBe(true);
@@ -41,7 +43,7 @@ test("an empty capabilities list grants nothing", async ({ page }) => {
   await serveDeployment(page, { version: 1, capabilities: [] });
   await waitForMap(page);
 
-  for (const name of ["Add data", "Processing", "Plugins"]) {
+  for (const name of ["Add Data", "Processing", "Tools"]) {
     await expect(toolbarButton(page, name)).toHaveCount(0);
   }
 });
@@ -56,7 +58,7 @@ test("a missing deployment.json leaves the app unchanged and quiet", async ({ pa
   await page.route("**/deployment.json", (route) => route.fulfill({ status: 404, body: "" }));
   await waitForMap(page);
 
-  for (const name of ["Add data", "Processing", "Plugins"]) {
+  for (const name of ["Add Data", "Processing", "Tools"]) {
     await expect(toolbarButton(page, name)).toBeAttached();
   }
   expect(errors).toEqual([]);

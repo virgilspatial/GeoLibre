@@ -24,10 +24,15 @@ import {
   DATA_SOURCE_SECTION_ORDER,
   isDataSourceVisible,
 } from "../../../lib/ui-profile";
-import type { AddLayerHandlers, ToolbarChrome } from "./constants";
+import {
+  menuContentPlacement,
+  type AddLayerHandlers,
+  type MenuTriggerOverride,
+  type ToolbarChrome,
+} from "./constants";
 import { PluginMenuContributions } from "./PluginMenuContributions";
 
-interface AddDataMenuProps {
+interface AddDataMenuProps extends MenuTriggerOverride {
   chrome: ToolbarChrome;
   addLayer: AddLayerHandlers;
   osmPbfBusy: boolean;
@@ -63,6 +68,8 @@ export function AddDataMenu({
   onAddGltfModel,
   onOpenOsmPbfDialog,
   onOpenTilePackageDialog,
+  trigger,
+  triggerAlign,
 }: AddDataMenuProps) {
   const { t } = useTranslation();
   const uiProfile = useDesktopSettingsStore((state) => state.desktopSettings.uiProfile);
@@ -165,24 +172,25 @@ export function AddDataMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className={chrome.buttonClass}
-          variant="ghost"
-          size={chrome.buttonSize}
-          aria-label={t("toolbar.menu.addData")}
-          disabled={disabled}
-        >
-          <Database className={chrome.iconClassName} />
-          {chrome.renderLabel(t("toolbar.menu.addData"))}
-        </Button>
+      <DropdownMenuTrigger asChild disabled={disabled}>
+        {trigger ?? (
+          <Button
+            className={chrome.buttonClass}
+            variant="ghost"
+            size={chrome.buttonSize}
+            aria-label={t("toolbar.menu.addData")}
+          >
+            <Database className={chrome.iconClassName} />
+            {chrome.renderLabel(t("toolbar.menu.addData"))}
+          </Button>
+        )}
       </DropdownMenuTrigger>
       {/* No width class: the primitive's min-w-[8rem] floor plus shrink-to-fit
           sizes the menu to its longest label, the way Processing/Controls/Help
           already do. A fixed w-64 pinned it to 256px whatever it held, which
           left ~100px of dead space to the right of every entry, and would clip
           a locale whose labels run past 256px instead of growing. */}
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent {...menuContentPlacement({ trigger, triggerAlign })}>
         <DropdownMenuLabel>{t("toolbar.menu.addData")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {sections.map((group, index) => (

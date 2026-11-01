@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { strToU8, zipSync } from "fflate";
 import { createEmptyProject, DEFAULT_LAYER_STYLE } from "@geolibre/core";
-import { menuBarButton, openMenuBarMenu } from "./helpers";
+import { openMenuBarMenu, openRailMenu, railButton } from "./helpers";
 
 // The fixture exposes activation in the DOM so end-to-end cases can observe
 // real PluginManager lifecycle calls.
@@ -52,9 +52,11 @@ function buildPluginZip(): Buffer {
  */
 async function openPluginsMenu(
   page: Page,
-  { label = "Plugins", installedLabel = "Installed", installed = false } = {},
+  { installedLabel = "Installed", installed = false } = {},
 ) {
-  await openMenuBarMenu(page, label);
+  // SWIFTMAP (Change 16): GeoLibre's Plugins menu opens from the rail's Tools
+  // button. Rail labels are English in every locale until they are translated.
+  await openRailMenu(page, "Tools");
   await expect(page.getByRole("menu").first()).toBeVisible();
   const submenu = page.getByRole("menuitem", { name: new RegExp(`^${installedLabel}( ✓)?$`) });
   if (installed) await expect(submenu).toBeVisible();
@@ -67,7 +69,8 @@ async function openManagePluginsSettings(page: Page, locale: "en" | "zh" = "en")
     locale === "zh"
       ? { settings: "设置", managePlugins: "管理插件" }
       : { settings: "Settings", managePlugins: "Manage plugins" };
-  await openMenuBarMenu(page, labels.settings);
+  // SWIFTMAP (Change 16): the Settings menu opens from the rail (English label).
+  await openRailMenu(page, "Settings");
   await page.getByRole("menuitem", { name: labels.managePlugins }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(labels.managePlugins)).toBeVisible();
@@ -80,9 +83,9 @@ test("installs a plugin from an uploaded zip, persists it across reload, and uni
 }) => {
   await page.goto("/");
   await expect(page.getByTestId("map-canvas")).toBeVisible();
-  // The Settings dropdown trigger is part of the toolbar (in the header's
-  // overflow since Change 15); wait for it before driving the menu.
-  await expect(menuBarButton(page, "Settings")).toBeAttached();
+  // The Settings dropdown trigger is part of the toolbar (on the rail since
+  // Change 16); wait for it before driving the menu.
+  await expect(railButton(page, "Settings")).toBeAttached();
 
   // 1. Install from file: the web path reads the uploaded bytes, unpacks and
   //    registers the plugin client-side, and persists it in IndexedDB.
@@ -207,7 +210,7 @@ test("blocked archive installs report denial without registering or persisting t
   await expect(dialog.getByRole("button", { name: `卸载 ${PLUGIN_NAME}` })).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId("map-canvas")).toBeVisible();
-  await openPluginsMenu(page, { label: "插件", installedLabel: "已安装" });
+  await openPluginsMenu(page, { installedLabel: "已安装" });
   await expect(page.getByRole("menu").getByText(PLUGIN_NAME)).toHaveCount(0);
 });
 
@@ -377,7 +380,7 @@ for (const registryResult of ["delisted", "unavailable", "blocked-id"] as const)
     approved = false;
     // An unrelated settings change must reclassify installed URLs before
     // reusing the plugin scan cache; German keeps the Plugins menu label.
-    await openMenuBarMenu(page, "Settings");
+    await openRailMenu(page, "Settings");
     await page.getByRole("menuitem", { name: "Language", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Deutsch (German)", exact: true }).click();
     await expect(page.locator("#registry-plugin-active")).toHaveCount(0);

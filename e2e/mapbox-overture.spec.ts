@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, menuBarButton, openMenuBarMenu, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import {
+  layerRow,
+  openMenuBarMenu,
+  openRailMenu,
+  railButton,
+  RENDERER_SWAP_TIMEOUT,
+} from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Overture Maps on the Mapbox renderer (issue #2420). The upstream control used
@@ -161,7 +167,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
       console.warn(`map error: ${event.error?.message}`),
     );
   });
-  await expect(menuBarButton(page, "Add data")).toBeEnabled();
+  await expect(railButton(page, "Add Data")).toBeEnabled();
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -189,7 +195,7 @@ for (const theme of ["light", "dark"] as const) {
 
       // Plugins → Overture Maps docks the control's panel in the right side
       // panel (it has no Activate/Position submenu since #2814).
-      await openMenuBarMenu(page, "Plugins");
+      await openRailMenu(page, "Tools");
       const item = page.getByRole("menuitem", { name: "Overture Maps", exact: true });
       await expect(item).toBeEnabled();
       await item.click();
