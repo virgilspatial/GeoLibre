@@ -13,9 +13,9 @@ import ReactDOM from "react-dom/client";
    an asset reference and no font file is emitted into dist/. The result builds
    clean and 404s at runtime, silently falling back to system fonts. Importing
    from JS routes the CSS through Vite's asset pipeline instead. */
-import "@fontsource-variable/ibm-plex-sans/wght.css";
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/700.css";
+/* SWIFTMAP: Geist and Geist Mono replace IBM Plex for the whole UI. */
+import "@fontsource-variable/geist/wght.css";
+import "@fontsource-variable/geist-mono/wght.css";
 import "@geolibre/plugins/maplibre-vantor/style.css";
 import "@geoman-io/maplibre-geoman-free/dist/maplibre-geoman.css";
 import "@maplibre/maplibre-gl-directions/dist/style.css";
