@@ -126,6 +126,37 @@ fail again with "Unsupported data format/bitsPerSample";
   `tests/upstream-contracts.test.ts` reads the default offset out of the
   published bundle and fails if it moves; still play a story on a non-MapLibre
   renderer if the pin's anchor changed.
+- **Map CRS** (`packages/map/src/map-crs.ts`, issue #1128) uses
+  `addProjection`, `importScriptInWorkers` and the workers'
+  `setProjectionHandler`, all `@experimental` upstream, so a minor release may
+  change them. The handler script is proj4's UMD build (`proj4/dist/proj4.js`,
+  read with `?raw`) followed by one `setProjectionHandler` call: MapLibre
+  fetches it from a `blob:` URL and evaluates it with `eval`, which both CSPs
+  allow (`connect-src blob:`, `'unsafe-eval'`). If upstream starts loading
+  worker scripts as modules or by `importScripts`, or proj4 drops its UMD build,
+  GeoJSON on a custom CRS map silently draws in the wrong place (MapLibre only
+  warns). After a bump, run `tests/map-crs.test.ts` and pick a preset under
+  **Settings → Map** with a GeoJSON layer on the map.
+
+### `mapbox-gl`
+
+Mapbox GL JS v2+ is proprietary, so it must never enter a build: the app loads
+it from Mapbox's CDN (`packages/map/src/mapbox-gl-loader.ts`) and the npm package
+is there only for types. A bump must update `MAPBOX_GL_VERSION` and both
+`*_INTEGRITY` hashes in that file; `tests/mapbox-gl-loader.test.ts` computes the
+expected values from the installed package and fails until they match. A
+runtime import of `mapbox-gl`, direct or transitive, fails the build
+(`thirdPartyLicensePlugin` in `apps/geolibre-desktop/vite.config.ts`). The
+script runs under `script-src`, which lists the CDN path; the stylesheet is
+fetched and inlined because `style-src` lists no external host. Playwright's
+`vite preview` sends no CSP, so the e2e suite cannot catch a policy mismatch. A
+`GEOLIBRE_NO_EXTERNAL_CDN=1` build refuses to load the renderer.
+
+MapLibre and Mapbox both use a `_classRegistryKey` property, and MapLibre sets it
+permanently on the global `Set` and `Error`, which stops every Mapbox tile from
+loading. `apps/geolibre-desktop/vite-plugins/isolate-maplibre-registry.ts` renames
+MapLibre's copy at build time. A CI run can't see this failure without a real
+Mapbox token, so after a bump of either package, load a Mapbox style with one.
 
 ### `@deck.gl/mapbox` and `@deck.gl/maplibre`
 
@@ -202,6 +233,14 @@ black — it declines the stack.
   any of these packages, activate every migrated Web Services plugin and verify that
   its catalog renders, resizing the GeoLibre dock preserves the content, and
   no vendor panel remains under the map container.
+- **NASA Earthdata panel Add date fallback.** `nasa-earthdata-date-fallback.ts`
+  replaces the control instance's `addLayer` (`addAtAvailableDefaultDate`), so a
+  panel Add of a time-enabled layer probes the zoom-0 tile at its default date
+  and adds the newest earlier date with imagery. It depends on the panel Add
+  calling `this.addLayer(layer.id)` through the instance, and on `addLayer`
+  reading `options.date` and `options.key`. `tests/upstream-contracts.test.ts`
+  checks both. The probe URL shape (`{z}/{y}/{x}` from `buildTileUrl`) is covered
+  by `tests/nasa-earthdata-date-fallback.test.ts`.
 
 ### `maplibre-gl-components` (`packages/plugins/package.json`)
 
@@ -568,6 +607,28 @@ two stretch inverses above) and run `tests/raster-symbology.test.ts`.
 curves out of the published chunk and fails if the order, a curve or the
 strength changes.
 
+### `maplibre-gl-raster` — pixel inspector click guard
+
+`guardRasterInspectorClicks` (`packages/plugins/src/plugins/maplibre-raster.ts`)
+wraps the private `RasterControl._inspector._onClick` once after mount, so the
+pixel inspector ignores a click that a drawing map tool (Measure, the Geo
+Editor) has claimed through `isMapClickClaimed` (#3237). It works only because
+the inspector's `enable()` and `disable()` both read `this._onClick` at call
+time; if upstream binds a copy instead, the guard is skipped (the inspector
+opens on measure clicks again) or, worse, `disable()` stops unbinding it.
+`tests/upstream-contracts.test.ts` reads the published chunk and fails if the
+field, the arrow property or either binding moves. Better still, upstream a
+click-filter option and delete the wrap.
+
+### `maplibre-gl-raster` — rasters stay out of the depth buffer
+
+The package draws deck.gl rasters with `depthWriteEnabled: false`. Each grid
+gets different mesh triangles, so with depth writes on, a raster under another
+one on a different grid punches stable holes in it (#3285). Nothing errors, so
+`tests/upstream-contracts.test.ts` checks the published bundle for the flag. If
+that test fails, confirm the new version still keeps rasters from fighting
+before changing it.
+
 ### `maplibre-gl-raster` — checked by the compiler
 
 `GeoLibreCogRenderEngine` (`packages/plugins/src/types.ts`) mirrors the
@@ -622,6 +683,14 @@ change here. On a bump of any of the three packages, run
 PROJ-computed point. Every entry in the table was checked against PROJ's best
 transformation for that code (within 2 m; 15 m for the NAD27 mean). Re-check
 any entry you add the same way.
+
+One definition is replaced whole, not only shifted: EPSG:31300 (Belge Lambert
+72) uses Lambert Conic Conformal (2SP Belgium), which proj4 lacks and the tables
+give as a plain LCC 2SP, about 745 m off. `REPLACED` in `datum-shift.ts` gives it
+the parameters of EPSG:31370, the same grid as a plain LCC 2SP. PROJ has the same
+gap (it uses the plain LCC 2SP formulas for that method), so check it against the
+worked example in EPSG Guidance Note 7-2, not against PROJ, as the test does. If
+a bump of `geotiff-geokeys-to-proj4` fixes the code, drop the entry.
 
 ### `tauri-plugin-persisted-scope` — private on-disk format
 
@@ -872,6 +941,17 @@ service URLs from arbitrary hosts (XYZ, WMS/WMTS, ArcGIS, STAC, PMTiles), and
 some of those hosts are plain-HTTP servers on a LAN, so no fixed host list can
 cover them. `img-src` keeps `https:` for the same reason.
 
+**`style-src` is exempt from Tauri's asset CSP rewrite.** At build time Tauri
+hashes every inline `<style>` in `index.html` into `style-src` and adds a
+nonce. A hash or nonce makes the browser ignore `'unsafe-inline'`, so the
+`<style>` elements that external plugins and several libraries inject at
+runtime are blocked, and only in the packaged app (#3210, after the startup
+placeholder style landed in `index.html`). `"dangerousDisableAssetCspModification":
+["style-src"]` keeps the policy as written. That deliberately lets
+`'unsafe-inline'` cover every inline style again, which is how 3.4.0 and earlier
+behaved; `script-src` still gets Tauri's nonces and hashes.
+`tests/tauri-csp.test.ts` fails if the exemption is dropped or widened.
+
 ### `httpx` (`backend/geolibre_server_api/pyproject.toml`) — private transport pool
 
 The projects server's protection against identity-provider requests to internal
@@ -920,6 +1000,25 @@ follow the lockfile clean-up in
 [Dependency updates and the audit allowlist](#dependency-updates-and-the-audit-allowlist).
 Spark's `dist` embeds three inside its sort worker's source string. That copy runs in
 a Web Worker and never registers as a second main-thread instance.
+
+### One `a5-js`, on the A5 v1 index
+
+A5 v1 (`a5-js` 1.0) renumbered every cell: the cells are the same, but their
+IDs are not compatible with v0 (`a5-js` <= 0.10). GeoLibre speaks v1 everywhere
+(the A5 grid plugin and the DGGS tools in `@geolibre/processing`). Two
+dependencies still lag:
+
+- `@deck.gl/geo-layers` 9.4 declares `a5-js: ^0.10.0` for `A5Layer`, which
+  plugins reach through the plugin API. The root `package.json` `overrides`
+  forces it onto the app's `a5-js` (A5Layer only calls `cellToBoundary` and
+  `hexToU64`, unchanged in v1). Drop the override once a deck.gl release depends
+  on `a5-js` 1.x, and check `npm ls a5-js` lists one version.
+- The DuckDB `a5` community extension built for the bundled DuckDB-WASM (DuckDB
+  v1.5.1) is still on the v0 index; only DuckDB >= 1.5.6 gets the v1 build.
+  `packages/processing/src/a5-tools.ts` passes every ID the extension returns
+  through `migrate()`, and DGGS Compact runs A5 client-side on `a5-js`. When a
+  `@duckdb/duckdb-wasm` bump moves to DuckDB >= 1.5.6, remove the migration
+  (DGGS Generator/Binning would otherwise migrate v1 IDs a second time).
 
 ## Adding a blend mode
 
@@ -1323,6 +1422,13 @@ while it was present: Vite copies `public/` into the output and only clears that
 output when a build actually runs. Rebuild, or delete the stale directory.
 
 ## Generated files and cross-file sync
+
+- **Native PostGIS tile concurrency.** `MAX_TILES_IN_FLIGHT` in
+  `apps/geolibre-desktop/src/lib/postgis-tiles-url.ts` caps tile requests per
+  connection at the Rust pool size, `POOL_SIZE` in
+  `src-tauri/src/postgis_tiles.rs`, so surplus tiles wait where MapLibre can
+  still cancel them. Change both together; `tests/postgis-tiles-url.test.ts`
+  reads the Rust constant and fails on drift.
 
 - **The open data gallery.** [`gallery.md`](gallery.md) and the "Open data
   showcase" teaser on [`demos.md`](demos.md) (between the

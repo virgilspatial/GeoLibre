@@ -12,6 +12,7 @@ import {
   setGraticuleLabels,
   setH3Labels,
   setHuggingFaceLabels,
+  setIndiaGisLabels,
   setMapillaryLabels,
   setOlcLabels,
   setOpenAerialMapLabels,
@@ -60,6 +61,8 @@ export function usePluginLabelSync(): void {
       noAddress: t("geocode.reverseNoAddress"),
       copyAddress: t("geocode.reverseCopyAddress"),
       failed: t("geocode.reverseFailed"),
+      unsupported: t("geocode.reverseUnsupported"),
+      authRequired: t("geocode.authRequired"),
       closePopup: t("geocode.reverseClosePopup"),
     });
     setBasemapControlLabels({
@@ -96,8 +99,11 @@ export function usePluginLabelSync(): void {
       moveToLayer: t("annotations.moveToLayer"),
       textPlaceholder: t("annotations.textPlaceholder"),
       pinTitlePrompt: t("annotations.pinTitlePrompt"),
+      titlePrompt: t("annotations.titlePrompt"),
       pinDescPrompt: t("annotations.pinDescPrompt"),
+      pinDescPlaceholder: t("annotations.pinDescPlaceholder"),
       stickyNotePrompt: t("annotations.stickyNotePrompt"),
+      stickyNotePlaceholder: t("annotations.stickyNotePlaceholder"),
       imageUrlPrompt: t("annotations.imageUrlPrompt"),
       cancel: t("annotations.cancel"),
       saveElement: t("annotations.saveElement"),
@@ -263,6 +269,17 @@ export function usePluginLabelSync(): void {
       catalog: t("usLocalGis.portal"),
       chooseCatalogSet: t("usLocalGis.chooseStateHint"),
       openPortal: t("usLocalGis.openPortal"),
+    });
+    setIndiaGisLabels({
+      ...arcGisHubLabels,
+      hint: t("indiaGis.hint"),
+      searchPlaceholder: t("indiaGis.searchPlaceholder"),
+      noResults: t("indiaGis.noResults"),
+      searchError: t("indiaGis.searchError"),
+      catalogSet: t("indiaGis.chooseRegion"),
+      catalog: t("indiaGis.portal"),
+      chooseCatalogSet: t("indiaGis.chooseRegionHint"),
+      openPortal: t("indiaGis.openPortal"),
     });
     setUsFederalGisLabels({
       ...arcGisHubLabels,

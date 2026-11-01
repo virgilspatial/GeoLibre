@@ -1,4 +1,6 @@
 import type { FeatureCollection } from "geojson";
+import type { GeoArrowBatch } from "./geoarrow";
+export type { GeoArrowBatch };
 import type { PrintLayoutConfig } from "./print-layout-config";
 
 export const OPENFREEMAP_BASEMAPS = [
@@ -783,15 +785,24 @@ export function styleValue<K extends keyof LayerStyle>(style: LayerStyle, key: K
 export const LARGE_VECTOR_FEATURE_THRESHOLD = 50_000;
 
 /**
- * Decide whether a GeoJSON layer should use the tiled rendering path.
+ * Decide whether a vector layer should use the tiled rendering path.
  *
- * @param geojson - The layer's feature collection (may be undefined for
+ * @param data - The layer's feature collection or GeoArrow batch (may be undefined for
  *   non-vector layers).
- * @returns `true` when the collection exceeds
- *   {@link LARGE_VECTOR_FEATURE_THRESHOLD} features.
+ * @returns `true` when the feature count exceeds
+ *   {@link LARGE_VECTOR_FEATURE_THRESHOLD}.
  */
-export function shouldUseTiledRendering(geojson: GeoJSON.FeatureCollection | undefined): boolean {
-  return (geojson?.features.length ?? 0) > LARGE_VECTOR_FEATURE_THRESHOLD;
+export function shouldUseTiledRendering(
+  data: GeoJSON.FeatureCollection | GeoArrowBatch | undefined,
+): boolean {
+  if (!data) return false;
+  if ("featureCount" in data && typeof data.featureCount === "number") {
+    return data.featureCount > LARGE_VECTOR_FEATURE_THRESHOLD;
+  }
+  if ("features" in data && Array.isArray(data.features)) {
+    return data.features.length > LARGE_VECTOR_FEATURE_THRESHOLD;
+  }
+  return false;
 }
 
 /**
@@ -1281,6 +1292,11 @@ export interface GeoLibreLayer {
   metadata: Record<string, unknown>;
   beforeId?: string;
   geojson?: FeatureCollection;
+  /**
+   * Optional binary GeoArrow representation for high-performance vector rendering,
+   * zero-copy Web Worker vector tiling, and compact in-memory storage.
+   */
+  geoarrow?: GeoArrowBatch;
   /** A SQL Server write needs a successful table reread before it may be submitted again. */
   mssqlWritebackPending?: boolean;
   /**
@@ -1407,7 +1423,11 @@ export interface AddTileLayerOptions {
   minzoom?: number;
   /** Maximum zoom at which tiles are requested. */
   maxzoom?: number;
-  /** Tile y-axis scheme; `"tms"` flips the y origin. Defaults to `"xyz"`. */
+  /**
+   * Tile y-axis scheme. `"tms"` flips the row. A `{-y}` token is a separate
+   * flip and does not set this field; the two flips cancel when a tile is
+   * requested. Defaults to `"xyz"`.
+   */
   scheme?: "xyz" | "tms";
   /** Initial visibility (default true). */
   visible?: boolean;
@@ -1724,6 +1744,16 @@ export interface MapPreferences {
    * (a `SceneView`) ignores it. See `arcgis-projection.ts`.
    */
   arcgisWkid?: number;
+  /**
+   * Coordinate reference system of the flat MapLibre map (issue #1128): a
+   * preset id from `MAP_CRS_PRESETS` (polar and simple-cylindrical grids of
+   * Earth, the Moon, Mars and other bodies) or `"EPSG:<code>"`. Absent means
+   * the default Web Mercator map or globe. Tiles are not reprojected, so only
+   * GeoJSON, image/video overlays and WMS or ArcGIS export layers (asked for
+   * each tile's box in this CRS) draw; XYZ, vector tile and plugin layers are
+   * set aside, and the globe and terrain are off. See `map-crs.ts`.
+   */
+  mapCrs?: string;
   /** Cesium imagery override; absent follows the shared project basemap. */
   cesiumBasemap?: import("./cesium-imagery").CesiumBasemapId;
   /**
@@ -1789,6 +1819,44 @@ export interface GeocodingPreferences {
   reverseEndpoint?: string;
   /** Contact email sent to identify the client (used by Nominatim). */
   email?: string;
+  /** Named organization-hosted ArcGIS GeocodeServer locators. */
+  locators?: GeocodingLocator[];
+  /** The {@link GeocodingLocator.id} used by the `arcgis-locator` provider. */
+  locatorId?: string;
+}
+
+/**
+ * An organization-hosted ArcGIS GeocodeServer locator. Everything here is
+ * nonsecret: the URL is stored without its query string, so a pasted token never
+ * reaches the project file, and a secured locator borrows the token of the
+ * portal named by `portalUrl` at request time.
+ *
+ * The capability fields are read from the service's `?f=json` metadata when the
+ * locator is checked in Settings; they are absent until then.
+ */
+export interface GeocodingLocator {
+  /** Stable id, unique within the project. */
+  id: string;
+  /** Display name, e.g. "County Parcel Locator". */
+  name: string;
+  /** The GeocodeServer base URL, ending in `/GeocodeServer`. */
+  url: string;
+  /** Portal whose sign-in authorizes this locator, when it is secured. */
+  portalUrl?: string;
+  /** The single-line input field the locator publishes (usually `SingleLine`). */
+  singleLineField?: string;
+  /** The structured input fields the locator publishes, in service order. */
+  addressFields?: string[];
+  /** Whether the service advertises `reverseGeocode`. */
+  reverse?: boolean;
+  /** Whether the service advertises `suggest`. */
+  suggest?: boolean;
+  /**
+   * The published input field a search string goes to, chosen by the user for
+   * a locator whose inputs are structured (an asset or parcel ID field, say).
+   * Unset means the single-line field, or the only published field.
+   */
+  searchField?: string;
 }
 
 export interface ProjectPreferences {
@@ -1973,7 +2041,7 @@ export interface StoryLayerOpacityChange {
   duration?: number;
 }
 
-/** A single scene in a scroll-driven story map. */
+/** A single scene in a story map. */
 export interface StoryChapter {
   id: string;
   title: string;
@@ -1987,6 +2055,8 @@ export interface StoryChapter {
   mapAnimation: StoryChapterAnimation;
   /** Slowly rotate the camera once the transition settles. */
   rotateAnimation: boolean;
+  /** Autoplay dwell time after the camera arrives, in seconds (1–3600; default 15). */
+  durationSeconds?: number;
   onChapterEnter: StoryLayerOpacityChange[];
   onChapterExit: StoryLayerOpacityChange[];
 }
@@ -2008,7 +2078,7 @@ export type StorySlideMode = "none" | "blank" | "black" | "global" | "adjacent";
 /** A start/closing slide that is actually shown (every mode except `"none"`). */
 export type StoryActiveSlideMode = Exclude<StorySlideMode, "none">;
 
-/** Scroll-driven story map authored on top of a GeoLibre project. */
+/** Story map authored on top of a GeoLibre project. */
 export interface StoryMap {
   title: string;
   subtitle: string;
@@ -2074,7 +2144,7 @@ export interface ProcessingModelStep {
  * raster nodes exchange GeoTIFF bytes. A port declaring `"any"` accepts either
  * and is resolved to a concrete kind at run time by whatever is wired into it.
  */
-export type ModelPortKind = "vector" | "raster" | "any";
+export type ModelPortKind = "vector" | "raster" | "raster-collection" | "boolean" | "any";
 
 /** One connection point on a {@link ModelGraphNode}. */
 export interface ModelGraphPort {
@@ -2092,9 +2162,19 @@ export interface ModelGraphPort {
 
 /**
  * What a node does. `input` sources an existing project layer, `tool` runs a
- * processing algorithm, and `output` names a result to add back to the map.
+ * processing algorithm, `output` names a result to add back to the map,
+ * `iterate-features` and `iterate-rasters` execute loops, `collect-results` gathers
+ * iteration outputs, and `conditional-switch` / `conditional-merge` route execution.
  */
-export type ModelGraphNodeKind = "input" | "tool" | "output";
+export type ModelGraphNodeKind =
+  | "input"
+  | "tool"
+  | "output"
+  | "iterate-features"
+  | "iterate-rasters"
+  | "collect-results"
+  | "conditional-switch"
+  | "conditional-merge";
 
 /** One node on the Model Builder canvas. */
 export interface ModelGraphNode {
@@ -2113,10 +2193,12 @@ export interface ModelGraphNode {
   toolId?: string;
   /** `tool` nodes: which registry resolves {@link toolId}. */
   provider?: ModelToolProvider;
-  /** `tool` nodes: parameter values for everything not supplied by an edge. */
+  /** `tool` / control nodes: parameter values for configuration. */
   parameters?: Record<string, unknown>;
   /** `output` nodes: the layer name given to the result added to the map. */
   name?: string;
+  /** Optional nested body graph for iterator nodes. */
+  body?: ProcessingModelGraph;
 }
 
 /**
@@ -2554,9 +2636,23 @@ export interface ProjectInteraction {
   identify?: string | string[] | null;
   /**
    * Map control or toolbar panel name (`"search"`, `"bookmark"`, `"globe"`,
-   * ...) to whether it starts shown. Unknown names are ignored on open.
+   * ...) to whether it starts shown, or to a {@link ProjectControlSetting}
+   * that also carries the control's options. Unknown names are ignored on open.
    */
-  controls?: Record<string, boolean>;
+  controls?: Record<string, boolean | ProjectControlSetting>;
+}
+
+/**
+ * A control's startup state with options, for example
+ * `{ "visible": true, "collapsed": true, "distanceUnit": "feet" }` for the
+ * Measure panel (issue #3241). Measure takes `collapsed`, `distanceUnit` and
+ * `areaUnit`; Minimap takes `collapsed`, `zoomOffset`, `width` and `height`.
+ */
+export interface ProjectControlSetting {
+  /** Whether the control starts shown. */
+  visible: boolean;
+  /** Control-specific options; the app validates them when it applies them. */
+  [option: string]: string | number | boolean;
 }
 
 export type CommentAnchor =

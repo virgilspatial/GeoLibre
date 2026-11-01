@@ -12,6 +12,7 @@ export {
   type AssistantToolEntry,
 } from "./assistant-tool-registry";
 export * from "./types";
+export { openControlPanel, closeControlPanel, isControlPanelVisible } from "./control-panels";
 export { PluginManager } from "./plugin-manager";
 export {
   registerRightPanel,
@@ -136,6 +137,18 @@ export {
   type ArcGISSourceType,
 } from "./plugins/arcgis-layer";
 export type { ArcGISDomainDiagnostic } from "./plugins/arcgis-domains";
+export {
+  arcGISContingencyChecks,
+  arcGISContingentChoices,
+  blocksArcGISEdit,
+  type ArcGISContingencyCheck,
+  type ArcGISContingentValues,
+} from "./plugins/arcgis-contingent-values";
+export {
+  arcGISLayerCreationTemplates,
+  type ArcGISCreationTemplate,
+  type ArcGISCreationTemplateSelection,
+} from "./plugins/arcgis-defaults";
 export {
   addArcGISAttachment,
   arcGISAttachmentObjectId,
@@ -526,7 +539,7 @@ export {
   DECK_VIZ_SOURCE_KIND,
   isDeckVizLayer,
 } from "./plugins/deckgl-viz/store-layer";
-export { VIEWER_BLOCKED_PLUGIN_IDS } from "./viewer-plugins";
+export { VIEWER_BLOCKED_PLUGIN_IDS, isViewerBlockedPlugin } from "./viewer-plugins";
 export {
   maplibreAnnotationsPlugin,
   ANNOTATIONS_PLUGIN_ID,
@@ -560,6 +573,7 @@ export {
   GEO_EDITOR_PLUGIN_ID,
   DEFAULT_GEO_EDITOR_LABELS,
   setGeoEditorLabels,
+  setGeoEditorFileTools,
   type GeoEditorLabels,
   canEditLayerGeometry,
   SKETCHES_SOURCE_KIND,
@@ -752,6 +766,13 @@ export {
   US_LOCAL_GIS_PLUGIN_ID,
 } from "./plugins/maplibre-us-local-gis";
 export { US_LOCAL_GIS_CATALOGS } from "./plugins/us-local-gis-catalogs";
+export {
+  DEFAULT_INDIA_GIS_LABELS,
+  maplibreIndiaGisPlugin,
+  setIndiaGisLabels,
+  INDIA_GIS_PLUGIN_ID,
+} from "./plugins/maplibre-india-gis";
+export { INDIA_GIS_CATALOGS } from "./plugins/india-gis-catalogs";
 export {
   DEFAULT_US_FEDERAL_GIS_LABELS,
   maplibreUsFederalGisPlugin,

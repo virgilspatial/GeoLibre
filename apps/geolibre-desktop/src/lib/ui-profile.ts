@@ -81,6 +81,7 @@ export const DATA_SOURCE_CATALOG: readonly DataSourceCatalogEntry[] = [
   },
   { id: "cad", section: "files", labelKey: "toolbar.item.cadLayer", tier: "intermediate" },
   { id: "gdb", section: "files", labelKey: "toolbar.item.gdbLayer", tier: "intermediate" },
+  { id: "vtpk", section: "files", labelKey: "toolbar.item.vtpkLayer", tier: "advanced" },
   { id: "photos", section: "files", labelKey: "toolbar.layerType.photos", tier: "intermediate" },
   { id: "gpx", section: "files", labelKey: "toolbar.layerType.gpx", tier: "intermediate" },
   {
@@ -239,6 +240,7 @@ export const PLUGIN_TIERS: Record<string, ComplexityTier> = {
   "geolibre-us-federal-gis": "advanced",
   "geolibre-us-state-gis": "advanced",
   "geolibre-us-local-gis": "advanced",
+  "geolibre-india-gis": "advanced",
   "maplibre-gl-source-coop": "advanced",
   "geolibre-s3-browser": "advanced",
   "maplibre-gl-huggingface": "advanced",

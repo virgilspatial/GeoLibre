@@ -157,34 +157,43 @@ html:lang(fa) {
   --geolibre-primary: hsl(var(--primary));
 }
 
-.maplibregl-map .maplibregl-ctrl {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl, .mapboxgl-ctrl) {
   font-family: var(--font-sans);
 }
 
-.maplibregl-map .maplibregl-ctrl-group {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group) {
   background: hsl(var(--popover));
   border-radius: var(--radius);
   color: hsl(var(--popover-foreground));
 }
 
-.maplibregl-map .maplibregl-ctrl-group:not(:empty) {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group):not(:empty) {
   box-shadow:
     0 0 0 1px hsl(var(--border)),
     var(--shadow-sm);
 }
 
-.maplibregl-map .maplibregl-ctrl-group button {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group) button {
   color: hsl(var(--popover-foreground));
 }
 
-.maplibregl-map .maplibregl-ctrl-group button + button {
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group)
+  button
+  + button {
   border-top-color: hsl(var(--border));
 }
 
-.maplibregl-map
-  .maplibregl-ctrl-group
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group)
   button:where(
     .maplibregl-ctrl-zoom-in,
+    .mapboxgl-ctrl-zoom-in,
+    .mapboxgl-ctrl-zoom-out,
+    .mapboxgl-ctrl-compass,
+    .mapboxgl-ctrl-fullscreen,
+    .mapboxgl-ctrl-shrink,
+    .mapboxgl-ctrl-geolocate,
     .maplibregl-ctrl-zoom-out,
     .maplibregl-ctrl-compass,
     .maplibregl-ctrl-fullscreen,
@@ -200,61 +209,96 @@ html:lang(fa) {
   background-color: hsl(var(--accent));
 }
 
-.maplibregl-map .maplibregl-ctrl-group button:focus-visible,
-.maplibregl-map .maplibregl-ctrl-attrib-button:focus-visible {
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group)
+  button:focus-visible,
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-attrib-button, .mapboxgl-ctrl-attrib-button):focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: -2px;
 }
 
-.maplibregl-map .maplibregl-ctrl-group button:disabled {
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-group, .mapboxgl-ctrl-group)
+  button:disabled {
   cursor: not-allowed;
 }
 
 /* Native icons are SVG background images, not currentColor. Invert neutral
    icons only; preserve enabled/colored status icons. Never filter map content. */
-.dark .maplibregl-map .maplibregl-ctrl-icon {
+.dark :is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-icon, .mapboxgl-ctrl-icon) {
   filter: invert(1);
 }
 
 .dark
-  .maplibregl-map
+  :is(.maplibregl-map, .mapboxgl-map)
   :is(.maplibregl-ctrl-globe-enabled, .maplibregl-ctrl-terrain-enabled)
   .maplibregl-ctrl-icon,
 .dark
-  .maplibregl-map
+  :is(.maplibregl-map, .mapboxgl-map)
   .maplibregl-ctrl-geolocate:is(
     .maplibregl-ctrl-geolocate-active,
     .maplibregl-ctrl-geolocate-active-error,
     .maplibregl-ctrl-geolocate-background,
     .maplibregl-ctrl-geolocate-background-error
   )
-  .maplibregl-ctrl-icon {
+  .maplibregl-ctrl-icon,
+.dark
+  .mapboxgl-map
+  .mapboxgl-ctrl-geolocate:is(
+    .mapboxgl-ctrl-geolocate-active,
+    .mapboxgl-ctrl-geolocate-active-error,
+    .mapboxgl-ctrl-geolocate-background,
+    .mapboxgl-ctrl-geolocate-background-error
+  )
+  .mapboxgl-ctrl-icon {
   filter: none;
 }
 
-.maplibregl-map .maplibregl-ctrl:is(.maplibregl-ctrl-scale, .maplibregl-ctrl-attrib) {
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl, .mapboxgl-ctrl):is(
+    .maplibregl-ctrl-scale,
+    .mapboxgl-ctrl-scale,
+    .maplibregl-ctrl-attrib,
+    .mapboxgl-ctrl-attrib
+  ) {
   background: hsl(var(--popover) / 0.95);
   color: hsl(var(--popover-foreground));
 }
 
-.maplibregl-map .maplibregl-ctrl-scale {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-scale, .mapboxgl-ctrl-scale) {
   border-color: hsl(var(--popover-foreground));
 }
 
-.maplibregl-map .maplibregl-ctrl-attrib a {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib) a {
   color: hsl(var(--muted-foreground));
 }
 
-.maplibregl-map .maplibregl-ctrl-attrib a:hover {
+:is(.maplibregl-map, .mapboxgl-map) :is(.maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib) a:hover {
   color: hsl(var(--popover-foreground));
 }
 
-.maplibregl-map .maplibregl-ctrl-attrib-button {
+:is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-attrib-button, .mapboxgl-ctrl-attrib-button) {
   background-color: transparent;
 }
 
-.dark .maplibregl-map .maplibregl-ctrl-attrib-button {
+.dark
+  :is(.maplibregl-map, .mapboxgl-map)
+  :is(.maplibregl-ctrl-attrib-button, .mapboxgl-ctrl-attrib-button) {
   filter: invert(1);
+}
+
+/* mapbox-gl's `.mapboxgl-ctrl button:hover` paints #eee behind every button in a
+   control, including the shared controls' unclassed toggles and their panels,
+   whose icons are light in dark mode. This outranks it, and any other hover
+   color a control sets below (0,4,1), which that #eee was already overriding.
+   The attribution button is inverted, which already turns #eee dark. */
+:where(.dark)
+  .mapboxgl-map
+  .mapboxgl-ctrl
+  button:not(:disabled, .mapboxgl-ctrl-attrib-button):hover {
+  background-color: hsl(var(--accent));
 }
 
 /* Shared popup frame covers native Inspect/NLDI popups too. Content-specific
@@ -1869,7 +1913,7 @@ body,
    globally. mapbox-gl's popup has no such lift, so with effects on it opens
    underneath the canvas: visible through nothing and unclickable. Match the
    MapLibre value so the two engines stack popups the same way. `!important`
-   as upstream's: mapbox-gl.css is loaded by a dynamic import after this
+   as upstream's: mapbox-gl.css is loaded from Mapbox's CDN after this
    sheet, so a same-specificity rule there would otherwise win. */
 .mapboxgl-popup {
   z-index: 10 !important;
@@ -3213,45 +3257,6 @@ body,
 /* Layer Control uses a currentColor SVG, unlike native background-image icons. */
 .maplibregl-ctrl-layer-control .layer-control-icon {
   color: hsl(var(--popover-foreground));
-}
-
-/* Lucide glyphs (lucide-static v1.51.0, ISC) for the Fullscreen and Layer
-   Control buttons, matching the icon set used across the rest of the UI. Each
-   is a CSS mask filled with currentColor, so it follows the theme on its own;
-   the dark-mode invert applied to native background-image icons is cancelled. */
-:root {
-  --geolibre-icon-maximize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3H5a2 2 0 0 0-2 2v3'/%3E%3Cpath d='M21 8V5a2 2 0 0 0-2-2h-3'/%3E%3Cpath d='M3 16v3a2 2 0 0 0 2 2h3'/%3E%3Cpath d='M16 21h3a2 2 0 0 0 2-2v-3'/%3E%3C/svg%3E");
-  --geolibre-icon-minimize: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3v3a2 2 0 0 1-2 2H3'/%3E%3Cpath d='M21 8h-3a2 2 0 0 1-2-2V3'/%3E%3Cpath d='M3 16h3a2 2 0 0 1 2 2v3'/%3E%3Cpath d='M16 21v-3a2 2 0 0 1 2-2h3'/%3E%3C/svg%3E");
-  --geolibre-icon-layers: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z'/%3E%3Cpath d='M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12'/%3E%3Cpath d='M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17'/%3E%3C/svg%3E");
-}
-
-.maplibregl-map
-  .maplibregl-ctrl
-  button:is(.maplibregl-ctrl-fullscreen, .maplibregl-ctrl-shrink)
-  .maplibregl-ctrl-icon {
-  background-color: currentColor;
-  background-image: none;
-  filter: none;
-  -webkit-mask: var(--geolibre-icon-maximize) center / 18px 18px no-repeat;
-  mask: var(--geolibre-icon-maximize) center / 18px 18px no-repeat;
-}
-
-.maplibregl-map .maplibregl-ctrl button.maplibregl-ctrl-shrink .maplibregl-ctrl-icon {
-  -webkit-mask-image: var(--geolibre-icon-minimize);
-  mask-image: var(--geolibre-icon-minimize);
-}
-
-.maplibregl-ctrl-layer-control .layer-control-icon svg {
-  display: none;
-}
-
-.maplibregl-ctrl-layer-control .layer-control-icon::before {
-  background-color: currentColor;
-  content: "";
-  height: 20px;
-  -webkit-mask: var(--geolibre-icon-layers) center / contain no-repeat;
-  mask: var(--geolibre-icon-layers) center / contain no-repeat;
-  width: 20px;
 }
 
 /* The vendor floats these panels outside the control group, including menus
@@ -5130,12 +5135,15 @@ html.dark .maplibregl-popup-anchor-right:has(.vector-control-popup) .maplibregl-
  * The shell is `flex flex-col`: its direct children are the toolbar, the
  * workspace row (Layers + map + Style), the attribute table, and the status bar.
  * Hide all of them except the row, then within the row hide everything except
- * the `<main>` map landmark, which flexes to fill. */
+ * the map column, and within the column everything except the `<main>` map
+ * landmark, which flexes to fill. The column also holds the bottom panels when
+ * they sit under the map (#3157). */
 [data-map-fullscreen] > *:not([data-workspace-row]) {
   display: none !important;
 }
 
-[data-map-fullscreen] [data-workspace-row] > *:not(main) {
+[data-map-fullscreen] [data-workspace-row] > *:not([data-map-column]),
+[data-map-fullscreen] [data-map-column] > *:not(main) {
   display: none !important;
 }
 

@@ -175,7 +175,7 @@ For a fully chrome-free, map-only embed, add `&maponly` to hide the toolbar menu
 https://web.geolibre.app/?url=https://share.geolibre.app/giswqs/3d-tiles.geolibre.json&maponly
 ```
 
-For a read-only embed that viewers can still explore, use `&layout=viewer`. It keeps the Layers list, View and Controls menus, basemaps, and search/identify, and hides everything that would change the project:
+For a read-only embed that viewers can still explore, use `&layout=viewer`. It keeps the Layers list, View and Controls menus, basemaps, and search/identify, and hides everything that would change the project (add `&draw` to let readers sketch with the geometry editor; see [Drawing in a viewer embed](user-guide/embedding.md#drawing-in-a-viewer-embed)):
 
 ```text
 https://web.geolibre.app/?url=https://share.geolibre.app/giswqs/3d-tiles.geolibre.json&layout=viewer
@@ -213,15 +213,12 @@ see the [Roadmap](roadmap.md).
 
 ### Recently added
 
-Newest capabilities, still settling in. The v3.4 release added an
-[Object-Based Image Analysis](user-guide/obia.md) workbench with eCognition
-rule-set import, ICESat-2 and GEDI spaceborne LiDAR footprints and photons, a
-[NASA Earthaccess](user-guide/web-services.md#nasa-earthaccess) plugin,
-[Dynamical](user-guide/web-services.md#dynamical) weather forecasts, turn-by-turn
-navigation with voice guidance, domain-, attachment-, and related-record-aware
-[ArcGIS editing](arcgis-editing.md) behind Sign in with ArcGIS, Spilhaus and
-other projections on the ArcGIS engine, and plugin panels, point clouds, and
-Street View on the Cesium globe.
+Newest capabilities, still settling in. The v3.6 release adds the
+[India GIS](user-guide/web-services.md#india-gis) catalog, lets external
+[plugins](plugin-api.md) add point clouds and read private S3 objects, gives the
+[Python](python.md) API awaitable `*_async()` commands, adds a raster and vector
+example to the [Notebook panel](notebook.md), lifts editable database layers to
+1,000,000 features, and makes browser COG conversion cancellable.
 
 The [roadmap](roadmap.md) tracks every release, version by version.
 

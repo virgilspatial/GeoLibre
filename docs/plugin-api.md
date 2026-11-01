@@ -151,6 +151,8 @@ export interface GeoLibreAppAPI {
     layerId: string,
     text: string
   ) => GeoLibreImportLayerStyleResult;
+  // Show or hide a layer like the Layers panel's eye. See "Layer visibility".
+  setLayerVisibility?: (layerId: string, visible: boolean) => void;
   getSelectedFeatures?: () => Feature<Geometry | null>[];
   getSelectedLayerId?: () => string | null;
   // Sample a raster layer over a geographic window. See "Sampling raster
@@ -212,6 +214,12 @@ export interface GeoLibreAppAPI {
     url: string,
     options: GeoLibreZarrLayerOptions
   ) => Promise<string>;
+  // LAS/LAZ/COPC/EPT through the host's own LiDAR layer. Resolves with the new
+  // layer's id (see "Point cloud layers" below).
+  addPointCloudLayer?: (
+    source: string | File | ArrayBuffer | Uint8Array,
+    options?: GeoLibrePointCloudLayerOptions
+  ) => Promise<string>;
   setZarrLayerSelector?: (
     layerId: string,
     selector: Record<string, number | string>
@@ -248,6 +256,8 @@ export interface GeoLibreAppAPI {
   getActiveBasemap: () => string;
   onBasemapChange: (callback: (styleUrl: string) => void) => () => void;
   fetchArrayBuffer?: (url: string) => Promise<ArrayBuffer>;
+  // Presign private S3 objects through a configured connection (see "Reading S3 objects").
+  resolveReadableUrl?: (url: string, signal?: AbortSignal) => Promise<string>;
   // Desktop only: fetch through the native client (see "Signing in with a session cookie").
   nativeFetch?: typeof globalThis.fetch;
   fitBounds?: (bounds: [number, number, number, number]) => void;
@@ -258,6 +268,12 @@ export interface GeoLibreAppAPI {
   getMap?: () => import("maplibre-gl").Map | null;
   // The active primary renderer, including while its canvas is being replaced.
   getMapRenderer?: () => "maplibre" | "mapbox" | "cesium" | "arcgis";
+  // The CRS the map is drawn in ({ id, code, wmsSrs? }), or null on the default
+  // Web Mercator map or globe, and the change notice. See "Reading the map CRS".
+  getMapCrs?: () => { id: string; code: string; wmsSrs?: string } | null;
+  onMapCrsChange?: (
+    listener: (crs: { id: string; code: string; wmsSrs?: string } | null) => void,
+  ) => () => void;
   // The native mapbox-gl map, only while Mapbox is the primary renderer; null
   // otherwise. Built-in plugins read the 2D map through getStyleMap(app), which
   // falls back to this when getMap() is null — see "Supporting the Mapbox
@@ -294,6 +310,14 @@ export interface GeoLibreAppAPI {
     position?: GeoLibreMapControlPosition
   ) => boolean;
   removeMapControl: (control: IControl) => void;
+  // The host's existing menu panels. See "Built-in control panels" below.
+  openControlPanel?: {
+    (id: "minimap", options: GeoLibreMinimapOptions): void;
+    (id: "measure", options: GeoLibreMeasureOptions): void;
+    (id: GeoLibreControlPanelId): void;
+  };
+  closeControlPanel?: (id: GeoLibreControlPanelId) => void;
+  isControlPanelVisible?: (id: GeoLibreControlPanelId) => boolean;
   // Note: showing the "terrain" control (visible: true) also switches 3D
   // terrain on, mirroring the Controls menu so the user doesn't have to click
   // the control button as a second step. Hiding it turns terrain back off.
@@ -310,6 +334,8 @@ export interface GeoLibreAppAPI {
   ) => boolean;
   getDeckGL?: () => Promise<GeoLibreDeckGL>;
   getProj4?: () => Promise<typeof Proj4>;
+  // The host's own maplibre-gl-lidar module (see "Point cloud layers" below).
+  getMaplibreGlLidar?: () => Promise<typeof import("maplibre-gl-lidar")>;
   // Right-sidebar panels (see "Right sidebar panels" below).
   registerRightPanel?: (panel: GeoLibreRightPanelRegistration) => () => void;
   unregisterRightPanel?: (id: string) => void;
@@ -869,6 +895,15 @@ Group visibility and opacity are **combined** with each child layer's own: a hid
 
 These methods are typed optional for forward-compatibility with host variants, so call them with optional chaining.
 
+## Layer visibility
+
+`setLayerVisibility` shows or hides a layer the way the Layers panel's eye button does. It updates the layer store, so the eye icon, the map and a saved project all agree; hiding the MapLibre layer directly would leave the panel showing it as visible until the next sync turned it back on. It accepts any layer id, not only the plugin's own, throws for an unknown one, and throws a `TypeError` when `visible` is not a boolean. Read the current state with `listLayers`.
+
+```typescript
+// After turning a raster into outlines, show only the outlines.
+app.setLayerVisibility?.(rasterLayerId, false);
+```
+
 ## Layer styles
 
 `importLayerStyle` applies a style written in another format to a layer, like the Layers panel's "Import style": an OGC SLD, a QGIS QML or a Mapbox GL style JSON, detected from the content. The style is merged over the layer's current one, so fields it does not describe keep their values, and it is saved with the project. Like the Layers panel, it styles only GeoJSON and vector-tile layers; it accepts any such layer id, not only the plugin's own, and throws for an unknown one.
@@ -900,7 +935,7 @@ export interface GeoLibreTileLayerOptions {
   bounds?: [number, number, number, number]; // [west, south, east, north] in WGS84
   minzoom?: number;
   maxzoom?: number;
-  scheme?: "xyz" | "tms"; // default "xyz"
+  scheme?: "xyz" | "tms"; // default "xyz". "tms" flips {y}; {-y} is a separate flip, and the two cancel
   visible?: boolean; // default true
   opacity?: number; // default 1
   beforeLayerId?: string; // insert beneath this layer
@@ -1019,7 +1054,9 @@ const layerId = await app.addWfsLayer?.("Roads", {
 
 `options.engine` picks the renderer (`"maplibre-gl-raster"` for the GPU/deck.gl path, `"cog-tiler-wasm"` for the WebAssembly tiler, `"titiler"` for a TiTiler server). Unlike the other options it is **not per layer**: the raster control holds one engine for every raster it manages, so naming one re-renders the rasters already on the map. Pass `"auto"` to leave whatever the control is on alone; omit it and the GPU renderer is used. The GPU renderer requires a Mercator projection, so a plugin that expects to work on the globe should ask for `"cog-tiler-wasm"`.
 
-`addWmsLayer` requests Web Mercator tiles unless `crs` names another CRS, for a server whose capabilities do not list EPSG:3857. Pick one the layer lists, preferably geographic (`EPSG:4326`, `EPSG:4258`, `EPSG:6706`, or `CRS:84` with `version: "1.3.0"`), otherwise a projected `EPSG:<code>` such as `EPSG:25832`. Only the desktop app redraws those tiles into Web Mercator: the web build still sends the Web Mercator BBOX, so such a layer stays blank there. An unsupported value, or `CRS:84` with WMS 1.1.1, throws.
+`addWmsLayer` requests Web Mercator tiles unless `crs` names another CRS, for a server whose capabilities do not list EPSG:3857. Pick one the layer lists, preferably geographic (`EPSG:4326`, `EPSG:4258`, `EPSG:6706`, or `CRS:84` with `version: "1.3.0"`), otherwise a projected `EPSG:<code>` such as `EPSG:25832`. Only the desktop app redraws those tiles into Web Mercator: the web build still sends the Web Mercator BBOX, so such a layer stays blank there. The exception is a map drawn in that CRS (`app.getMapCrs()?.code`, see [Reading the map CRS](#reading-the-map-crs)): the host then asks every WMS layer for its tiles in the map's CRS, so a layer the server lists in it lines up on both builds. An unsupported value, or `CRS:84` with WMS 1.1.1, throws.
+
+`scheme` defaults to `"xyz"`. `"tms"` flips the `{y}` row. A `{-y}` placeholder is a second flip and does not select TMS, on a bare template or in TileJSON. A document that sets `"scheme": "tms"` and also writes `{-y}` requests the ordinary XYZ row, because the two flips cancel. The stored template and scheme stay as written. One template, and every URL in one TileJSON `tiles` list, uses `{y}` or `{-y}`, not both.
 
 `addTileLayer`/`addWmtsLayer`/`addWmsLayer` expect **pre-rendered tiles** (e.g. a COG already served through a tiler such as titiler as an XYZ endpoint). `addCogLayer` is different: it loads the **GeoTIFF itself** and renders it client-side, exposing band selection, rescale, colormap, and nodata in the raster panel. It is async (it fetches the file's header), so it returns a `Promise<string>` and rejects if the COG cannot be read.
 
@@ -1184,6 +1221,41 @@ A `selector` passed here only scopes the read: the layer keeps rendering the sli
 
 The panel can also open a store from a folder on disk, via a **Browse folder** button next to the Zarr URL. It appears in the desktop app and in browsers with the File System Access API (Chromium), since reading a folder needs a filesystem API the plugin cannot supply; elsewhere the panel is unchanged. A local cube binds to the Time Slider like a remote one — its CF `units` are read out of the folder, because its recorded URL is an identifier rather than an address.
 
+## Point cloud layers
+
+`addPointCloudLayer` adds a point cloud as a GeoLibre LiDAR layer, the same way **Add Data → LiDAR**, the `?data=` deep link and dropping a file on the map do. The host's LiDAR control renders it, it is listed in the Layers panel, and the user styles it in the LiDAR panel. The source is one of:
+
+- An HTTP(S) or `s3://` URL of a LAS/LAZ file, a **COPC** file (streamed by octree node for the current view), or an EPT `ept.json`. A URL layer is saved with the project and re-streamed when the project is reopened.
+- A `File`, `ArrayBuffer` or `Uint8Array`, loaded in memory. Pass `fileName` (a `File` uses its own name); its extension picks the loader, so a `.copc.laz` name streams the cloud by octree node.
+
+```typescript
+export interface GeoLibrePointCloudLayerOptions {
+  name?: string; // Layers panel name (default: the URL's file name, or fileName)
+  fileName?: string; // loader file name for a File or bytes (.las, .laz, .copc.laz)
+  zoomTo?: boolean; // fly to the point cloud once it loads (default true)
+}
+
+const id = await app.addPointCloudLayer?.("https://example.com/survey.copc.laz", {
+  name: "Survey",
+  zoomTo: false,
+});
+// The id works with the other layer methods: setLayerVisibility, removeLayer, ...
+```
+
+It resolves with the new layer's id once the point cloud has loaded, and rejects when the source is invalid or cannot be read (for example, a server that does not allow this origin through CORS). The URL must serve byte ranges for COPC streaming.
+
+### Drawing point clouds yourself
+
+For points the LiDAR layer does not model, or a custom point renderer, call `app.getMaplibreGlLidar()` to get **GeoLibre's own** `maplibre-gl-lidar` module instead of bundling it. Its `PointCloudLoader` and `CopcStreamingLoader` decode LAS/LAZ/COPC with the LAZ WebAssembly the host already serves, and its `LidarControl`, `LidarLayerAdapter` and `DeckOverlay` render on the host's single deck.gl instance. A bundled copy fails twice over: it carries a second deck.gl/luma.gl, which throws (luma.gl: "already initialized"), and it has to serve its own WebAssembly, which a plugin installed from a desktop folder cannot do (`resolvePluginAssetUrl` returns `null` there). For plain deck.gl layers, `app.getDeckGL()` is enough.
+
+```typescript
+const lidar = await app.getMaplibreGlLidar?.();
+if (!lidar) throw new Error("This plugin requires a host with getMaplibreGlLidar support.");
+const loader = new lidar.PointCloudLoader();
+```
+
+Both members are typed optional for forward-compatibility; call them with optional chaining.
+
 ## Driving a layer's own time dimension from the Time Slider
 
 The Time Slider understands three kinds of temporal layer. Two are built in: a **vector** layer filtered by a timestamp property, and a **raster time series** of dated sources the dock steps between. The third is for a layer that is _one store_ with time as an **internal dimension** — a Zarr data cube, or a plugin's own frame-based layer — where the timeline picks a slice rather than a source.
@@ -1292,6 +1364,50 @@ app.registerExternalNativeLayer?.({
 - The setters are called only when the value changes, not on every layer sync, and they are held outside the layer record (functions cannot be serialized into a project file). Re-register the layer after a project reload to restore the bridge, and call `unregisterExternalNativeLayer(id)` from `deactivate`.
 
 For Zarr specifically, prefer `addZarrLayer` above: the host's renderer already integrates with the panels, so no custom layer or bridge is needed.
+
+## Built-in control panels
+
+Plugins can open GeoLibre's existing `bookmark`, `search`, `measure`, `minimap`,
+and `print` panels through the host API. The Controls menu checkmarks follow
+the shared visibility state for bookmark, search, measure, and minimap, so a
+plugin does not need to create a second control. `print` opens the scripting
+API's Print control, which is separate from Project > Print Layout. Opening an
+open panel is a no-op; controls initialize asynchronously.
+These methods are optional on older hosts, so use optional chaining:
+
+```ts
+activate(app) {
+  app.openControlPanel?.("minimap", { zoomOffset: -6, width: 320, height: 220 });
+}
+
+// Later, read or close the same panel the menus control.
+const visible = app.isControlPanelVisible?.("minimap");
+app.closeControlPanel?.("minimap");
+app.openControlPanel?.("bookmark");
+```
+
+Only `minimap` and `measure` accept options. `zoomOffset` is relative to the
+main map: a more negative value gives a wider overview. It defaults to `-4`;
+`width` and `height` default to `250` and `180` pixels and must be positive
+finite numbers. The zoom offset must also be finite. Calling
+`openControlPanel("minimap", options)` again updates the existing overview,
+retaining omitted options. The options survive basemap changes and reset when
+the Minimap is closed.
+
+Both take `collapsed: true` to show only the control's on-map button. For
+Measure that also leaves the tool idle, so map clicks do not place points until
+the viewer opens it. Measure also takes `distanceUnit` (`meters`, `kilometers`,
+`miles`, `feet`, `yards`, `nautical-miles`; default `kilometers`) and `areaUnit`
+(`square-meters`, `square-kilometers`, `square-miles`, `hectares`, `acres`,
+`square-feet`; default `square-kilometers`). New units rebuild an open Measure
+control, which clears its measurements; they reset when it is closed.
+
+```ts
+app.openControlPanel?.("measure", { collapsed: true, distanceUnit: "feet", areaUnit: "acres" });
+```
+
+Panel visibility and these options are session UI state and are not saved with
+the project.
 
 ## Right sidebar panels
 
@@ -1470,6 +1586,34 @@ Built-in plugins (in `packages/plugins`) follow the same contract with two helpe
 
 Their strings live in GeoLibre's bundled catalogs (`apps/geolibre-desktop/src/i18n/locales/*.json`) rather than in `registerTranslations`, and the catalog test requires every locale to carry them (see `docs/i18n.md`).
 
+## Reading S3 objects
+
+`app.resolveReadableUrl(url)` turns a data URL into one a plain HTTP reader can read, the same way GeoLibre's own layers do. A plugin that reads files from S3 (an index and the files it lists, images, tiles) calls it for each URL and hands the result to `fetch`, an `<img>`, or a loader:
+
+- An `s3://` (or S3 HTTPS) URL in a bucket a configured **S3 connection** (Settings → Cloud storage) covers resolves to a **presigned** HTTPS URL. On the desktop a connection can use an AWS profile (including SSO), the environment, or an instance role; in the browser only access keys.
+- Any other `s3://` URL resolves to its public HTTPS object URL (anonymous read). An `s3://` URL with an invalid bucket name is returned unchanged; one whose key has a `.` or `..` segment rejects, since no URL can address it.
+- Every other URL is returned unchanged (surrounding whitespace is trimmed), so a plugin can call it for every URL it reads.
+
+It takes an optional `AbortSignal` as its second argument and rejects once that signal aborts.
+
+```typescript
+const resolve = (url: string) => app.resolveReadableUrl?.(url) ?? Promise.resolve(url);
+
+const indexUrl = "s3://my-bucket/datasets/a/index.json"; // chosen by the user
+const index = await (await fetch(await resolve(indexUrl))).json();
+// Resolve each file against the s3:// URL when you read it.
+const image = document.createElement("img");
+// The preview sits beside the index, so append its name to the index's folder.
+image.src = await resolve(indexUrl.slice(0, indexUrl.lastIndexOf("/") + 1) + index.preview);
+```
+
+The snippet appends the file name as written. An `s3://` URL takes its key literally, so a space or a `%` needs no encoding, but a `?` or `#` ends the key there. For a key that contains either, pass the object's S3 HTTPS URL with the key percent-encoded instead (`https://my-bucket.s3.amazonaws.com/datasets/a/a%23b.png` for the key `datasets/a/a#b.png`). Check names with `..` or a leading `/` before appending them.
+
+- **Secrets never reach the plugin**, only signed URLs. A signed URL does carry the access key ID, and with temporary credentials the session token, but never the secret key. It is still a read capability: a plugin can ask for any object in a bucket a connection covers, not only the ones the user picked, so install only plugins you trust with that data (plugins run with the app's full trust, as everywhere else in this API).
+- **Signed URLs expire** within 12 hours (sooner with temporary credentials); a connection set to anonymous access returns a plain, non-expiring public URL. Resolve again when you need a URL instead of storing it, and save the `s3://` URL, never a signed one, in project state.
+- It rejects when the bucket is covered but its credentials cannot be resolved (an expired SSO session, for example). Show the message; the user fixes the connection in Settings.
+- The bucket's CORS rules still apply to `fetch` in the webview. On the desktop, `app.fetchArrayBuffer(signedUrl)` tries the native HTTP client first, which CORS does not restrict; it falls back to the webview (where CORS applies) for 401/403 responses and for hosts the native client cannot reach. `<img>` elements need no CORS.
+
 ## Saving credentials
 
 A plugin that needs to remember a token or API key should use `app.credentials` instead of writing its own `localStorage` key. On the desktop app the values live in the OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service); on the web build, the Jupyter embed and mobile they live in `localStorage`.
@@ -1642,7 +1786,8 @@ If instead you want a plugin compiled into the main JS bundle (no `plugin.json`,
   "entry": "dist/index.js",
   "description": "Optional short description",
   "style": "dist/style.css",
-  "engines": ["maplibre", "cesium"]
+  "engines": ["maplibre", "cesium"],
+  "assistant": { "description": "Search the example catalogue and add its layers." }
 }
 ```
 
@@ -1727,7 +1872,7 @@ export default {
   version: "1.0.0",
   activate(app) {
     // Share this function with the panel's Add button.
-    async function addCities(input) {
+    async function addCities(input, context) {
       if (
         !input ||
         typeof input !== "object" ||
@@ -1736,7 +1881,8 @@ export default {
         throw new Error("name must be a string");
       }
       const response = await fetch(
-        "https://raw.githubusercontent.com/opengeos/leafmap/master/examples/data/us_cities.geojson"
+        "https://raw.githubusercontent.com/opengeos/leafmap/master/examples/data/us_cities.geojson",
+        { signal: context?.signal }
       );
       if (!response.ok) throw new Error(`Download failed: ${response.status}`);
       const data = await response.json();
@@ -1768,6 +1914,14 @@ or a promise of it; a callback returning `undefined` produces `null`. Thrown
 errors become assistant tool error results. Omitting `inputSchema` describes an
 empty object with no additional properties.
 
+**Honour Stop with `context.signal`.** The callback's second argument is
+`{ signal }`, an `AbortSignal` that aborts when the user stops the assistant.
+The assistant cannot interrupt a tool that is already running, so a tool that
+waits on the network should pass `signal` to `fetch` (or check `signal.aborted`
+between steps); otherwise the assistant stays busy until the tool finishes.
+Older hosts call the callback without a second argument, so read it as
+`context?.signal`.
+
 Built-in plugins that already import the SDK can instead call
 `app.registerAssistantTool(tool({ name, description, inputSchema, callback }))`,
 using the SDK's `tool()` factory with a zod schema for automatic validation. Both
@@ -1792,6 +1946,37 @@ plugins, whose registrations no cleanup path would reach.
 The assistant refreshes its tools before the next prompt while retaining its
 conversation history. Plugin callbacks execute plugin-authored code, like a
 panel button; they should use the app API to update layers and other app state.
+
+### Letting the assistant turn your plugin on
+
+Tools exist only while the plugin is on, so on their own the assistant cannot
+tell that an installed plugin which is off could serve a request. Declare
+`assistant` to fix that: set it in `plugin.json` (it is copied onto the exported
+plugin when the plugin does not set its own) or on the plugin object.
+
+```json
+"assistant": { "description": "Search the example catalogue and add its layers." }
+```
+
+`description` is required, at most 300 characters, and should say in one
+sentence what the plugin's tools do and which data they cover: it is all the
+model sees while the plugin is off. While at least one installed plugin with
+this declaration is off (and supported by the current renderer, and not hidden
+by the UI profile), the assistant gets a host tool, `activate_plugin`, whose
+description lists each such plugin by id, name and description. Calling it turns
+the plugin on exactly as the Plugins menu does: the same activation, recorded in
+the project's plugin state, and your `activate` may open your panel as usual.
+The tools the plugin registers during activation are added to the running
+agent, so the model calls them in the same turn. That includes tools registered
+from a deferred mount, in one step or several: the host waits until no new tool
+has appeared for 250 ms, and never more than 3 seconds in total. A plugin that
+registers nothing holds the turn for the full 3 seconds, so register promptly. The tool result lists them and repeats your
+`registerAssistantGuidance` text, which reaches the system prompt from the next
+message on.
+
+The declaration does not register anything by itself: keep registering your
+tools from `activate`. A plugin that declares `assistant` but registers no tools
+is turned on and reports an empty tool list.
 
 ### Progressive tool disclosure
 
@@ -1869,6 +2054,42 @@ parameters, project restoration, and delayed control registration, as well as
 by the Plugins menu and command palette. Renderer changes suspend unsupported
 plugins and retain their saved settings and activation for the return trip.
 Compatible plugins remount their controls on the replacement renderer.
+
+### Reading the map CRS
+
+A MapLibre map can be drawn in a CRS other than Web Mercator (**Settings → Map →
+Map coordinate reference system**, see [Other coordinate reference
+systems](maplibre-renderer.md#other-coordinate-reference-systems)).
+`app.getMapCrs()` returns which one, or `null` on the default Web Mercator map
+or globe and on the other renderers:
+
+- `id` is the `preferences.map.mapCrs` value, a preset id or `"EPSG:<code>"`.
+- `code` is the authority code the map is registered under.
+- `wmsSrs` is set only when servers are asked for a different label than
+  `code` (the planetary presets, whose IAU codes servers do not read).
+
+On such a map the host asks WMS and ArcGIS `export` layers for each tile's box
+in `wmsSrs ?? code`, and does not draw XYZ, vector tile or MBTiles layers. So
+match a WMS server's capabilities against `wmsSrs ?? code` before adding a
+layer: one that lists it lines up even when it lacks EPSG:3857, and one that
+does not stays blank. A plugin's own tiles and deck.gl overlays are not adapted,
+so switch them off or warn the user while the value is non-null.
+
+`app.onMapCrsChange(listener)` calls back when the value changes: the user picks
+another CRS or leaves one, or switches renderer. It does not call back
+immediately, and the value moves only once a newly picked CRS has resolved (an
+EPSG code loads the EPSG tables first).
+Switching CRS rebuilds the style, which drops the sources and layers a plugin
+added to the map itself; re-add them on the map's next `style.load`. Unsubscribe
+in `deactivate`:
+
+```ts
+const describe = (crs: { code: string; wmsSrs?: string } | null) =>
+  crs ? `Map drawn in ${crs.wmsSrs ?? crs.code}` : "Web Mercator map";
+status.textContent = describe(app.getMapCrs?.() ?? null);
+const stop = app.onMapCrsChange?.((crs) => (status.textContent = describe(crs)));
+// in deactivate: stop?.();
+```
 
 ### Reading the viewport
 
@@ -2077,3 +2298,30 @@ control that trips it fails to mount rather than taking plugin activation down
 with it. A plugin whose control needs those methods should keep the default
 `engines: ["maplibre"]` and, if the globe matters, add a Cesium branch through
 `app.getCesiumScene()`.
+
+### Updating the browser address
+
+The web host keeps `lat`, `lon`, and `zoom` synchronized with the primary map
+view, debounced with `history.replaceState` so movement does not add Back
+history entries. When a project URL also carries coordinates, that view overrides
+the project's saved center and zoom. Plugins can publish their current search state through the
+optional, plugin-scoped API:
+
+```typescript
+app.setUrlParameters?.(new URLSearchParams({ ingvTime: "30d", ingvMag: "3,8" }));
+```
+
+Declare each writable name in `urlParameterNames`. Each call replaces all of
+that plugin's declared parameters: omitted names are removed, and repeated
+values are preserved. Other query parameters, the fragment, and history state
+are retained. Host parameters such as `url`, `plugin`, `lat`, `lon`, and `zoom`
+are reserved, even if declared by a plugin. Use plugin-specific names to avoid
+collisions with other plugins. A query name belongs to the first plugin that
+registers it for writes; later plugins can still read it through URL dispatch,
+but cannot write or clear it through this API. The host logs a registration
+warning for conflicting declarations. These calls do not dispatch URL handlers again.
+Deactivation and unregistration remove the plugin's parameters. Failed activation
+clears parameters only if that activation published them, preserving untouched
+inbound deep links for retries. Callbacks from an older activation cannot republish them.
+Desktop hosts accept the API but leave the address unchanged. Older hosts may
+omit it, so plugins should use optional chaining.

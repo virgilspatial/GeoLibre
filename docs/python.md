@@ -255,7 +255,11 @@ m.on_layer_change(lambda e: print("layers", e["layerIds"]))
 !!! note "Blocking queries"
     Interactive queries block the kernel until the app replies (via
     `jupyter_ui_poll`, installed automatically). Pass `timeout=` for slow calls,
-    e.g. `m.run_algorithm(..., timeout=300)`.
+    e.g. `m.run_algorithm(..., timeout=300)`. Every query method also has an
+    `*_async()` variant (`await m.get_center_async()`, `await m.fly_to_async(...)`,
+    ...) that awaits the reply instead of blocking a thread — the right choice
+    inside `async` code, such as a Shiny for Python app, where the blocking
+    variants can only run on a worker thread.
 
 ## API reference
 
@@ -282,6 +286,7 @@ m.on_layer_change(lambda e: print("layers", e["layerIds"]))
 | `to_html(path=None, title=, width=, height=, app_url=)` | Export a standalone HTML page that embeds the current project (credentials redacted) in this map's `layout` and `theme`; returns the HTML or writes to `path`. |
 | `on(event, cb)` / `on_click` / `on_selection_change` / `on_layer_change` | Register event callbacks; returns an unsubscribe function. |
 | `request(method, params=None, timeout=)` | Low-level command primitive behind the methods above. |
+| `request_async(method, params=None, timeout=)` | Awaitable counterpart of `request()`; each query/processing method above has an `*_async()` twin. |
 
 ### Data, view & projects
 
@@ -350,7 +355,7 @@ m.on_layer_change(lambda e: print("layers", e["layerIds"]))
 | `add_bookmark(name, center=, zoom=, pitch=, bearing=, folder=, visible_layers=)` | Save a view to the Bookmarks panel; camera values left out come from the saved view. `folder` is a folder id or name (a new name creates it); `visible_layers` lists the layers (ids, names, or handles) to show when it is opened. |
 | `remove_bookmark(bookmark)` | Drop a bookmark by id, name, or 0-based index. |
 | `set_identify(layer="all")` | Arm the Identify tool so a click opens the popup: on one layer (id, name, or handle), on a list of layers, on every visible layer (`"all"`), or off (`None`). |
-| `show_control(name, visible=True)` / `hide_control(name)` | Show or hide a toolbar panel (`bookmark`, `search`, `measure`, `minimap`, `print`) or a built-in map control (`navigation`, `fullscreen`, `compass`, `geolocate`, `globe`, `scale`, `attribution`, `logo`). |
+| `show_control(name, visible=True, *, collapsed=None, distance_unit=None, area_unit=None)` / `hide_control(name)` | Show or hide a toolbar panel (`bookmark`, `search`, `measure`, `minimap`, `print`) or a built-in map control (`navigation`, `fullscreen`, `compass`, `geolocate`, `globe`, `scale`, `attribution`, `logo`). `collapsed=True` opens `measure` or `minimap` as just its on-map button; `distance_unit` and `area_unit` set Measure's starting units. |
 | `set_projection(projection)` / `projection` | Draw the map as a `"globe"` (the default) or flat `"mercator"` map; saved in the project. |
 | `to_project(keep_credentials=False)` | Return the current project as a dict, credentials redacted unless `keep_credentials=True`. |
 | `load_project(src)` | Replace the project from a dict, JSON string, or `.geolibre.json` path. |
@@ -433,6 +438,9 @@ m.show_control("bookmark")       # open the Bookmarks panel
 m.show_control("search")         # open the place search box
 m.hide_control("globe")          # hide the globe/flat toggle button
 m.set_projection("mercator")     # draw a flat map instead of a globe
+
+# Measure as just its ruler button, in US units, until a viewer clicks it.
+m.show_control("measure", collapsed=True, distance_unit="feet", area_unit="acres")
 ```
 
 `save_project`, `to_project` and `to_html` save the Identify target and the

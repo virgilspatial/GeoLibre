@@ -62,6 +62,10 @@ mod native_duckdb {
 compile_error!("the `mas` (Mac App Store) build must not enable `native-duckdb`: DuckDB loads its spatial extension as unsigned native code at runtime, which App Sandbox and App Store guideline 2.5.2 forbid.");
 
 mod http_body;
+// In-process PostGIS vector tiles (ST_AsMVT) for Android/iOS, which cannot run
+// the Martin tile server (GeoLibre#2091). Outbound connections only: no
+// listening socket and no spawned process, so every build target can carry it.
+mod postgis_tiles;
 // OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret
 // Service) for tokens and API keys saved in Settings (issue #1667). Mobile has
 // no keyring backend, and the keyring crate silently falls back to an
@@ -472,6 +476,9 @@ pub fn run() {
     // every build, the App Store one included (which has no AWS CLI fallback).
     let builder = builder.manage(aws_credentials::AwsSsoLoginState::default());
 
+    // Pools for the in-process PostGIS tile renderer, created on first connect.
+    let builder = builder.manage(postgis_tiles::PostgisTilesState::default());
+
     // The Martin/sidecar/Jupyter process managers exist only where the commands
     // that spawn those processes do; the MAS build compiles both out together.
     #[cfg(not(feature = "mas"))]
@@ -536,7 +543,11 @@ pub fn run() {
             secure_store::secure_store_get_many,
             secure_store::secure_store_seal,
             secure_store::secure_store_set,
-            secure_store::secure_store_delete
+            secure_store::secure_store_delete,
+            postgis_tiles::postgis_tiles_list_sources,
+            postgis_tiles::postgis_tiles_source_info,
+            postgis_tiles::postgis_tiles_tile,
+            postgis_tiles::postgis_tiles_disconnect
         ])
         // A new document in a webview hydrates credentials again, so give it
         // back its one startup read (secure_store.rs, issue #2858).
@@ -2966,14 +2977,13 @@ fn start_jupyter_server_blocking(app: tauri::AppHandle) -> Result<JupyterServerI
             notebooks_dir.display()
         )
     })?;
-    // Seed the starter Welcome notebook (the same one bundled into JupyterLite on
-    // web) on first run only, so we never clobber a user's edits.
-    let welcome_dest = notebooks_dir.join("Welcome.ipynb");
-    if !welcome_dest.exists() {
-        let _ = fs::copy(
-            project_dir.join("notebook_examples").join("Welcome.ipynb"),
-            &welcome_dest,
-        );
+    // Seed the example notebooks (the same ones bundled into JupyterLite on web)
+    // only when missing, so we never clobber a user's edits.
+    for notebook in ["Welcome.ipynb", "Explore_GeoLibre.ipynb"] {
+        let dest = notebooks_dir.join(notebook);
+        if !dest.exists() {
+            let _ = fs::copy(project_dir.join("notebook_examples").join(notebook), &dest);
+        }
     }
     // Make the kernel-side `geolibre` client importable from any notebook: copy
     // it out of the bundled backend resource into a dedicated lib dir placed on

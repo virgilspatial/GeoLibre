@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { NasaEarthdataControl } from "maplibre-gl-nasa-earthdata";
+import { isolateMaplibreRegistry } from "../apps/geolibre-desktop/vite-plugins/isolate-maplibre-registry";
 import { MAX_VECTOR_BYTES } from "../packages/plugins/src/plugins/remote-file-formats";
 import {
   citedSections,
@@ -139,6 +141,37 @@ describe("maplibre-gl", () => {
   });
 });
 
+describe("maplibre-gl and mapbox-gl class registries", () => {
+  const file = (pkg: string, name: string) =>
+    readFileSync(path.resolve("node_modules", pkg, "dist", name), "utf8");
+
+  it("still collide on the property isolateMaplibreRegistry renames", () => {
+    const maplibre = file("maplibre-gl", "maplibre-gl.mjs");
+    const isolated = isolateMaplibreRegistry(
+      maplibre,
+      "/node_modules/maplibre-gl/dist/maplibre-gl.mjs",
+    );
+    assert.match(maplibre, /_classRegistryKey/, "see 'mapbox-gl' in docs/maintenance.md");
+    assert.ok(isolated !== null, "the plugin must rewrite MapLibre's main bundle");
+    assert.doesNotMatch(isolated, /_classRegistryKey/);
+    assert.match(file("mapbox-gl", "mapbox-gl.js"), /_classRegistryKey/);
+  });
+
+  it("only rewrites MapLibre's main-thread bundle", () => {
+    assert.equal(
+      isolateMaplibreRegistry("_classRegistryKey", "/node_modules/mapbox-gl/dist/x.js"),
+      null,
+    );
+    assert.equal(
+      isolateMaplibreRegistry(
+        "_classRegistryKey",
+        "/node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs",
+      ),
+      null,
+    );
+  });
+});
+
 describe("mapbox-gl", () => {
   it("keeps a geojson source's data on `_data` as the raw value", () => {
     // Text check: mapbox-gl touches `window` at import time.
@@ -271,6 +304,42 @@ describe("Web Services control packages", () => {
   }
 });
 
+describe("maplibre-gl-nasa-earthdata", () => {
+  const section = "Web Services control packages (`packages/plugins/package.json`)";
+  // Both checks read method bodies, which are private or live inside the class.
+  const proto = NasaEarthdataControl.prototype as unknown as Record<string, unknown>;
+
+  it("still wires the panel Add through `this.addLayer(layer.id)`", () => {
+    // The date fallback replaces the instance's addLayer; the Add button only
+    // reaches it if the button calls the instance method.
+    assert.match(
+      sourceOf(proto._createLayerRow),
+      /this\.addLayer\(layer\.id\)/,
+      contractMessage(
+        "maplibre-gl-nasa-earthdata",
+        section,
+        "the panel Add no longer calls this.addLayer(layer.id), so the date fallback in nasa-earthdata-date-fallback.ts is bypassed",
+        "packages/plugins",
+      ),
+    );
+  });
+
+  it("still lets addLayer take a date or key, which the fallback passes through", () => {
+    const body = sourceOf(proto.addLayer);
+    for (const option of ["options?.date", "options?.key"]) {
+      assert.ok(
+        body.includes(option),
+        contractMessage(
+          "maplibre-gl-nasa-earthdata",
+          section,
+          `addLayer no longer reads ${option}, so a restore or date-picker add would be probed and moved`,
+          "packages/plugins",
+        ),
+      );
+    }
+  });
+});
+
 describe("maplibre-gl-components", () => {
   const section = "`maplibre-gl-components` (`packages/plugins/package.json`)";
 
@@ -394,6 +463,20 @@ describe("maplibre-gl-lidar", () => {
         ),
       );
     }
+  });
+});
+
+describe("maplibre-gl-raster", () => {
+  // The package loads deck.gl and WebGL code, so this reads the published text.
+  it("still keeps deck.gl rasters out of the depth buffer", () => {
+    assert.ok(
+      readPublishedText("maplibre-gl-raster").includes("depthWriteEnabled: false"),
+      contractMessage(
+        "maplibre-gl-raster",
+        "`maplibre-gl-raster` — rasters stay out of the depth buffer",
+        "the published bundle no longer sets `depthWriteEnabled: false` on raster layers",
+      ),
+    );
   });
 });
 
@@ -735,6 +818,33 @@ describe("maplibre-gl-raster", () => {
         "pow(clamp(color.rgb, 0.0, 1.0), vec3(1.0 / max(gammaModule.gammaValue, 0.0001)))",
       ),
       message("the gamma curve changed"),
+    );
+  });
+
+  it("binds the pixel inspector's click through the `_onClick` property", () => {
+    // Text check: PixelInspector is module-private. guardRasterInspectorClicks
+    // wraps `_inspector._onClick` once, which only takes if enable() and
+    // disable() both read the property rather than a bound copy.
+    const text = readPublishedText("maplibre-gl-raster", { workspace: "packages/plugins" });
+    const message = (detail: string) =>
+      contractMessage(
+        "maplibre-gl-raster",
+        "`maplibre-gl-raster` — pixel inspector click guard",
+        detail,
+        "packages/plugins",
+      );
+    assert.ok(
+      text.includes("this._inspector = new PixelInspector("),
+      message("RasterControl no longer keeps its inspector in `_inspector`"),
+    );
+    assert.match(text, /\b_onClick = \(/, message("`_onClick` is no longer an instance property"));
+    assert.ok(
+      text.includes('this._map.on("click", this._onClick)'),
+      message("enable() no longer binds `this._onClick`"),
+    );
+    assert.ok(
+      text.includes('this._map.off("click", this._onClick)'),
+      message("disable() no longer unbinds `this._onClick`"),
     );
   });
 });

@@ -201,6 +201,10 @@ GeoLibre is built on the free and open-source geospatial and web communities —
 - **Community contributors** — thanks to [**Ryanphoenix**](https://github.com/Ryanphoenix) for many valued contributions, including issue reports, feedback, and improvements.
 - **Beta testers** — thanks to [**René van der Velde**](https://github.com/renevandervelde) (Netherlands) for early testing, detailed bug reports, and feature requests.
 
+## Disclaimer
+
+GeoLibre is primarily built with [Claude Opus 5.5](https://www.anthropic.com/claude), an AI model by Anthropic, working under human direction and review. Its results are tested, but check them for your own use, and please [report](https://github.com/opengeos/GeoLibre/issues) anything that looks wrong.
+
 ## Citation
 
 If you use GeoLibre in your work, please cite it. GeoLibre is archived on [Zenodo](https://zenodo.org/), which mints a DOI for every release. The concept DOI below always resolves to the latest version.
@@ -210,6 +214,16 @@ If you use GeoLibre in your work, please cite it. GeoLibre is archived on [Zenod
 > Wu, Q. (2026). GeoLibre: A lightweight, cloud-native GIS platform for visualizing, exploring, and analyzing geospatial data. Zenodo. <https://doi.org/10.5281/zenodo.20785400>
 
 You can also use GitHub's **"Cite this repository"** button (which reads [`CITATION.cff`](CITATION.cff)) to copy a ready-made APA or BibTeX entry. See the [How to Cite](https://geolibre.app/citation/) page for more formats.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=opengeos%2Fgeolibre&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=opengeos/geolibre&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=opengeos/geolibre&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=opengeos/geolibre&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ## License
 

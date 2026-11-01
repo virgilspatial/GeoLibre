@@ -23,6 +23,70 @@ import type { GeoLibreToolbarLabel } from "./toolbar-menu-label";
 
 export type GeoLibreMapControlPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
+/**
+ * The CRS the primary map is drawn in, when it is not the default Web Mercator
+ * map or globe (`preferences.map.mapCrs`, see docs/maplibre-renderer.md).
+ */
+export interface GeoLibreMapCrs {
+  /** The `preferences.map.mapCrs` value: a preset id or `"EPSG:<code>"`. */
+  id: string;
+  /** The authority code the map is registered under, such as `"EPSG:25832"`. */
+  code: string;
+  /**
+   * The label WMS and ArcGIS export layers on the map ask servers for instead
+   * of {@link code}, set only when the two differ (the planetary presets,
+   * whose IAU codes servers do not read). Match a server's capabilities
+   * against `wmsSrs ?? code`.
+   */
+  wmsSrs?: string;
+}
+
+/** Built-in panels shared by plugins and the scripting API. */
+export type GeoLibreControlPanelId = "bookmark" | "search" | "measure" | "minimap" | "print";
+
+/** Options for the host's overview map. */
+export interface GeoLibreMinimapOptions {
+  /** Zoom relative to the main map; negative values show more context. Default -4. */
+  zoomOffset?: number;
+  /** Width in pixels. Must be positive. Default 250. */
+  width?: number;
+  /** Height in pixels. Must be positive. Default 180. */
+  height?: number;
+  /** Open as its on-map button only, with the overview hidden. Default false. */
+  collapsed?: boolean;
+}
+
+/** Distance units the host's Measure panel can report. */
+export type GeoLibreMeasureDistanceUnit =
+  | "meters"
+  | "kilometers"
+  | "miles"
+  | "feet"
+  | "yards"
+  | "nautical-miles";
+
+/** Area units the host's Measure panel can report. */
+export type GeoLibreMeasureAreaUnit =
+  | "square-meters"
+  | "square-kilometers"
+  | "square-miles"
+  | "hectares"
+  | "acres"
+  | "square-feet";
+
+/** Options for the host's Measure panel. */
+export interface GeoLibreMeasureOptions {
+  /**
+   * Open as its on-map ruler button only, with the panel closed and the tool
+   * idle until the viewer clicks it. Default false.
+   */
+  collapsed?: boolean;
+  /** Unit for distances. Default `"kilometers"`. */
+  distanceUnit?: GeoLibreMeasureDistanceUnit;
+  /** Unit for areas. Default `"square-kilometers"`. */
+  areaUnit?: GeoLibreMeasureAreaUnit;
+}
+
 export type GeoLibreBuiltInMapControl =
   | "navigation"
   | "fullscreen"
@@ -324,6 +388,26 @@ export interface GeoLibreCogLayerOptions {
 }
 
 /**
+ * Options for {@link GeoLibreAppAPI.addPointCloudLayer}: a LAS/LAZ/COPC file or
+ * an EPT dataset rendered by the host's own LiDAR layer.
+ */
+export interface GeoLibrePointCloudLayerOptions {
+  /**
+   * Name shown in the Layers panel. Defaults to the file name in the URL, or to
+   * {@link fileName} for a `File` or bytes.
+   */
+  name?: string;
+  /**
+   * File name the loader sees for a `File` or bytes source; its extension picks
+   * the loader (`.las`, `.laz`, and `.copc.laz`, which streams by octree node).
+   * Required for bytes. Defaults to the `File`'s own name. Ignored for a URL.
+   */
+  fileName?: string;
+  /** Fly the map to the point cloud once it loads (default `true`). */
+  zoomTo?: boolean;
+}
+
+/**
  * Options for {@link GeoLibreAppAPI.addZarrLayer}: a Zarr store rendered by the
  * host's own `@carbonplan/zarr-layer` instance, mirrored into the Layers panel.
  *
@@ -544,7 +628,15 @@ export interface AssistantToolSpec {
   name: string;
   description: string;
   inputSchema?: JSONSchema;
-  callback: (input: unknown) => unknown | Promise<unknown>;
+  callback: (input: unknown, context?: AssistantToolCallContext) => unknown | Promise<unknown>;
+}
+
+/** Per-call context handed to an {@link AssistantToolSpec} callback. */
+export interface AssistantToolCallContext {
+  /** Aborts when the user stops the assistant. Pass it to `fetch` or check
+   * `signal.aborted` between steps so a long-running tool returns promptly.
+   */
+  signal: AbortSignal;
 }
 
 /** Options for {@link GeoLibreAppAPI.downloadRemoteFile}. */
@@ -604,6 +696,12 @@ export interface GeoLibrePluginCredentials {
 }
 
 export interface GeoLibreAppAPI {
+  /** Replace this plugin's declared URL parameters, removing omitted names.
+   * Other plugins' parameters and host parameters are preserved. Web only;
+   * inactive or stale plugin instances cannot write. Older hosts may omit it.
+   */
+  setUrlParameters?: (params: URLSearchParams) => void;
+
   /** Register an SDK Tool. The host scopes ownership to the calling plugin.
    * Returns a disposer; the host also removes tools on plugin deactivation.
    */
@@ -655,6 +753,11 @@ export interface GeoLibreAppAPI {
    * service does, e.g. with the SLD a GeoServer returns for WMS `GetStyles`.
    */
   importLayerStyle?: (layerId: string, text: string) => GeoLibreImportLayerStyleResult;
+  /**
+   * Show or hide a layer, like the Layers panel's eye button: the store is updated,
+   * so the panel and the map stay in step. Throws for an unknown layer id.
+   */
+  setLayerVisibility?: (layerId: string, visible: boolean) => void;
   getSelectedFeatures?: () => Feature<Geometry | null>[];
   getSelectedLayerId?: () => string | null;
   readRasterWindow?: (
@@ -890,6 +993,28 @@ export interface GeoLibreAppAPI {
   onLayersChanged?: (callback: (layerIds: string[]) => void) => () => void;
   fetchArrayBuffer?: (url: string) => Promise<ArrayBuffer>;
   /**
+   * Turn a data URL into one a plain HTTP reader (`fetch`, an `<img>`, a
+   * loader) can read, the way GeoLibre's own layers do:
+   *
+   * - an `s3://` (or S3 HTTPS) URL in a bucket a configured S3 connection
+   *   covers resolves to a **presigned** HTTPS URL, signed with that
+   *   connection's credentials (access keys; on desktop also AWS profiles
+   *   including SSO, the environment, and instance roles);
+   * - any other `s3://` URL resolves to its public HTTPS object URL (a key
+   *   with a `.` or `..` segment rejects: no URL can address it);
+   * - every other URL is returned unchanged (surrounding whitespace trimmed).
+   *
+   * Credentials never reach the plugin, only the signed URL. Signed URLs
+   * expire (in at most 12 hours, sooner with temporary credentials), so resolve
+   * again when you need the URL rather than storing it, and never persist one:
+   * save the `s3://` URL instead. Rejects when the bucket is covered but its
+   * credentials cannot be resolved (an expired SSO session, say), or `signal`
+   * aborts.
+   *
+   * Typed optional for forward-compatibility, so call it with optional chaining.
+   */
+  resolveReadableUrl?: (url: string, signal?: AbortSignal) => Promise<string>;
+  /**
    * A `fetch` that runs through the desktop app's native HTTP client: any
    * method, no CORS, and a cookie jar kept for the app session. Desktop only;
    * undefined in the browser and Jupyter builds.
@@ -933,6 +1058,27 @@ export interface GeoLibreAppAPI {
     fileName: string,
     headers?: Record<string, string>,
   ) => void;
+  /**
+   * Add a point cloud as a GeoLibre LiDAR layer, the way Add Data → LiDAR does:
+   * the host's LiDAR control renders it, it is listed in the Layers panel, and
+   * the user styles it in the LiDAR panel. A URL may be HTTP(S) or `s3://`, and
+   * point at a LAS/LAZ file, a COPC file (streamed by octree node for the
+   * view), or an EPT `ept.json`; a URL layer is saved with the project and
+   * re-streamed when it is reopened. A `File` or bytes source loads in memory
+   * and needs a `fileName` (or the `File`'s name) ending in `.las` or `.laz`.
+   *
+   * Resolves with the new layer's id, which works with {@link removeLayer} and
+   * the other layer methods. Rejects when the source is invalid, or the point
+   * cloud cannot be read (a server without CORS for this origin, say).
+   *
+   * Typed optional for forward-compatibility, so call it with optional chaining.
+   * To draw points the LiDAR layer does not model, render them yourself with
+   * {@link getMaplibreGlLidar} or {@link getDeckGL}.
+   */
+  addPointCloudLayer?: (
+    source: string | File | ArrayBuffer | Uint8Array,
+    options?: GeoLibrePointCloudLayerOptions,
+  ) => Promise<string>;
   /**
    * Ask the user for a folder to save several downloads into, for
    * {@link downloadRemoteFile}'s `"folder"` target. Resolves null when the user
@@ -1029,6 +1175,25 @@ export interface GeoLibreAppAPI {
   getMap?: () => MapLibreMap | null;
   /** Active primary renderer, including while its canvas is being replaced. */
   getMapRenderer?: () => MapRendererKind;
+  /**
+   * The CRS the primary map is drawn in, or `null` on the default Web
+   * Mercator map or globe, and on renderers other than MapLibre (only MapLibre
+   * draws other CRSs). On a map in another CRS the host asks WMS and ArcGIS
+   * export layers for each tile's box in `wmsSrs ?? code`, so a WMS that lists
+   * that CRS lines up even without EPSG:3857, and it does not draw XYZ, vector
+   * tile or MBTiles layers. A plugin's own tiles and deck.gl overlays are not
+   * adapted. A newly picked CRS shows up here only once it has resolved (an
+   * EPSG code loads the EPSG tables first); {@link onMapCrsChange} reports it.
+   */
+  getMapCrs?: () => GeoLibreMapCrs | null;
+  /**
+   * Subscribe to the value {@link getMapCrs} returns changing: the user picking
+   * another CRS, leaving one, or switching renderer. Does not call back
+   * immediately. Switching CRS rebuilds the style, which drops layers and
+   * sources a plugin added to the map itself; re-add them on the map's next
+   * `style.load`. Call the returned unsubscribe function on deactivation.
+   */
+  onMapCrsChange?: (listener: (crs: GeoLibreMapCrs | null) => void) => () => void;
   /** Native ArcGIS view; null while another engine is active. */
   getArcgisView?: () => ReturnType<import("@geolibre/map").ArcgisEngine["getView"]>;
   /**
@@ -1165,6 +1330,22 @@ export interface GeoLibreAppAPI {
   unregisterExternalNativeLayer?: (id: string) => void;
   addMapControl: (control: IControl, position?: GeoLibreMapControlPosition) => boolean;
   removeMapControl: (control: IControl) => void;
+  /**
+   * Open a built-in panel using the host's existing control. Idempotent; the
+   * menu checkmark follows. Minimap options also update an already open map
+   * and survive basemap changes until it is closed; Measure options update an
+   * already open panel. Controls initialize asynchronously. Optional on older
+   * hosts.
+   */
+  openControlPanel?: {
+    (id: "minimap", options: GeoLibreMinimapOptions): void;
+    (id: "measure", options: GeoLibreMeasureOptions): void;
+    (id: GeoLibreControlPanelId): void;
+  };
+  /** Close a built-in panel, as its menu toggle does. Optional on older hosts. */
+  closeControlPanel?: (id: GeoLibreControlPanelId) => void;
+  /** Read the built-in panel's menu visibility state. Optional on older hosts. */
+  isControlPanelVisible?: (id: GeoLibreControlPanelId) => boolean;
   setBuiltInMapControlVisible: (control: GeoLibreBuiltInMapControl, visible: boolean) => boolean;
   getBuiltInMapControlPosition: (control: GeoLibreBuiltInMapControl) => GeoLibreMapControlPosition;
   setBuiltInMapControlPosition: (
@@ -1196,6 +1377,21 @@ export interface GeoLibreAppAPI {
    * forward-compatibility, so plugins should call it with optional chaining.
    */
   getMaplibreGlRaster?: () => Promise<typeof import("maplibre-gl-raster")>;
+  /**
+   * Resolve GeoLibre's own `maplibre-gl-lidar` module so an external plugin can
+   * read and draw point clouds through the host's instance instead of bundling
+   * its own: its `PointCloudLoader` and `CopcStreamingLoader` decode LAS/LAZ/COPC
+   * with the LAZ WebAssembly the host already serves, and its `LidarControl`,
+   * `LidarLayerAdapter`, and `DeckOverlay` render on the host's single deck.gl
+   * instance. A bundled copy carries a second deck.gl/luma.gl, which throws
+   * (luma.gl: "already initialized"), and must ship its own WebAssembly, which a
+   * desktop install cannot always serve. Use it for points the LiDAR layer does
+   * not model, or a custom point renderer; for a plain point cloud layer use
+   * {@link addPointCloudLayer}. Always present on the GeoLibre desktop and web
+   * hosts; typed optional for forward-compatibility, so plugins should call it
+   * with optional chaining.
+   */
+  getMaplibreGlLidar?: () => Promise<typeof import("maplibre-gl-lidar")>;
   /**
    * Resolve the host's shared proj4 module namespace instead of bundling a copy.
    * Its `default` export is the callable library. Pass CRS definitions directly
@@ -1628,6 +1824,19 @@ export interface GeoLibreRightPanelRegistration {
   onExplicitClose?: () => void;
 }
 
+/**
+ * What the AI Assistant is told about an inactive plugin it could turn on.
+ * See {@link GeoLibrePlugin.assistant}.
+ */
+export interface GeoLibrePluginAssistantInfo {
+  /**
+   * One sentence on what the plugin's assistant tools do and which data they
+   * cover, shown to the model while the plugin is off (at most 300
+   * characters for an external plugin).
+   */
+  description: string;
+}
+
 export interface GeoLibrePlugin {
   id: string;
   name: string;
@@ -1642,6 +1851,13 @@ export interface GeoLibrePlugin {
   engines?: MapRendererKind[];
   /** Plugins in the same group cannot be active at the same time. */
   exclusiveGroup?: string;
+  /**
+   * Declares that this plugin registers AI Assistant tools once it is on, so
+   * the assistant can offer to turn it on (`activate_plugin`) while it is off.
+   * Tools only exist for an active plugin, so without this the assistant
+   * cannot know an installed but inactive plugin could help.
+   */
+  assistant?: GeoLibrePluginAssistantInfo;
   /** At least one name is required for handleUrlParameters to be called. */
   urlParameterNames?: string[];
   /**
@@ -1731,6 +1947,12 @@ export interface GeoLibreExternalPluginManifest {
    * third-party plugins cannot force themselves active.
    */
   activeByDefault?: boolean;
+  /**
+   * Declares that the plugin registers AI Assistant tools, so the assistant
+   * can turn it on while it is off. Copied onto the exported plugin when it
+   * does not declare its own. See {@link GeoLibrePlugin.assistant}.
+   */
+  assistant?: GeoLibrePluginAssistantInfo;
 }
 
 /**
