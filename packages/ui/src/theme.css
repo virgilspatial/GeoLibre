@@ -51,10 +51,8 @@
     --elev-umbra: hsl(220 40% 12% / 0.1);
   }
 
-  /* SWIFTMAP: dark values from docs/swiftmap/mockup/Main.dc.html, except --popover,
-     which departs from it so menus, dialogs and tooltips sit one step above the
-     panels. The other surfaces share one colour and are told apart by borders and
-     shadows.
+  /* SWIFTMAP: dark values from docs/swiftmap/mockup/Main.dc.html. Background, card
+     and popover share one colour, so surfaces are told apart by borders and shadows.
      Every foreground/surface pair here clears WCAG AA 4.5:1 (lowest is
      destructive on muted at 5.38:1). */
   .dark {
@@ -62,7 +60,7 @@
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 7% 8.4%;
+    --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
     --primary: 0 0% 98%;
     --primary-foreground: 240 10% 3.9%;
