@@ -14,9 +14,11 @@
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
-    /* SWIFTMAP: the mockup's value. Clears WCAG AA on white (4.83:1) but not on
-       --muted (4.39:1) or --accent (4.09:1); see Change 13. */
-    --muted-foreground: 240 3.8% 46.1%;
+    /* SWIFTMAP: #696972, two steps darker than the mockup's #71717a, so muted text
+       clears WCAG AA on every light surface: white 5.43:1, --muted 4.94:1, the
+       selected layer row 4.90:1, --accent 4.61:1. The mockup's value failed the
+       e2e axe sweep (a11y.spec.ts); see Change 13. */
+    --muted-foreground: 240 3.8% 43%;
     /* SWIFTMAP: the mockup's hover grey, one step darker than --muted so hover
        fills show on both white and grey surfaces. */
     --accent: 240 5.6% 92.9%;
