@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { dropGeoJson, layerRow, readFixture, waitForMap } from "./helpers";
+import { dropGeoJson, layerRow, readFixture, selectLayerRow, waitForMap } from "./helpers";
 
 const FIXTURE_TEXT = readFixture("smoke.geojson");
 
@@ -38,9 +38,11 @@ test("a pasted style reaches the layer, and a bad one keeps the text", async ({ 
 
   const row = layerRow(page, "smoke");
   await expect(row).toBeVisible();
-  await row.locator('button[aria-label="Layer actions"]').click();
-  await page.getByRole("menuitem", { name: "Styles", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Import style from text…" }).click();
+  // SWIFTMAP (Change 17): the layer menu's Styles submenu was dropped (item 13), so this
+  // runs through the remaining door, the Style panel, opened from the row's toolbar.
+  await selectLayerRow(page, "smoke");
+  await row.getByRole("button", { name: "Open style panel" }).click();
+  await page.getByRole("button", { name: "Import style from text…" }).click();
 
   const box = page.getByRole("textbox", { name: "Import style from text…" });
   await expect(box).toBeVisible();
@@ -54,16 +56,17 @@ test("a pasted style reaches the layer, and a bad one keeps the text", async ({ 
   await expect(page.getByText("That is not valid JSON, SLD, or QML.")).toBeVisible();
   await expect(box).toHaveValue("this is not a style at all");
 
-  // The real thing closes the dialog and reports on the layer row. The style stacks two filtered
-  // layers of one type, which imports as rules rather than a single symbol.
+  // The real thing closes the dialog and reports in the Style panel. The style stacks two
+  // filtered layers of one type, which imports as rules rather than a single symbol.
   await box.fill(STACKED_STYLE);
   await page.getByRole("button", { name: "Import", exact: true }).click();
   await expect(box).toBeHidden();
-  await expect(row).toContainText("Style imported.");
+  const notice = page.getByTestId("style-paste-notice");
+  await expect(notice).toContainText("Style imported.");
   // The parser could not carry every paint property across, and says so. Asserted rather than
   // left to the success text alone: a warning that stops being appended is the failure this
   // reporting exists to prevent, and "Style imported." alone would not notice.
-  await expect(row).toContainText("were combined as rules");
+  await expect(notice).toContainText("were combined as rules");
 });
 
 /** The Style panel is the other door, and must gate and behave identically. */
@@ -72,7 +75,9 @@ test("the Style panel offers the same paste box", async ({ page }) => {
   await dropGeoJson(page, "smoke", FIXTURE_TEXT);
 
   const row = layerRow(page, "smoke");
-  await row.locator('button[aria-label="Open Style panel"]').click();
+  // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
+  await selectLayerRow(page, "smoke");
+  await row.getByRole("button", { name: "Open style panel" }).click();
 
   await page.getByRole("button", { name: "Import style from text…" }).click();
   const box = page.getByRole("textbox", { name: "Import style from text…" });

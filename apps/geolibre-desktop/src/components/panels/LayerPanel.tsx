@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
   Fragment,
@@ -13,53 +14,54 @@ import {
 import { useTranslation } from "react-i18next";
 import {
   BLANK_BASEMAP,
-  DEFAULT_BASEMAP,
-  getPlanetaryBasemapById,
-  getPlanetaryBasemapByStyleUrl,
-  PLANET_SWITCHER_OPTIONS,
+  pluginOwnsPaint,
+  resolveLayerCapabilities,
   useAppStore,
   layerGroupDepth,
   layerGroupMoveability,
   layerGroupSortability,
   layerPanelGroupHeaders,
 } from "@geolibre/core";
-import type { EllipsoidId, GeoLibreLayer, LayerGroup } from "@geolibre/core";
+import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
 import { getTemporalLayersVersion, subscribeTemporalLayers } from "@geolibre/plugins";
 import { rendererCapabilities, type MapEngine } from "@geolibre/map";
 import { getIsMobileViewport } from "../../hooks/useIsMobileViewport";
 import type { ThemeMode } from "../../hooks/useThemeMode";
 import { usePluginRegistry } from "../../hooks/usePlugins";
 import { useDesktopSettingsStore } from "../../hooks/useDesktopSettings";
+import { canOpenLayerAttributeTable } from "../../lib/attribute-table-source";
+import { isMacPlatform } from "../../lib/commands";
 import { isMobile } from "../../lib/is-mobile";
 import { masHidesDataSource } from "../../lib/mas-build";
+import { notify } from "../../lib/notify";
+import { canExportRasterLayer } from "../../lib/raster-export";
 import { activeInterfaceProfile, isDataSourceVisible } from "../../lib/ui-profile";
 import { Button, ScrollArea, Separator } from "@geolibre/ui";
 import { Layers, PanelLeftOpen } from "lucide-react";
-import { PasteStyleDialog } from "./PasteStyleDialog";
 import { participantCanEditLayer } from "../../lib/collab-protocol";
 import type { CollaborationApi } from "../../hooks/useCollaboration";
+import { useSidePanelStore } from "../layout/rail/sidePanelStore";
 import { BasemapPickerDialog } from "./BasemapPickerDialog";
 import { LayerPanelPlaceSearch } from "./LayerPanelPlaceSearch";
 import { useMapCapabilities } from "../../hooks/useMapCapabilities";
 import { ADD_DATA_DIALOG_SOURCES, BACKGROUND_SELECTION_ID } from "./layer-panel/layer-panel-utils";
 import { BackgroundAppearanceDialog, BackgroundLayerRow } from "./layer-panel/BackgroundLayerRow";
 import { BindTimeSliderDialog } from "./layer-panel/BindTimeSliderDialog";
-import type { LayerActionsMenuShared } from "./layer-panel/LayerActionsMenu";
+import type { LayerActionsMenuShared, LayerCard } from "./layer-panel/LayerActionsMenu";
 import { LayerGroupHeader } from "./layer-panel/LayerGroupHeader";
 import { LayerHoverControls } from "./layer-panel/LayerHoverControls";
-import { LayerMetadataDialog, useLayerMetadataDialog } from "./layer-panel/LayerMetadataDialog";
 import { LayerPanelHeader } from "./layer-panel/LayerPanelHeader";
 import { LayerRow } from "./layer-panel/LayerRow";
+import { LayerSearchField } from "./layer-panel/LayerSearchField";
+import { matchLayerShortcut, type LayerShortcutId } from "./layer-panel/layer-shortcuts";
 import {
   RefreshSettingsDialog,
   useRefreshSettingsDialog,
 } from "./layer-panel/RefreshSettingsDialog";
 import { RemoveLayerDialog } from "./layer-panel/RemoveLayerDialog";
 import { useLayerActions } from "./layer-panel/useLayerActions";
-import { useLayerDragAndDrop } from "./layer-panel/useLayerDragAndDrop";
 import type { LayerRefresh } from "./layer-panel/useLayerRefresh";
 import { useLayerRename } from "./layer-panel/useLayerRename";
-import { useLayerSelection } from "./layer-panel/useLayerSelection";
 import { useTimeSliderBinding } from "./layer-panel/useTimeSliderBinding";
 import { setLayersPanelCollapsed } from "../../lib/layer-panel-collapse";
 
@@ -86,38 +88,61 @@ interface LayerPanelProps {
   onOpenRasterStylePanel: () => void;
   /**
    * Select the target layer and expand the built-in Style panel. Left undefined
-   * when that panel is hidden (Settings → "Show Style panel"), which also hides
-   * the menu item — the panel is not mounted then, so the request would be
-   * dropped rather than queued.
+   * when that panel is hidden (Settings → "Show Style panel").
    */
   onOpenStylePanel?: () => void;
   /**
-   * Open the floating Extract Subset panel for a COG/WMS/XYZ layer, letting the
-   * user draw a bounding box and export a clipped GeoTIFF.
+   * SWIFTMAP: no longer offered (Extract subset was dropped, Change 17); kept so
+   * the shell's call sites still type-check.
    */
-  onOpenRasterSubset: (layer: GeoLibreLayer) => void;
+  onOpenRasterSubset?: (layer: GeoLibreLayer) => void;
   /**
    * When this flips to `true` the panel collapses to its thin rail (it is not
-   * unmounted). Used to clear room for a story map presentation; the user can
-   * still expand it again, and the prior state is restored when it flips off.
+   * unmounted). Used to clear room for a story map presentation.
    */
   autoCollapse?: boolean;
   /**
-   * Controlled collapse state for the shared left-sidebar (`replace-layers`)
-   * mode. When defined, the panel's own collapse state is ignored and the parent
-   * fully owns expand/collapse (the buttons call {@link onCollapsedChange} and
-   * `autoCollapse` no longer applies). Mirrors StylePanel. Leave undefined for
-   * the standalone panel.
+   * Controlled collapse state for the shared left-sidebar mode. When defined,
+   * the parent fully owns expand/collapse.
    */
   collapsed?: boolean;
   /** Notify the parent of a collapse/expand request in controlled mode. */
   onCollapsedChange?: (collapsed: boolean) => void;
-  /**
-   * In the shared left-sidebar mode, suppress the panel's own collapsed rail:
-   * when collapsed the panel renders nothing because a single shared rail (owned
-   * by the host) lists the Layers entry instead of two adjacent rails.
-   */
+  /** In the shared left-sidebar mode, render nothing when collapsed. */
   hideOwnRail?: boolean;
+}
+
+/**
+ * SWIFTMAP: the layer types whose copy GeoLibre draws straight from the store
+ * record, so Duplicate can add one (Change 17). Layers a map control draws
+ * (rasters, point clouds, Add Vector Layer files…) are left out: a copied
+ * record would show in the panel with nothing on the map.
+ */
+const DUPLICABLE_TYPES = new Set<GeoLibreLayer["type"]>([
+  "geojson",
+  "vector-tiles",
+  "wms",
+  "wmts",
+  "xyz",
+  "image",
+]);
+
+function canDuplicateLayer(layer: GeoLibreLayer): boolean {
+  return (
+    DUPLICABLE_TYPES.has(layer.type) &&
+    layer.metadata.externalNativeLayer !== true &&
+    !pluginOwnsPaint(layer)
+  );
+}
+
+/** Whether a key press comes from somewhere the panel's shortcuts must not act. */
+function isShortcutExcludedTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return true;
+  return Boolean(
+    target.closest(
+      '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [role="combobox"], input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
+    ),
+  );
 }
 
 export function LayerPanel({
@@ -132,7 +157,6 @@ export function LayerPanel({
   onMaterializeDuckDBLayer,
   onOpenRasterStylePanel,
   onOpenStylePanel,
-  onOpenRasterSubset,
   autoCollapse = false,
   collapsed: controlledCollapsed,
   onCollapsedChange,
@@ -143,15 +167,10 @@ export function LayerPanel({
     (s) => activeInterfaceProfile(s.desktopSettings.uiProfile) === "beginner",
   );
   const uiProfile = useDesktopSettingsStore((s) => s.desktopSettings.uiProfile);
-  const compactLayerList = useDesktopSettingsStore(
-    (s) => s.desktopSettings.layout.compactLayerList,
-  );
-  // Same visibility rules the Add Data menu applies (profile, Mac App Store,
-  // and the mobile-only database rule); the user agent is stable for the
-  // session, so evaluate it once.
+  // Same visibility rules the Add Data menu applies, for group headers' Add
+  // Data entries.
   const mobile = useMemo(() => isMobile(), []);
-  // PMTiles, raster and Zarr are added through their own panels where those
-  // can mount, so the Add Data group lists their forms only where they cannot.
+  const isMac = useMemo(() => isMacPlatform(), []);
   const controlLayerPanels = useAppStore(
     (s) => rendererCapabilities(s.primaryRenderer).controlLayerPanels,
   );
@@ -166,62 +185,30 @@ export function LayerPanel({
       ),
     [uiProfile, mobile, controlLayerPanels],
   );
+  const addDataAvailable = useSidePanelStore((s) => s.addDataAvailable);
   const layers = useAppStore((s) => s.layers);
   const layerGroups = useAppStore((s) => s.layerGroups);
-  // The 3D globe draws a subset of the layer kinds MapLibre does, so rows it
-  // cannot render are flagged while it owns the primary map area (#2217).
+  // The 3D globe and the ArcGIS view draw a subset of the layer kinds MapLibre
+  // does; a row's load-failure note is suppressed for kinds they draw themselves.
   // eslint-disable-next-line local/no-renderer-kind-checks -- selects the engine's layer support table
   const cesiumPrimary = useAppStore((s) => s.primaryRenderer === "cesium");
-  // Likewise the Mapbox engine only compiles native Mapbox sources, so a layer
-  // it rejects (a MapLibre custom protocol, deck.gl, COG, ...) is flagged here
-  // rather than only reported by the map's error banner once it is visible.
-  // eslint-disable-next-line local/no-renderer-kind-checks -- selects the engine's layer support table
-  const mapboxPrimary = useAppStore((s) => s.primaryRenderer === "mapbox");
-  // Same for the ArcGIS view's support table.
   // eslint-disable-next-line local/no-renderer-kind-checks -- selects the engine's layer support table
   const arcgisPrimary = useAppStore((s) => s.primaryRenderer === "arcgis");
-  // The subset panel draws its extract box on the map surface, so it needs an
-  // engine the user can draw on — not merely "not the globe".
   const capabilities = useMapCapabilities(mapControllerRef);
-  const setLayerGroupVisibility = useAppStore((s) => s.setLayerGroupVisibility);
   const selectedLayerId = useAppStore((s) => s.selectedLayerId);
   const selectLayer = useAppStore((s) => s.selectLayer);
-  const selectedFeatureCount = useAppStore((s) => s.selectedFeatureIds.length);
-  // Select by Location needs a second layer to compare against (see EditMenu).
-  const hasTwoSelectableLayers = useAppStore(
-    (s) => s.layers.filter((layer) => (layer.geojson?.features?.length ?? 0) > 0).length >= 2,
-  );
   const identifyLayerId = useAppStore((s) => s.identifyLayerId);
   const basemapVisible = useAppStore((s) => s.basemapVisible);
-  const setBasemapVisible = useAppStore((s) => s.setBasemapVisible);
-  const applyPlanetaryBasemap = useAppStore((s) => s.applyPlanetaryBasemap);
-  const restoreEarthBasemap = useAppStore((s) => s.restoreEarthBasemap);
   const basemapStyleUrl = useAppStore((s) =>
     // eslint-disable-next-line local/no-renderer-kind-checks -- Mapbox keeps its own persisted style URL
     s.primaryRenderer === "mapbox"
       ? (s.preferences.map.mapboxStyleUrl ?? s.basemapStyleUrl)
       : s.basemapStyleUrl,
   );
-  // The body the switcher reflects, derived from the active *basemap* — not the
-  // ellipsoid, which Settings lets diverge from the basemap (e.g. Mars scale
-  // under an Earth style). Any planetary basemap resolves to its body: the
-  // Moon/Mars mosaics (from this switcher or the full picker) and Earth's own
-  // imagery. A normal Earth basemap (e.g. Liberty) resolves to nothing, so
-  // nothing is selected until a planetary basemap is applied.
-  const selectedPlanet = getPlanetaryBasemapByStyleUrl(basemapStyleUrl)?.ellipsoidId;
-  // The Earth basemap to fall back to when a planet is deselected — the last one
-  // active while no planet was selected (e.g. Liberty). Tracked in a ref so it
-  // survives the planet round-trip. Starts undefined (not seeded from the mount
-  // value, which could be a planetary basemap if the panel mounted while off
-  // Earth) and is only ever set to a genuine Earth basemap by the guard below,
-  // so a deselect never restores a planetary sentinel.
-  const previousEarthBasemap = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (!selectedPlanet) previousEarthBasemap.current = basemapStyleUrl;
-  }, [selectedPlanet, basemapStyleUrl]);
-  const setLayerVisibility = useAppStore((s) => s.setLayerVisibility);
-  const copiedLayerStyle = useAppStore((s) => s.copiedLayerStyle);
-  const updateLayer = useAppStore((s) => s.updateLayer);
+  const reorderLayer = useAppStore((s) => s.reorderLayer);
+  const addLayerGroup = useAppStore((s) => s.addLayerGroup);
+  const setAttributeTableOpen = useAppStore((s) => s.setAttributeTableOpen);
+  const setRasterAttributeTableOpen = useAppStore((s) => s.setRasterAttributeTableOpen);
   const collaboration = useAppStore((s) => s.collaboration);
   const selfParticipant = useMemo(() => {
     if (!collaboration.isActive || !collaboration.clientId) return null;
@@ -258,24 +245,25 @@ export function LayerPanel({
 
   const [basemapPickerOpen, setBasemapPickerOpen] = useState(false);
   const [backgroundAppearanceOpen, setBackgroundAppearanceOpen] = useState(false);
-  const metadata = useLayerMetadataDialog();
   const [layerPendingRemoval, setLayerPendingRemoval] = useState<GeoLibreLayer | null>(null);
-  // The layer a pasted style is destined for, or null when the box is closed. Keyed by id
-  // rather than a boolean so text pasted for one layer can never land on another.
-  const [pasteStyleLayerId, setPasteStyleLayerId] = useState<string | null>(null);
-  // A layer becomes temporal when its renderer finishes resolving a time axis
-  // (a Zarr cube loads its `time` coordinate asynchronously), which happens
-  // outside the store, so the menu subscribes to the adapter registry to offer
-  // "Bind to Time Slider" as soon as one appears.
+  // SWIFTMAP: search, and the selected layer's card and menu (Change 17).
+  const [query, setQuery] = useState("");
+  const [openCard, setOpenCard] = useState<LayerCard | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  // A new selection starts with its toolbar only: no card, no menu.
+  useEffect(() => {
+    setOpenCard(null);
+    setMenuOpen(false);
+    setExportOpen(false);
+  }, [selectedLayerId]);
+  // A layer becomes temporal when its renderer finishes resolving a time axis,
+  // outside the store, so the menu subscribes to offer "Bind to Time Slider".
   useSyncExternalStore(subscribeTemporalLayers, getTemporalLayersVersion, getTemporalLayersVersion);
   const { isActive: isPluginActive, toggle: togglePlugin } = usePluginRegistry();
   const [internalCollapsed, setInternalCollapsed] = useState(getIsMobileViewport);
-  // In the shared left-sidebar mode the parent owns collapse (controlled);
-  // otherwise the panel manages it locally. `setIsCollapsed` routes to whichever
-  // owner applies so every existing call site keeps working.
   const isControlled = controlledCollapsed !== undefined;
   const isCollapsed = isControlled ? controlledCollapsed : internalCollapsed;
-
   const setIsCollapsed = useCallback(
     (value: boolean) => {
       if (isControlled) onCollapsedChange?.(value);
@@ -283,20 +271,13 @@ export function LayerPanel({
     },
     [isControlled, onCollapsedChange],
   );
-  // Collapse to the rail when `autoCollapse` flips on (a story map starts
-  // presenting), and restore the prior expand/collapse state when it flips back
-  // off. Both act only on the transition so the user can still toggle the panel
-  // manually while `autoCollapse` stays on. `internalCollapsed` is in the deps
-  // only to keep the captured value fresh; the guards make pure collapse changes
-  // a no-op while `autoCollapse` is stable. Mirrors StylePanel's behavior. The
-  // ref starts as null (not `autoCollapse`) so a mount with `autoCollapse`
-  // already true reads as a null→true transition and still collapses. Skipped in
-  // controlled mode, where the parent (shared rail) owns collapse.
   // Publish the collapse state for Export as HTML (see layer-panel-collapse).
   useEffect(() => {
     setLayersPanelCollapsed(isCollapsed);
     return () => setLayersPanelCollapsed(false);
   }, [isCollapsed]);
+  // Collapse when `autoCollapse` flips on (a story map starts presenting) and
+  // restore the prior state when it flips off. Skipped in controlled mode.
   const prevAutoCollapse = useRef<boolean | null>(null);
   const collapsedBeforeAuto = useRef(internalCollapsed);
   useEffect(() => {
@@ -310,45 +291,15 @@ export function LayerPanel({
       setInternalCollapsed(collapsedBeforeAuto.current);
     }
   }, [autoCollapse, internalCollapsed, isControlled]);
+
   const visibleLayers = useMemo(() => [...layers].reverse(), [layers]);
-  const selection = useLayerSelection({ layers, visibleLayers, selectedLayerId, selectLayer });
-  // Delete opens the removal prompt for the selected layer. Bound to the
-  // expanded panel (not the document) so the key only acts while focus is in
-  // the layer list, never on the map, the attribute table or other panels.
-  // React keydowns bubble through portals, so menus and dialogs opened from
-  // the panel are excluded alongside text fields.
-  const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (
-      event.key !== "Delete" ||
-      event.defaultPrevented ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey
-    ) {
-      return;
-    }
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (
-      target.closest(
-        '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [role="combobox"], input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
-      )
-    ) {
-      return;
-    }
-    const layer = layers.find((candidate) => candidate.id === selectedLayerId);
-    if (!layer || !canEditLayer(layer.id)) return;
-    event.preventDefault();
-    setLayerPendingRemoval(layer);
-  };
-  const drag = useLayerDragAndDrop({
-    layers,
-    visibleLayers,
-    selectedLayerIds: selection.selectedLayerIds,
-    selectedMoveIds: selection.selectedMoveIds,
-    selectOnlyLayer: selection.selectOnlyLayer,
-  });
+  // Single selection, as in the mockup (Shift/Ctrl multi-select was dropped,
+  // item 24): the store's selected layer is the only one. No dragging until 4b
+  // (decided 2 Nov 2026): rows reorder from the ⋯ menu.
+  const toggleSelect = useCallback(
+    (layerId: string) => selectLayer(selectedLayerId === layerId ? null : layerId),
+    [selectLayer, selectedLayerId],
+  );
   const rename = useLayerRename(layers, layerGroups);
   const actions = useLayerActions({
     mapControllerRef,
@@ -362,13 +313,33 @@ export function LayerPanel({
   });
   const binding = useTimeSliderBinding({ layers, mapControllerRef });
   const refreshSettings = useRefreshSettingsDialog(layers);
-  // Group lookup + the top-most member of each group in display order. Members
-  // are kept contiguous in `layers`, so the first occurrence walking the
-  // reversed list is where the group's header is drawn inline. Memoized so they
-  // are not rebuilt on renders caused by unrelated state (hover, slider drag).
+
+  // SWIFTMAP: search keeps each match's groups, expanded (Change 17).
+  const trimmedQuery = query.trim().toLowerCase();
+  const searching = trimmedQuery.length > 0;
+  const matchingLayers = useMemo(
+    () =>
+      searching ? layers.filter((layer) => layer.name.toLowerCase().includes(trimmedQuery)) : layers,
+    [layers, searching, trimmedQuery],
+  );
+  const displayGroups = useMemo(() => {
+    if (!searching) return layerGroups;
+    const byId = new Map(layerGroups.map((g) => [g.id, g] as const));
+    const keep = new Set<string>();
+    for (const layer of matchingLayers) {
+      let id = layer.groupId;
+      while (id && !keep.has(id)) {
+        keep.add(id);
+        id = byId.get(id)?.parentId;
+      }
+    }
+    return layerGroups.filter((g) => keep.has(g.id)).map((g) => ({ ...g, collapsed: false }));
+  }, [layerGroups, matchingLayers, searching]);
+  const displayLayers = useMemo(() => [...matchingLayers].reverse(), [matchingLayers]);
+
   const groupById = useMemo(
-    () => new Map(layerGroups.map((g) => [g.id, g] as const)),
-    [layerGroups],
+    () => new Map(displayGroups.map((g) => [g.id, g] as const)),
+    [displayGroups],
   );
   const groupDepth = useCallback(
     (group: LayerGroup) => layerGroupDepth(group, groupById),
@@ -398,21 +369,17 @@ export function LayerPanel({
         while (parentId && !visited.has(parentId)) {
           if (parentId === group.id) return false;
           visited.add(parentId);
-          parentId = groupById.get(parentId)?.parentId;
+          parentId = layerGroups.find((g) => g.id === parentId)?.parentId;
         }
         return true;
       }),
-    [groupById, layerGroups],
+    [layerGroups],
   );
-  // Every group header — the group a row belongs to, the organizers above it
-  // whose layers all live in child groups, and the folders holding no layer at
-  // all — comes from one core walk, anchored to the layer row it is drawn
-  // above. Deriving them together is what keeps a nested folder below the
-  // parent it sits in, and lets an empty folder keep its spot relative to its
-  // siblings when one of them gains a layer (GeoLibre#1739).
+  // Every group header comes from one core walk, anchored to the layer row it
+  // is drawn above (GeoLibre#1739).
   const groupHeaders = useMemo(
-    () => layerPanelGroupHeaders(layers, layerGroups),
-    [layers, layerGroups],
+    () => layerPanelGroupHeaders(matchingLayers, displayGroups),
+    [matchingLayers, displayGroups],
   );
   const groupMoveability = useMemo(
     () => layerGroupMoveability(layers, layerGroups),
@@ -425,34 +392,6 @@ export function LayerPanel({
 
   const backgroundSelected = selectedLayerId === BACKGROUND_SELECTION_ID;
   const blankBackgroundActive = basemapStyleUrl === BLANK_BASEMAP;
-  const allLayersVisible =
-    basemapVisible &&
-    layers.every((layer) => layer.visible) &&
-    layerGroups.every((group) => group.visible);
-  const toggleAllLayers = () => {
-    const nextVisible = !allLayersVisible;
-    for (const layer of layers) {
-      setLayerVisibility(layer.id, nextVisible);
-    }
-    for (const group of layerGroups) {
-      setLayerGroupVisibility(group.id, nextVisible);
-    }
-    setBasemapVisible(nextVisible);
-  };
-
-  // Toggle a celestial body in the switcher (like Google Earth's planet
-  // dropdown). Selecting a body applies its basemap and syncs the ellipsoid;
-  // deselecting the active body returns to Earth and restores the basemap that
-  // was showing before (e.g. Liberty).
-  const togglePlanet = (body: EllipsoidId, selected: boolean) => {
-    if (!selected) {
-      restoreEarthBasemap(previousEarthBasemap.current ?? DEFAULT_BASEMAP);
-      return;
-    }
-    const option = PLANET_SWITCHER_OPTIONS.find((o) => o.ellipsoidId === body);
-    const basemap = option && getPlanetaryBasemapById(option.basemapId);
-    if (basemap) applyPlanetaryBasemap(basemap);
-  };
 
   const renderGroupHeader = (group: LayerGroup) => {
     if (hasCollapsedAncestor(group)) return null;
@@ -460,7 +399,7 @@ export function LayerPanel({
       <LayerGroupHeader
         group={group}
         depth={groupDepth(group)}
-        isDropTarget={drag.dropTargetGroupId === group.id}
+        isDropTarget={false}
         moveability={groupMoveability.get(group.id)}
         sortability={groupSortability.get(group.id)}
         moveTargets={groupMoveTargets(group)}
@@ -470,37 +409,131 @@ export function LayerPanel({
     );
   };
 
-  // What every row's actions menu shares; the per-row flags are derived in the row.
+  const toggleCard = useCallback(
+    (card: LayerCard) => setOpenCard((current) => (current === card ? null : card)),
+    [],
+  );
+
+  const duplicateLayer = (layer: GeoLibreLayer) => {
+    const { layers: current, addLayer } = useAppStore.getState();
+    const index = current.findIndex((candidate) => candidate.id === layer.id);
+    if (index < 0) return;
+    let copy: GeoLibreLayer;
+    try {
+      copy = structuredClone(layer);
+    } catch (error) {
+      console.warn("[Swiftmap] Could not copy the layer", error);
+      notify.error(t("layerPanel.duplicateUnavailable"));
+      return;
+    }
+    // The copy is a new layer: its own id and name, and no sync record (that
+    // belongs to the original's connection).
+    const { connection: _connection, ...rest } = copy;
+    // Inserting before the layer above the original puts the copy directly
+    // above it in the panel, in the same group.
+    addLayer(
+      {
+        ...rest,
+        id: `layer-${crypto.randomUUID()}`,
+        name: t("layerPanel.copyName", { name: layer.name }),
+      },
+      current[index + 1]?.id ?? null,
+    );
+  };
+
+  const runAction = (id: LayerShortcutId, layer: GeoLibreLayer) => {
+    const editable = canEditLayer(layer.id);
+    switch (id) {
+      case "attributeTable": {
+        selectLayer(layer.id);
+        if (canOpenLayerAttributeTable(layer)) setAttributeTableOpen(true);
+        else if (resolveLayerCapabilities(layer).export && canExportRasterLayer(layer)) {
+          setRasterAttributeTableOpen(true);
+        }
+        return;
+      }
+      case "opacity":
+      case "properties":
+        toggleCard(id);
+        return;
+      case "rename":
+        if (editable) rename.beginRename(layer);
+        return;
+      case "duplicate":
+        if (editable && canDuplicateLayer(layer)) duplicateLayer(layer);
+        return;
+      case "moveUp":
+        if (editable) reorderLayer(layer.id, "up");
+        return;
+      case "moveDown":
+        if (editable) reorderLayer(layer.id, "down");
+        return;
+      case "addToNewGroup":
+        if (editable) addLayerGroup(undefined, [layer.id]);
+        return;
+      case "export":
+        setMenuOpen(true);
+        setExportOpen(true);
+        return;
+      case "remove":
+        // GeoLibre's confirmation stays: Undo can't bring back every layer
+        // type in full (decided 2 Nov 2026, Change 17).
+        if (editable) setLayerPendingRemoval(layer);
+        return;
+    }
+  };
+
+  // Shortcuts act only while focus is in the panel, never on the map or other
+  // panels; menus, dialogs and text fields are left alone.
+  const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.defaultPrevented || isShortcutExcludedTarget(event.target)) return;
+    if (event.key === "Escape") {
+      if (selectedLayerId) {
+        event.preventDefault();
+        selectLayer(null);
+      }
+      return;
+    }
+    const layer = layers.find((candidate) => candidate.id === selectedLayerId);
+    if (!layer) return;
+    const shortcut = matchLayerShortcut(event.nativeEvent, isMac);
+    if (!shortcut) return;
+    event.preventDefault();
+    runAction(shortcut, layer);
+  };
+
+  // Clicking the empty space below the rows deselects.
+  const handleListClick = (event: ReactMouseEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    // React bubbles clicks from portals (the ⋯ menu, dialogs) through here too.
+    if (!event.currentTarget.contains(target)) return;
+    if (target.closest("[data-layer-id], [data-group-id], [role='listitem'], button, input, a")) {
+      return;
+    }
+    if (selectedLayerId) selectLayer(null);
+  };
+
   const menu: LayerActionsMenuShared = {
     mapControllerRef,
-    collaboration,
-    collaborationApi,
     layers,
     layerGroups,
-    selectedLayerId,
-    selectedFeatureCount,
-    hasTwoSelectableLayers,
-    copiedLayerStyle,
-    canDrawOnMap: capabilities.onMapDrawing,
-    selectedMoveIds: selection.selectedMoveIds,
     actions,
     handleRefreshLayer: refresh.handleRefreshLayer,
-    toggleWatchLayer: refresh.toggleWatchLayer,
     openBindTimeSliderDialog: binding.openBindTimeSliderDialog,
     beginRename: rename.beginRename,
     setRefreshSettingsLayerId: refreshSettings.setRefreshSettingsLayerId,
-    setPasteStyleLayerId,
     onToggleGeometryEdit,
     onMaterializeDuckDBLayer,
-    onOpenRasterStylePanel,
     onOpenStylePanel,
-    onOpenRasterSubset,
+    onOpenRasterStylePanel,
+    toggleCard,
+    openCard,
+    runAction,
+    isMac,
   };
 
   if (isCollapsed) {
-    // In the shared left-sidebar mode the host renders a single rail listing
-    // Layers alongside the plugin panel, so the panel shows nothing of its own
-    // when collapsed (avoids two adjacent rails).
     if (hideOwnRail) return null;
     return (
       <aside
@@ -528,18 +561,13 @@ export function LayerPanel({
   }
 
   return (
-    // The two named rows do not have to match the child count: the header takes
-    // the `auto` row, the layer list takes `minmax(0, 1fr)`, and the separator
-    // and place search below it fall into implicit auto rows (the dialogs and
-    // menus after them render through Radix portals, so they take no row at
-    // all). Only the list sits in the flexible row, which is what makes it the
-    // part that shrinks and scrolls once the panel reaches its max height — so
-    // a new direct child added here must not displace the ScrollArea from the
-    // second in-flow position.
+    // The header takes the `auto` row and the layer list `minmax(0, 1fr)`, so
+    // only the list shrinks and scrolls; the separator and place search fall
+    // into implicit rows below it.
     <aside
       aria-label={t("sharedRail.layers")}
       onKeyDown={handlePanelKeyDown}
-      className="relative grid max-h-[min(24rem,42vh)] supports-[max-height:1dvh]:max-h-[min(24rem,42dvh)] w-full shrink-0 grid-rows-[auto_minmax(0,1fr)] border-b bg-card max-md:absolute max-md:inset-x-0 max-md:top-0 max-md:z-30 max-md:shadow-xl md:max-h-none md:w-[var(--layer-panel-width)] md:border-b-0 md:border-e"
+      className="relative grid grid-cols-[minmax(0,1fr)] max-h-[min(24rem,42vh)] supports-[max-height:1dvh]:max-h-[min(24rem,42dvh)] w-full shrink-0 grid-rows-[auto_minmax(0,1fr)] border-b bg-background max-md:absolute max-md:inset-x-0 max-md:top-0 max-md:z-30 max-md:shadow-xl md:max-h-none md:w-[var(--layer-panel-width)] md:border-b-0 md:border-e"
     >
       {onResizeStart ? (
         <div
@@ -550,50 +578,57 @@ export function LayerPanel({
           onPointerDown={onResizeStart}
         />
       ) : null}
-      <div>
+      <div className="px-3 pt-3.5">
         <LayerPanelHeader
-          mapControllerRef={mapControllerRef}
-          selectedPlanet={selectedPlanet}
-          togglePlanet={togglePlanet}
-          isPluginActive={isPluginActive}
-          togglePlugin={togglePlugin}
           onCreateGroup={rename.handleCreateGroup}
-          allLayersVisible={allLayersVisible}
-          onToggleAllLayers={toggleAllLayers}
-          geometryEditLayerId={geometryEditLayerId}
-          identifyLayerId={identifyLayerId}
-          onCollapse={() => setIsCollapsed(true)}
+          canAddData={addDataAvailable}
         />
-        <LayerHoverControls className="border-b px-3 py-1.5" />
+        {layers.length > 0 ? (
+          <LayerSearchField
+            query={query}
+            onQueryChange={setQuery}
+            shown={matchingLayers.length}
+            total={layers.length}
+          />
+        ) : null}
+        {/* Kept as GeoLibre has it: shown only when a layer has hover tips. */}
+        <LayerHoverControls className="px-1.5 pb-2" />
       </div>
       <ScrollArea
         className="min-h-0 [&_[data-radix-scroll-area-viewport]]:touch-pan-y [&_[data-radix-scroll-area-viewport]]:overscroll-contain [&_[data-radix-scroll-area-viewport]>div]:block! [&_[data-radix-scroll-area-viewport]>div]:w-full! [&_[data-radix-scroll-area-viewport]>div]:min-w-0!"
-        // Radix measures scroll content with an injected display:table
-        // wrapper. Opt this viewport into block sizing so long layer names
-        // cannot establish a wider min-content table. The panel's minmax(0, 1fr)
-        // content row constrains overflowing cards without making short lists fill
-        // the mobile panel's maximum height. `-webkit-overflow-scrolling` is not
-        // set here: Radix already injects it for every viewport, and it is a
-        // legacy iOS property that does nothing on the Android WebView this fix
-        // targets.
+        onClick={handleListClick}
       >
         {layers.length === 0 && (
-          <p className="px-4 pb-2 pt-6 text-xs text-muted-foreground">
+          <p className="px-4 pb-2 pt-4 text-xs text-muted-foreground">
             {isBeginnerProfile ? t("layers.emptyBeginner") : t("layers.empty")}
           </p>
         )}
+        {searching && matchingLayers.length === 0 ? (
+          <div className="flex flex-col items-start gap-1.5 px-5 py-2.5 text-[13px] text-muted-foreground">
+            <span>{t("layerPanel.noMatch", { query: query.trim() })}</span>
+            <button
+              type="button"
+              className="text-[13px] font-medium text-foreground underline"
+              onClick={() => setQuery("")}
+            >
+              {t("layerPanel.clearSearch")}
+            </button>
+          </div>
+        ) : null}
         {/* Rows, group headers and the Background card are listitems carrying
             their nesting depth as aria-level. */}
         <div
           data-layer-list=""
           role="list"
           aria-label={t("sharedRail.layers")}
-          className={`w-full min-w-0 p-2 ${compactLayerList ? "space-y-0.5" : "space-y-1"}`}
+          className="flex w-full min-w-0 flex-col gap-px px-3 pb-3"
         >
-          {visibleLayers.map((layer, displayIndex) => {
+          {displayLayers.map((layer) => {
             const group = layer.groupId ? groupById.get(layer.groupId) : undefined;
             const groupCollapsed = group?.collapsed ?? false;
             const groupAncestorCollapsed = group ? hasCollapsedAncestor(group) : false;
+            const panelIndex = visibleLayers.indexOf(layer);
+            const selected = selectedLayerId === layer.id;
             return (
               <Fragment key={layer.id}>
                 {groupHeaders.aboveLayer.get(layer.id)?.map((header) => (
@@ -602,19 +637,13 @@ export function LayerPanel({
                 {!groupCollapsed && !groupAncestorCollapsed && (
                   <LayerRow
                     layer={layer}
-                    displayIndex={displayIndex}
+                    displayIndex={panelIndex}
+                    displayCount={visibleLayers.length}
                     group={group}
                     groupById={groupById}
                     groupDepth={groupDepth}
-                    selected={selection.selectedLayerIds.has(layer.id)}
-                    dragged={drag.draggedLayerId === layer.id}
-                    dropTarget={drag.dropTargetLayerId === layer.id}
-                    draggedDisplayIndex={drag.draggedDisplayIndex}
-                    onPointerDown={drag.handlePointerDown}
-                    onPointerMove={drag.handlePointerMove}
-                    onPointerUp={drag.handlePointerUp}
-                    onPointerCancel={drag.resetDragState}
-                    onSelect={selection.handleLayerSelection}
+                    selected={selected}
+                    onToggleSelect={toggleSelect}
                     editing={rename.editingLayerId === layer.id}
                     editingName={rename.editingName}
                     setEditingName={rename.setEditingName}
@@ -626,12 +655,14 @@ export function LayerPanel({
                     onToggleGeometryEdit={onToggleGeometryEdit}
                     onCancelGeometryEdit={onCancelGeometryEdit}
                     cesiumPrimary={cesiumPrimary}
-                    mapboxPrimary={mapboxPrimary}
                     arcgisPrimary={arcgisPrimary}
                     deckOverlay={capabilities.deckOverlay}
                     canEditLayer={canEditLayer}
-                    onOpenMetadata={metadata.openMetadata}
-                    onRequestRemove={setLayerPendingRemoval}
+                    canDuplicate={canDuplicateLayer(layer)}
+                    menuOpen={selected && menuOpen}
+                    setMenuOpen={setMenuOpen}
+                    exportOpen={selected && exportOpen}
+                    setExportOpen={setExportOpen}
                     menu={menu}
                   />
                 )}
@@ -643,15 +674,21 @@ export function LayerPanel({
           {groupHeaders.bottom.map((group) => (
             <Fragment key={group.id}>{renderGroupHeader(group)}</Fragment>
           ))}
-          <BackgroundLayerRow
-            selected={backgroundSelected}
-            basemapVisible={basemapVisible}
-            blankBackgroundActive={blankBackgroundActive}
-            onOpenBasemapPicker={() => setBasemapPickerOpen(true)}
-            onOpenAppearance={() => setBackgroundAppearanceOpen(true)}
-          />
+          {/* Kept until branch 6 moves basemaps to Map controls (item 26). */}
+          {!searching ? (
+            <div className="pt-2">
+              <BackgroundLayerRow
+                selected={backgroundSelected}
+                basemapVisible={basemapVisible}
+                blankBackgroundActive={blankBackgroundActive}
+                onOpenBasemapPicker={() => setBasemapPickerOpen(true)}
+                onOpenAppearance={() => setBackgroundAppearanceOpen(true)}
+              />
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
+      {/* Kept until the map's own place search lands (item 27). */}
       <Separator />
       <LayerPanelPlaceSearch mapControllerRef={mapControllerRef} />
       <BasemapPickerDialog open={basemapPickerOpen} onOpenChange={setBasemapPickerOpen} />
@@ -666,28 +703,7 @@ export function LayerPanel({
         setRefreshInterval={refresh.setRefreshInterval}
         setRefreshFailurePolicy={refresh.setRefreshFailurePolicy}
       />
-      <LayerMetadataDialog
-        metadata={metadata}
-        getMap={() => mapControllerRef.current?.getMap() ?? undefined}
-      />
       <RemoveLayerDialog layer={layerPendingRemoval} onClose={() => setLayerPendingRemoval(null)} />
-      <PasteStyleDialog
-        open={pasteStyleLayerId !== null}
-        onOpenChange={(open) => {
-          if (!open) setPasteStyleLayerId(null);
-        }}
-        onApply={(imported) => {
-          if (!pasteStyleLayerId) return;
-          const latest = useAppStore
-            .getState()
-            .layers.find((candidate) => candidate.id === pasteStyleLayerId);
-          // Removed while the box was open — the dialog closes rather than styling a layer that is
-          // no longer there.
-          if (!latest) return;
-          updateLayer(pasteStyleLayerId, { style: imported.apply(latest.style) });
-          actions.noteImportedStyle(pasteStyleLayerId, imported.warnings);
-        }}
-      />
     </aside>
   );
 }

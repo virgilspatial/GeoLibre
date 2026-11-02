@@ -90,11 +90,17 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   await expect(row).toBeVisible();
 
   // Select the layer from its name button, then open its Style panel.
+  // SWIFTMAP (Change 17): a new layer arrives selected and its name button
+  // toggles, so deselect and reselect it from the keyboard; the toolbar (and
+  // its Style button) shows only on the selected row.
   const selectButton = row.getByRole("button", { name: "cities", exact: true });
+  await expect(selectButton).toHaveAttribute("aria-pressed", "true");
   await tabTo(page, selectButton);
   await page.keyboard.press("Enter");
+  await expect(selectButton).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("Enter");
   await expect(selectButton).toHaveAttribute("aria-pressed", "true");
-  await tabTo(page, row.getByRole("button", { name: "Open Style panel" }));
+  await tabTo(page, row.getByRole("button", { name: "Open style panel" }));
   await page.keyboard.press("Enter");
 
   // The fixture is points, so the circle radius is the style to change. (The
@@ -126,7 +132,8 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   await page.keyboard.press("Enter");
   await expect(page.getByRole("menu", { name: "Layer actions" })).toBeVisible();
   await page.keyboard.type("Exp");
-  await expect(page.getByRole("menuitem", { name: "Export", exact: true })).toBeFocused();
+  // SWIFTMAP (Change 17): menu items carry their shortcut after the label.
+  await expect(page.getByRole("menuitem", { name: /^Export/ })).toBeFocused();
   await page.keyboard.press("ArrowRight");
   const geojsonItem = page.getByRole("menuitem", { name: "GeoJSON", exact: true });
   await expect(geojsonItem).toBeFocused();

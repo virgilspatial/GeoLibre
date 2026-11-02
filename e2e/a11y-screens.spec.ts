@@ -7,6 +7,7 @@ import {
   openMenuBarMenu,
   openRailMenu,
   readFixture,
+  selectLayerRow,
   waitForMap,
 } from "./helpers";
 
@@ -134,12 +135,16 @@ test("Style panel for a vector and a raster layer", async ({ page }, testInfo) =
   const stylePanel = page.getByRole("complementary", { name: "Layer style" });
 
   await dropGeoJson(page, "smoke", FIXTURE_TEXT);
-  await layerRow(page, "smoke").getByRole("button", { name: "Open Style panel" }).click();
+  // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
+  await selectLayerRow(page, "smoke");
+  await layerRow(page, "smoke").getByRole("button", { name: "Open style panel" }).click();
   await expect(stylePanel.getByRole("textbox", { name: "Fill color" })).toBeVisible();
   await expectAccessible(page, "style-vector", testInfo);
 
   await addXyzLayer(page, "tiles", `${TILE_HOST}/{z}/{x}/{y}.png`);
-  await layerRow(page, "tiles").getByRole("button", { name: "Open Style panel" }).click();
+  // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
+  await selectLayerRow(page, "tiles");
+  await layerRow(page, "tiles").getByRole("button", { name: "Open style panel" }).click();
   await expect(stylePanel.getByText("Style - tiles")).toBeVisible();
   await expectAccessible(page, "style-raster", testInfo);
 });

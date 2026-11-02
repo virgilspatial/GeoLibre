@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openMenuBarMenu } from "./helpers";
+import { openLayerActions, openMenuBarMenu } from "./helpers";
 
 const FIXTURE_PATH = join(__dirname, "fixtures", "smoke.geojson");
 const FIXTURE_TEXT = readFileSync(FIXTURE_PATH, "utf8");
@@ -53,8 +53,10 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
   // 1. Add a layer, then group it from the layer's actions menu.
   await dropGeoJson(page, "smoke", FIXTURE_TEXT);
   const row = page.locator('[data-testid="layer-row"][data-layer-name="smoke"]');
-  await row.locator('button[aria-label="Layer actions"]').click();
-  await page.getByRole("menuitem", { name: "New group from layer" }).click();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar, and
+  // "New group from layer" is the mockup's "Add to new group".
+  await openLayerActions(page, "smoke");
+  await page.getByRole("menuitem", { name: "Add to new group" }).click();
   await page.keyboard.press("Escape"); // close the actions menu
 
   const header = page.getByTestId("layer-group-header").first();
@@ -65,6 +67,18 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
   await expect(row).toBeHidden();
   await header.locator('button[aria-label="Expand group"]').click();
   await expect(row).toBeVisible();
+
+  // SWIFTMAP (Change 17): group opacity is in the group's ⋯ menu, opening the
+  // same Opacity card layers use (no slider on the row).
+  await expect(header.getByRole("slider")).toHaveCount(0);
+  await header.hover();
+  await header.getByRole("button", { name: "Group actions" }).click();
+  await page.getByRole("menuitem", { name: "Opacity", exact: true }).click();
+  const groupOpacity = header.getByRole("slider");
+  await expect(groupOpacity).toBeVisible();
+  await groupOpacity.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(header).toContainText("95%");
 
   // 3. Save the project and assert the group + membership are serialized.
   const downloadPromise = page.waitForEvent("download");

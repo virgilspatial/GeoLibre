@@ -133,12 +133,16 @@ test("ArcGIS renderer draws the project basemap, a dropped GeoJSON layer and ide
     .getByTestId("arcgis-canvas")
     .getByRole("button", { name: "Expand", exact: true })
     .click();
-  await page.getByRole("button", { name: "Hide smoke", exact: true }).click();
+  // SWIFTMAP (Change 17): the panel's eye is also "Hide smoke" now, so scope to the map's own list.
+  await page.getByTestId("arcgis-canvas").getByRole("button", { name: "Hide smoke", exact: true }).click();
   await expect(
-    layerRow(page, "smoke").getByRole("button", { name: "Show layer", exact: true }),
+    layerRow(page, "smoke").getByRole("button", { name: "Show smoke", exact: true }),
   ).toBeVisible();
-  await layerRow(page, "smoke").getByRole("button", { name: "Show layer", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Hide smoke", exact: true })).toBeVisible();
+  // SWIFTMAP (Change 17): the eye is named after its layer, as in the mockup.
+  await layerRow(page, "smoke").getByRole("button", { name: "Show smoke", exact: true }).click();
+  await expect(
+    page.getByTestId("arcgis-canvas").getByRole("button", { name: "Hide smoke", exact: true }),
+  ).toBeVisible();
   await layerRow(page, "smoke")
     .getByRole("button", { name: "Identify features", exact: true })
     .click();
@@ -147,7 +151,8 @@ test("ArcGIS renderer draws the project basemap, a dropped GeoJSON layer and ide
     "crosshair",
   );
   await layerRow(page, "smoke")
-    .getByRole("button", { name: "Deactivate identify", exact: true })
+    // SWIFTMAP (Change 17): one "Identify features" toggle, pressed while active.
+    .getByRole("button", { name: "Identify features", exact: true, pressed: true })
     .click();
   await expect(page.locator("[data-testid=arcgis-canvas] .esri-view-surface")).not.toHaveCSS(
     "cursor",

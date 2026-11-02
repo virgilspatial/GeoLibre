@@ -7,6 +7,7 @@ import {
   menuBarOverflow,
   openMenuBar,
   railButton,
+  openLayerActions,
   readFixture,
   waitForMap,
   waitForMapLoaded,
@@ -40,13 +41,15 @@ test("loads a GeoJSON layer, opens the attribute table, and toggles visibility",
   // 2. Toggle layer visibility and confirm the control reflects the new state.
   // Done before the actions menu below so no Radix dropdown overlay (which
   // briefly sets pointer-events:none on the body) can intercept the click.
-  await row.locator('button[aria-label="Hide layer"]').click();
-  await expect(row.locator('button[aria-label="Show layer"]')).toBeVisible();
+  // SWIFTMAP (Change 17): the eye is named after its layer, as in the mockup.
+  await row.getByRole("button", { name: "Hide smoke", exact: true }).click();
+  await expect(row.getByRole("button", { name: "Show smoke", exact: true })).toBeVisible();
 
   // 3. Open the attribute table from the layer actions menu and assert rows.
   // Opening it while the layer is hidden (from step 2) is intentional and fine:
   // the table reads features from the store, not from the rendered map.
-  await row.locator('button[aria-label="Layer actions"]').click();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+  await openLayerActions(page, "smoke");
   await page.getByRole("menuitem", { name: "Open attribute table" }).click();
   await expect(page.getByTestId("attribute-table")).toBeVisible();
   await expect(page.locator('[data-testid="attribute-table"] tbody tr')).toHaveCount(
@@ -74,7 +77,7 @@ test("Identify owns the MapLibre cursor across the whole interactive surface", a
   await page.evaluate(() => window.__geolibreTestMap?.jumpTo({ zoom: 3 }));
   await expect(canvasContainer).toHaveCSS("cursor", "crosshair");
 
-  await row.locator('button[aria-label="Layer actions"]').click();
+  await openLayerActions(page, "smoke");
   await page.getByRole("menuitem", { name: "Select features", exact: true }).hover();
   await page.getByRole("menuitem", { name: "Select features by rectangle", exact: true }).click();
   await expect(row.getByRole("button", { name: "Identify features", exact: true })).toBeVisible();

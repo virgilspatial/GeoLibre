@@ -1,6 +1,7 @@
 import { expect, test, type Download, type Page } from "./test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { openLayerActions } from "./helpers";
 
 // A GeoJSON drop is parsed in-browser; GeoPackage export uses bundled sql.js and
 // Shapefile export is pure JS + fflate, so this stays hermetic (no DuckDB/CDN).
@@ -39,9 +40,9 @@ async function dropGeoJson(page: Page, name: string): Promise<void> {
 }
 
 async function exportVia(page: Page, menuItem: string): Promise<Buffer> {
-  const row = page.locator('[data-testid="layer-row"][data-layer-name="smoke"]');
-  await row.locator('button[aria-label="Layer actions"]').click();
-  await page.getByRole("menuitem", { name: "Export" }).hover();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+  await openLayerActions(page, "smoke");
+  await page.getByRole("menuitem", { name: /^Export/ }).hover();
   const item = page.getByRole("menuitem", { name: menuItem, exact: true });
   await expect(item).toBeVisible();
   const downloadPromise = page.waitForEvent("download", { timeout: 60_000 });

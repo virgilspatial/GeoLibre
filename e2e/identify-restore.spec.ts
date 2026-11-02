@@ -1,5 +1,13 @@
 import { expect, test, type Page } from "./test";
-import { bindMapLibreMap, dropGeoJson, layerRow, readFixture, waitForMap } from "./helpers";
+import {
+  bindMapLibreMap,
+  dropGeoJson,
+  layerRow,
+  openLayerActions,
+  railButton,
+  readFixture,
+  waitForMap,
+} from "./helpers";
 
 /**
  * Issue #2500: the camera must not chase the selection an Identify popup
@@ -166,14 +174,16 @@ async function setUpIdentifyOverContextSelection(page: Page): Promise<Camera> {
   await expect(targets).toBeVisible();
   await targets.getByRole("button", { name: "Identify features", exact: true }).click();
 
-  const context = layerRow(page, "identify-context");
-  await context.locator('button[aria-label="Layer actions"]').click();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+  await openLayerActions(page, "identify-context");
   await page.getByRole("menuitem", { name: "Open attribute table" }).click();
   await expect(page.getByTestId("attribute-table")).toBeVisible();
   // Free the full map surface: the Layers panel overlays the side the Identify
   // click has to reach. Collapse it before the camera is read, so its resize
   // cannot be mistaken for a fit.
-  await page.getByRole("button", { name: "Collapse Layers", exact: true }).click();
+  // SWIFTMAP (Change 17): the panel's own Collapse button is gone; the rail's
+  // Layers item closes the side panel.
+  await railButton(page, "Layers").click();
 
   await page.getByLabel("Zoom to selection").check();
   await attributeRows(page).first().click();

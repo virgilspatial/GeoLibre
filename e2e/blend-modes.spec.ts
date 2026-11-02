@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "./test";
-import { dropGeoJson, layerRow, readFixture, waitForMap, waitForRenderedFeature } from "./helpers";
+import {
+  dropGeoJson,
+  layerRow,
+  readFixture,
+  selectLayerRow,
+  waitForMap,
+  waitForRenderedFeature,
+} from "./helpers";
 
 const POLYGON = readFixture("blend-polygon.geojson");
 
@@ -63,7 +70,9 @@ const luminance = ([r, g, b]: number[]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 async function blendMenu(page: Page, layerName: string) {
   const select = page.getByLabel(`Blend mode for ${layerName}`);
   if (!(await select.isVisible().catch(() => false))) {
-    await layerRow(page, layerName).getByRole("button", { name: "Open Style panel" }).click();
+    // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
+    await selectLayerRow(page, layerName);
+    await layerRow(page, layerName).getByRole("button", { name: "Open style panel" }).click();
     await expect(select).toBeVisible();
   }
   return select;

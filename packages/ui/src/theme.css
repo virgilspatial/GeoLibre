@@ -39,6 +39,9 @@
     /* SWIFTMAP: the rail's grey fill from the mockup (#fafafa), a step lighter
        than --muted so the selected rail item still shows (Change 16). */
     --sidebar: 0 0% 98%;
+    /* SWIFTMAP: the Layers panel's row hover and selected-row fill (#fafafa), the
+       mockup's --row-hover (Change 17). The selected row's outline is --accent. */
+    --row-hover: 0 0% 98%;
 
     /* Elevation shadow colours, consumed by the --shadow-* scale the app defines
        in index.css. Two layers: penumbra is the wide soft spread, umbra the
@@ -85,6 +88,8 @@
     --input: 240 5.3% 26.1%;
     /* SWIFTMAP: the mockup's dark rail fill (#0f0f12), just above the page. */
     --sidebar: 240 9.1% 6.5%;
+    /* SWIFTMAP: the mockup's dark row hover (#141417). */
+    --row-hover: 240 7% 8.4%;
     /* Tailwind's built-in shadow scale bakes in a 10%-black colour, which is
        all but invisible against these surfaces — so before this, every one of
        the app's ~65 shadow utilities did nothing in dark mode and elevation was

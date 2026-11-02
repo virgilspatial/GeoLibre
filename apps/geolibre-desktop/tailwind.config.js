@@ -50,6 +50,8 @@ export default {
         ring: "hsl(var(--ring))",
         // SWIFTMAP: the rail's grey fill (Change 16).
         sidebar: "hsl(var(--sidebar))",
+        // SWIFTMAP: the Layers panel's row hover and selection fill (Change 17).
+        "row-hover": "hsl(var(--row-hover))",
       },
     },
   },

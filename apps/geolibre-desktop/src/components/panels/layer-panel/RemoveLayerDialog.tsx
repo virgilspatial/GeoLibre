@@ -23,12 +23,16 @@ interface RemoveLayerDialogProps {
 export function RemoveLayerDialog({ layer, onClose }: RemoveLayerDialogProps) {
   const { t } = useTranslation();
   const removeLayer = useAppStore((s) => s.removeLayer);
+  const selectLayer = useAppStore((s) => s.selectLayer);
   const removeButtonRef = useRef<HTMLButtonElement>(null);
   const handleRemove = () => {
     if (!layer) return;
     // Drop the removed layer's PostGIS session state so credentials don't outlive it.
     unregisterPostgisConnection(layer.id);
     removeLayer(layer.id);
+    // SWIFTMAP: the store selects the next layer after a removal; the Layers
+    // panel starts with nothing selected instead (Change 17).
+    selectLayer(null);
     onClose();
   };
   return (

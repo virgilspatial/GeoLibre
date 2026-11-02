@@ -1,196 +1,68 @@
-import type { RefObject } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { IDENTIFY_ALL_LAYERS_ID, PLANET_SWITCHER_OPTIONS, useAppStore } from "@geolibre/core";
-import type { EllipsoidId } from "@geolibre/core";
-import { BASEMAP_CONTROL_PLUGIN_ID, GEO_EDITOR_PLUGIN_ID } from "@geolibre/plugins";
-import type { MapEngine } from "@geolibre/map";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-  cn,
-} from "@geolibre/ui";
-import {
-  Eye,
-  EyeOff,
-  FolderPlus,
-  ListCollapse,
-  Map as MapIcon,
-  MousePointerClick,
-  Orbit,
-  PanelLeftClose,
-  PenTool,
-} from "lucide-react";
-import { createAppAPI, usePluginRegistry } from "../../../hooks/usePlugins";
-import { PLANET_SWITCHER_LABEL_KEYS } from "../../../lib/planet-labels";
-import { useCompactLayerList } from "./useCompactLayerList";
-
-type PluginRegistry = ReturnType<typeof usePluginRegistry>;
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@geolibre/ui";
+import { FolderPlus, Plus } from "lucide-react";
+import { useSidePanelStore } from "../../layout/rail/sidePanelStore";
 
 interface LayerPanelHeaderProps {
-  mapControllerRef: RefObject<MapEngine | null>;
-  /** The celestial body the active basemap belongs to, if any. */
-  selectedPlanet: EllipsoidId | undefined;
-  togglePlanet: (body: EllipsoidId, selected: boolean) => void;
-  isPluginActive: PluginRegistry["isActive"];
-  togglePlugin: PluginRegistry["toggle"];
   onCreateGroup: () => void;
-  allLayersVisible: boolean;
-  onToggleAllLayers: () => void;
-  /** Id of the layer in a geometry-edit session, which disables Identify. */
-  geometryEditLayerId: string | null;
-  identifyLayerId: string | null;
-  onCollapse: () => void;
+  /** Whether Add Data is offered (the rail shows it to editors only). */
+  canAddData: boolean;
 }
 
-/** The Layers panel title bar and its toolbar buttons. */
-export function LayerPanelHeader({
-  mapControllerRef,
-  selectedPlanet,
-  togglePlanet,
-  isPluginActive,
-  togglePlugin,
-  onCreateGroup,
-  allLayersVisible,
-  onToggleAllLayers,
-  geometryEditLayerId,
-  identifyLayerId,
-  onCollapse,
-}: LayerPanelHeaderProps) {
-  const { t } = useTranslation();
-  const setIdentifyLayer = useAppStore((s) => s.setIdentifyLayer);
-  const [compactLayerList, setCompactLayerList] = useCompactLayerList();
-  // The header row wraps (flex-wrap) instead of overflowing, since the panel
-  // can be resized down to MIN_SIDE_PANEL_WIDTH (usePanelResize.ts).
+/** SWIFTMAP: the rail's tooltip size (Change 16), opening below the button. */
+const headerTooltipClass = "rounded-[10px] px-3.5 py-2 text-sm font-medium";
+
+function HeaderButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-2 border-b px-3 py-1.5">
-      <span className="text-sm font-semibold">{t("sharedRail.layers")}</span>
-      <div className="ms-auto flex flex-wrap items-center justify-end">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              title={t("planetSwitcher.label")}
-              aria-label={t("planetSwitcher.label")}
-            >
-              <Orbit
-                className={cn(
-                  "h-4 w-4",
-                  selectedPlanet && selectedPlanet !== "earth" && "text-primary",
-                )}
-              />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>{t("planetSwitcher.label")}</DropdownMenuLabel>
-            {PLANET_SWITCHER_OPTIONS.map((option) => (
-              <DropdownMenuCheckboxItem
-                key={option.ellipsoidId}
-                checked={selectedPlanet === option.ellipsoidId}
-                onCheckedChange={(checked) => togglePlanet(option.ellipsoidId, checked)}
-              >
-                {t(PLANET_SWITCHER_LABEL_KEYS[option.ellipsoidId])}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+    <Tooltip>
+      <TooltipTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
-          title={t("layers.basemaps")}
-          aria-label={t("layers.basemaps")}
-          aria-pressed={isPluginActive(BASEMAP_CONTROL_PLUGIN_ID)}
-          onClick={() => togglePlugin(BASEMAP_CONTROL_PLUGIN_ID, createAppAPI(mapControllerRef))}
+          className="h-7 w-7 rounded-md"
+          aria-label={label}
+          onClick={onClick}
         >
-          <MapIcon
-            className={cn("h-4 w-4", isPluginActive(BASEMAP_CONTROL_PLUGIN_ID) && "text-primary")}
-          />
+          {children}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.geoEditor")}
-          aria-label={t("layers.geoEditor")}
-          aria-pressed={isPluginActive(GEO_EDITOR_PLUGIN_ID)}
-          onClick={() => togglePlugin(GEO_EDITOR_PLUGIN_ID, createAppAPI(mapControllerRef))}
-        >
-          <PenTool
-            className={cn("h-4 w-4", isPluginActive(GEO_EDITOR_PLUGIN_ID) && "text-primary")}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.newGroup")}
-          aria-label={t("layers.newGroup")}
-          onClick={onCreateGroup}
-        >
-          <FolderPlus className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.compactViewHint")}
-          aria-label={t("layers.compactView")}
-          aria-pressed={compactLayerList}
-          onClick={() => setCompactLayerList(!compactLayerList)}
-        >
-          <ListCollapse className={cn("h-4 w-4", compactLayerList && "text-primary")} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={allLayersVisible ? t("layers.hideAllLayers") : t("layers.showAllLayers")}
-          aria-label={allLayersVisible ? t("layers.hideAllLayers") : t("layers.showAllLayers")}
-          onClick={onToggleAllLayers}
-        >
-          {allLayersVisible ? (
-            <Eye className="h-4 w-4" />
-          ) : (
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
-          )}
-        </Button>
-        {/* A geometry edit session owns map clicks, which is why the
-            per-layer Identify button is disabled while its layer is edited;
-            the all-layer handler has to stand down for the same reason. */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.identifyVisibleLayersHint")}
-          aria-label={t("layers.identifyVisibleLayers")}
-          aria-pressed={identifyLayerId === IDENTIFY_ALL_LAYERS_ID}
-          disabled={geometryEditLayerId !== null}
-          onClick={() =>
-            setIdentifyLayer(
-              identifyLayerId === IDENTIFY_ALL_LAYERS_ID ? null : IDENTIFY_ALL_LAYERS_ID,
-            )
-          }
-        >
-          <MousePointerClick
-            className={cn("h-4 w-4", identifyLayerId === IDENTIFY_ALL_LAYERS_ID && "text-primary")}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          title={t("layers.collapse")}
-          aria-label={t("layers.collapse")}
-          onClick={onCollapse}
-        >
-          <PanelLeftClose className="h-4 w-4" />
-        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={8} className={headerTooltipClass}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * SWIFTMAP: the Layers panel title bar (Change 17): "Layers", then New group
+ * and a + that opens the rail's Add Data menu. GeoLibre's eight header icons
+ * (planet switcher, Basemaps, GeoEditor, Compact view, Show/hide all, Identify
+ * visible layers, Collapse) were dropped by the user; their engine code stays.
+ */
+export function LayerPanelHeader({ onCreateGroup, canAddData }: LayerPanelHeaderProps) {
+  const { t } = useTranslation();
+  const setAddDataMenuOpen = useSidePanelStore((s) => s.setAddDataMenuOpen);
+  return (
+    <div className="flex items-center justify-between pb-2 ps-1.5">
+      <h2 className="text-sm font-semibold">{t("layerPanel.title")}</h2>
+      <div className="flex items-center gap-0.5">
+        <HeaderButton label={t("layerPanel.newGroup")} onClick={onCreateGroup}>
+          <FolderPlus className="h-4 w-4" strokeWidth={1.75} />
+        </HeaderButton>
+        {canAddData ? (
+          <HeaderButton label={t("layerPanel.addData")} onClick={() => setAddDataMenuOpen(true)}>
+            <Plus className="h-4 w-4" strokeWidth={2} />
+          </HeaderButton>
+        ) : null}
       </div>
     </div>
   );

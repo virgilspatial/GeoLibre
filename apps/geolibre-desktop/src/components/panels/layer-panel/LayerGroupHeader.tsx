@@ -1,9 +1,10 @@
-import { type MouseEvent as ReactMouseEvent } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@geolibre/core";
-import type { LayerGroup } from "@geolibre/core";
+import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
 import {
   Button,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,31 +14,20 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@geolibre/ui";
-import {
-  ArrowDownAZ,
-  ArrowDownZA,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Eye,
-  EyeOff,
-  Folder,
-  FolderMinus,
-  FolderOpen,
-  FolderPlus,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { ChevronRight, Eye, EyeOff, MoreHorizontal } from "lucide-react";
 import { openAddData } from "../../layout/add-data/open-add-data";
 import type { ADD_DATA_DIALOG_SOURCES } from "./layer-panel-utils";
-import { LayerOpacitySlider } from "./LayerOpacitySlider";
-import { useCompactLayerList } from "./useCompactLayerList";
+import {
+  LAYER_MENU_COLLISION_PADDING,
+  LayerMenuItem,
+  subTriggerClass,
+} from "./LayerActionsMenu";
+import { LayerOpacityCard } from "./LayerRowCards";
 import type { LayerRename } from "./useLayerRename";
 
 interface LayerGroupHeaderProps {
   group: LayerGroup;
-  /** Nesting depth of the group, in rem of inline-start indent. */
+  /** Nesting depth of the group (0 at the top level). */
   depth: number;
   /** Whether a dragged layer is hovering this header. */
   isDropTarget: boolean;
@@ -58,7 +48,29 @@ interface LayerGroupHeaderProps {
   >;
 }
 
-/** A group (folder) header row in the layer list, with its actions menu. */
+/** How many layers sit in a group, counting those in its subgroups. */
+function countGroupLayers(layers: GeoLibreLayer[], groups: LayerGroup[], groupId: string): number {
+  const parentOf = new Map(groups.map((g) => [g.id, g.parentId] as const));
+  return layers.filter((layer) => {
+    let id = layer.groupId;
+    const seen = new Set<string>();
+    while (id && !seen.has(id)) {
+      if (id === groupId) return true;
+      seen.add(id);
+      id = parentOf.get(id);
+    }
+    return false;
+  }).length;
+}
+
+/**
+ * SWIFTMAP: a group row in the Layers panel (Change 17), as in the mockup:
+ * chevron, bold name, muted layer count, then ⋯ and the eye over the right end
+ * on hover or keyboard focus (a hidden group keeps its crossed eye showing).
+ * No background at rest, the hover fill on hover. Group opacity is in the ⋯
+ * menu (the user's addition), opening the same Opacity card layers use. The
+ * menu keeps GeoLibre's group items until 4b rebuilds it (Change 18).
+ */
 export function LayerGroupHeader({
   group,
   depth,
@@ -77,6 +89,9 @@ export function LayerGroupHeader({
   const moveLayerGroupToGroup = useAppStore((s) => s.moveLayerGroupToGroup);
   const reorderLayerGroup = useAppStore((s) => s.reorderLayerGroup);
   const sortLayerGroup = useAppStore((s) => s.sortLayerGroup);
+  const layerCount = useAppStore((s) => countGroupLayers(s.layers, s.layerGroups, group.id));
+  const [opacityOpen, setOpacityOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const {
     editingGroupId,
     editingGroupName,
@@ -85,7 +100,14 @@ export function LayerGroupHeader({
     commitGroupRename,
     cancelGroupRename,
   } = rename;
-  const [compactLayerList] = useCompactLayerList();
+  const eyeLabel = group.visible
+    ? t("layerPanel.hideLayer", { name: group.name })
+    : t("layerPanel.showLayer", { name: group.name });
+  // ⋯ and the eye show on hover, keyboard focus, touch screens and while the
+  // menu is open; a hidden group's eye always shows.
+  const reveal =
+    "opacity-0 group-hover/grp:opacity-100 group-has-[:focus-visible]/grp:opacity-100 [@media(hover:none)]:opacity-100";
+  const actionsShown = menuOpen || !group.visible;
   return (
     <div
       data-group-header=""
@@ -96,66 +118,38 @@ export function LayerGroupHeader({
       // the collapse toggle, which is where a listitem may carry it.
       role="listitem"
       aria-level={depth + 1}
-      className={`w-full min-w-0 max-w-full rounded-md border transition-colors ${
-        compactLayerList ? "px-2 py-0.5" : "p-2"
-      } ${
-        isDropTarget
-          ? "border-primary bg-primary/10"
-          : "border-border bg-muted/30 hover:border-muted-foreground/40"
-      }`}
-      style={{
-        marginInlineStart: `${depth}rem`,
-        width: `calc(100% - ${depth}rem)`,
-      }}
+      className="w-full min-w-0"
+      style={depth > 0 ? { paddingInlineStart: `${depth * 20}px` } : undefined}
     >
-      <div className="flex min-w-0 items-center gap-1">
+      <div
+        className={cn(
+          "group/grp relative flex min-w-0 items-center gap-1.5 rounded-[10px] py-1 pe-1.5 ps-1.5 transition-colors hover:bg-row-hover",
+          isDropTarget && "ring-1 ring-inset ring-foreground",
+        )}
+      >
         <button
           type="button"
-          className="rounded p-0.5 text-muted-foreground hover:bg-muted"
-          title={group.collapsed ? t("layers.expandGroup") : t("layers.collapseGroup")}
+          className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[5px] text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={group.collapsed ? t("layers.expandGroup") : t("layers.collapseGroup")}
           aria-expanded={!group.collapsed}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleLayerGroupCollapsed(group.id);
-          }}
+          onClick={() => toggleLayerGroupCollapsed(group.id)}
         >
-          {group.collapsed ? (
-            <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 transition-transform rtl:rotate-180",
+              !group.collapsed && "rotate-90 rtl:rotate-90",
+            )}
+            strokeWidth={2.25}
+          />
         </button>
-        <button
-          type="button"
-          className="rounded p-0.5 hover:bg-muted"
-          title={group.visible ? t("layers.hideGroup") : t("layers.showGroup")}
-          aria-label={group.visible ? t("layers.hideGroup") : t("layers.showGroup")}
-          onClick={(e) => {
-            e.stopPropagation();
-            setLayerGroupVisibility(group.id, !group.visible);
-          }}
-        >
-          {group.visible ? (
-            <Eye className="h-3.5 w-3.5" />
-          ) : (
-            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-          )}
-        </button>
-        {group.collapsed ? (
-          <Folder className="h-3.5 w-3.5 text-muted-foreground" />
-        ) : (
-          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-        )}
         {editingGroupId === group.id ? (
           <input
             autoFocus
             type="text"
-            className="flex-1 min-w-0 rounded border border-input bg-background px-1 py-0.5 text-sm font-semibold outline-none focus:ring-1 focus:ring-ring"
+            className="h-6 min-w-0 flex-1 rounded-md border border-input bg-background px-1.5 text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
             value={editingGroupName}
             aria-label={t("layers.renameNamed", { name: group.name })}
             onChange={(e) => setEditingGroupName(e.target.value)}
-            onClick={(e: ReactMouseEvent) => e.stopPropagation()}
             onFocus={(e) => e.currentTarget.select()}
             onBlur={commitGroupRename}
             onKeyDown={(e) => {
@@ -170,151 +164,167 @@ export function LayerGroupHeader({
             }}
           />
         ) : (
-          <span
-            className="min-w-0 flex-1 truncate text-sm font-semibold"
-            title={`${group.name}\n${t("layers.doubleClickToRename")}`}
-            onDoubleClick={(e: ReactMouseEvent) => {
-              e.stopPropagation();
-              beginGroupRename(group);
-            }}
+          // The name toggles the group, as in the mockup; double-click renames.
+          <button
+            type="button"
+            tabIndex={-1}
+            title={group.name}
+            className="flex min-w-0 flex-1 items-baseline gap-1.5 text-start"
+            onClick={() => toggleLayerGroupCollapsed(group.id)}
+            onDoubleClick={() => beginGroupRename(group)}
           >
-            {group.name}
-          </span>
+            <span
+              className={cn(
+                "min-w-0 truncate text-[13px] font-semibold",
+                !group.visible && "opacity-50",
+              )}
+            >
+              {group.name}
+            </span>
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {layerCount}
+            </span>
+          </button>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              title={t("layers.groupActions")}
-              aria-label={t("layers.groupActions")}
-              onClick={(e: ReactMouseEvent) => e.stopPropagation()}
+        {/* ⋯ and eye over the right end, on a short fade matching the row. */}
+        <div
+          className={cn(
+            "absolute end-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 ps-5",
+            "bg-gradient-to-l from-background from-70% to-transparent group-hover/grp:from-row-hover",
+            !actionsShown && reveal,
+          )}
+        >
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("layers.groupActions")}
+                className={cn(
+                  "h-6 w-6 rounded-md",
+                  !menuOpen && !group.visible && reveal,
+                  menuOpen && "bg-foreground text-background hover:bg-foreground/90 hover:text-background",
+                )}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={6}
+              collisionPadding={LAYER_MENU_COLLISION_PADDING}
+              className="min-w-[210px] rounded-[10px]"
             >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e: ReactMouseEvent) => e.stopPropagation()}>
-            <DropdownMenuItem
-              onSelect={(e: Event) => {
-                e.preventDefault();
-                beginGroupRename(group);
-              }}
-            >
-              <Pencil className="me-2 h-3.5 w-3.5" />
-              {t("layers.renameGroup")}
-            </DropdownMenuItem>
-            {addDataGroupSources.length > 0 && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <FolderPlus className="h-3.5 w-3.5" />
-                  {t("layers.addDataToGroup")}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {addDataGroupSources.map((entry) => (
-                    <DropdownMenuItem
-                      key={entry.id}
-                      onSelect={() => openAddData(entry.id, { groupId: group.id })}
-                    >
-                      {t(entry.labelKey)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+              <LayerMenuItem
+                label={opacityOpen ? t("layerPanel.hideOpacity") : t("layerPanel.opacity")}
+                onSelect={() => setOpacityOpen((open) => !open)}
+              />
+              <DropdownMenuSeparator />
+              {/* preventDefault keeps the menu's close from racing the input's autofocus. */}
+              <LayerMenuItem
+                label={t("layers.renameGroup")}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  beginGroupRename(group);
+                }}
+              />
+              {addDataGroupSources.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className={subTriggerClass}>
+                    {t("layers.addDataToGroup")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {addDataGroupSources.map((entry) => (
+                      <DropdownMenuItem
+                        key={entry.id}
+                        onSelect={() => openAddData(entry.id, { groupId: group.id })}
+                      >
+                        {t(entry.labelKey)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {moveTargets.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className={subTriggerClass}>
+                    {t("layers.moveToGroup")}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {moveTargets.map((target) => (
+                      <LayerMenuItem
+                        key={target.id}
+                        label={target.name}
+                        disabled={group.parentId === target.id}
+                        onSelect={() => moveLayerGroupToGroup(group.id, target.id)}
+                      />
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {group.parentId && (
+                <LayerMenuItem
+                  label={t("layers.removeFromGroup")}
+                  onSelect={() => moveLayerGroupToGroup(group.id, null)}
+                />
+              )}
+              <LayerMenuItem
+                label={t("layers.moveGroupUp")}
+                disabled={!moveability?.up}
+                onSelect={() => reorderLayerGroup(group.id, "up")}
+              />
+              <LayerMenuItem
+                label={t("layers.moveGroupDown")}
+                disabled={!moveability?.down}
+                onSelect={() => reorderLayerGroup(group.id, "down")}
+              />
+              <LayerMenuItem
+                label={t("layers.sortGroupAscending")}
+                disabled={!sortability?.asc}
+                onSelect={() => sortLayerGroup(group.id, "asc", i18n.language)}
+              />
+              <LayerMenuItem
+                label={t("layers.sortGroupDescending")}
+                disabled={!sortability?.desc}
+                onSelect={() => sortLayerGroup(group.id, "desc", i18n.language)}
+              />
+              <DropdownMenuSeparator />
+              <LayerMenuItem
+                label={t("layers.ungroupKeepLayers")}
+                onSelect={() => removeLayerGroup(group.id)}
+              />
+              <LayerMenuItem
+                label={t("layers.deleteGroupAndLayers")}
+                danger
+                onSelect={() => removeLayerGroup(group.id, { removeChildren: true })}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            type="button"
+            aria-label={eyeLabel}
+            aria-pressed={group.visible}
+            title={eyeLabel}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setLayerGroupVisibility(group.id, !group.visible)}
+          >
+            {group.visible ? (
+              <Eye className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <EyeOff className="h-4 w-4" strokeWidth={1.75} />
             )}
-            {moveTargets.length > 0 && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Folder className="h-3.5 w-3.5" />
-                  {t("layers.moveToGroup")}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {moveTargets.map((target) => (
-                    <DropdownMenuItem
-                      key={target.id}
-                      disabled={group.parentId === target.id}
-                      onSelect={() => moveLayerGroupToGroup(group.id, target.id)}
-                    >
-                      {target.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-            {group.parentId && (
-              <DropdownMenuItem onSelect={() => moveLayerGroupToGroup(group.id, null)}>
-                <FolderMinus className="me-2 h-3.5 w-3.5" />
-                {t("layers.removeFromGroup")}
-              </DropdownMenuItem>
-            )}
-            {/* Action items below omit preventDefault so Radix dismisses the
-                menu on select; only the rename item above keeps it, so the
-                menu's close does not race its input autofocus. */}
-            <DropdownMenuItem
-              disabled={!moveability?.up}
-              onSelect={() => {
-                reorderLayerGroup(group.id, "up");
-              }}
-            >
-              <ChevronUp className="me-2 h-3.5 w-3.5" />
-              {t("layers.moveGroupUp")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!moveability?.down}
-              onSelect={() => {
-                reorderLayerGroup(group.id, "down");
-              }}
-            >
-              <ChevronDown className="me-2 h-3.5 w-3.5" />
-              {t("layers.moveGroupDown")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!sortability?.asc}
-              onSelect={() => {
-                sortLayerGroup(group.id, "asc", i18n.language);
-              }}
-            >
-              <ArrowDownAZ className="me-2 h-3.5 w-3.5" />
-              {t("layers.sortGroupAscending")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!sortability?.desc}
-              onSelect={() => {
-                sortLayerGroup(group.id, "desc", i18n.language);
-              }}
-            >
-              <ArrowDownZA className="me-2 h-3.5 w-3.5" />
-              {t("layers.sortGroupDescending")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() => {
-                removeLayerGroup(group.id);
-              }}
-            >
-              <FolderMinus className="me-2 h-3.5 w-3.5" />
-              {t("layers.ungroupKeepLayers")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onSelect={() => {
-                removeLayerGroup(group.id, { removeChildren: true });
-              }}
-            >
-              <Trash2 className="me-2 h-3.5 w-3.5" />
-              {t("layers.deleteGroupAndLayers")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </button>
+        </div>
       </div>
-      {!group.collapsed && !compactLayerList && (
-        <LayerOpacitySlider
-          label={t("layers.groupOpacity")}
-          ariaLabel={t("layers.groupOpacityAria", { name: group.name })}
-          value={group.opacity}
-          onChange={(v) => setLayerGroupOpacity(group.id, v)}
-        />
-      )}
+      {opacityOpen ? (
+        <div className="pt-1">
+          <LayerOpacityCard
+            name={group.name}
+            opacity={group.opacity}
+            onChange={(v) => setLayerGroupOpacity(group.id, v)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -109,6 +109,23 @@ export function layerRow(page: Page, name: string) {
 }
 
 /**
+ * SWIFTMAP (Change 17): select a layer row. Its toolbar (Zoom to layer,
+ * Identify, Style, ⋯) shows only on the selected row, and clicking a selected
+ * row deselects it, so this clicks only when the row is not selected yet.
+ */
+export async function selectLayerRow(page: Page, name: string): Promise<void> {
+  const select = layerRow(page, name).locator("[data-layer-select]");
+  if ((await select.getAttribute("aria-pressed")) !== "true") await select.click();
+  await expect(select).toHaveAttribute("aria-pressed", "true");
+}
+
+/** SWIFTMAP (Change 17): select a layer row and open its ⋯ (Layer actions) menu. */
+export async function openLayerActions(page: Page, name: string): Promise<void> {
+  await selectLayerRow(page, name);
+  await layerRow(page, name).getByRole("button", { name: "Layer actions" }).click();
+}
+
+/**
  * What one rendering-engine swap is allowed to cost, click and repaint alike.
  *
  * `setPrimaryRenderer` is a discrete React update, so the entire swap runs
