@@ -141,8 +141,7 @@ function ToolButton({
  * SWIFTMAP: one layer in the Layers panel (Change 17). At rest the row is the
  * layer's name and its eye; selecting it adds the toolbar (Zoom to layer,
  * Identify, Style, ⋯) and, from the ⋯ menu, the Opacity or Properties card.
- * No drag handle (decided 2 Nov 2026): rows reorder from the ⋯ menu until 4b
- * makes the whole row draggable.
+ * No drag handle: the name line is what a drag grabs (Change 18, useRowDrag).
  */
 export function LayerRow({
   layer,
@@ -275,6 +274,7 @@ export function LayerRow({
       data-testid="layer-row"
       data-layer-name={layer.name}
       data-layer-id={layer.id}
+      data-drag-key={`layer:${layer.id}`}
       role="listitem"
       aria-level={group ? groupDepth(group) + 2 : 1}
       className="relative min-w-0"
@@ -286,7 +286,7 @@ export function LayerRow({
           selected && "bg-row-hover ring-1 ring-inset ring-accent",
         )}
       >
-        <div className="relative flex min-w-0 items-center gap-2.5 py-1 ps-3.5 pe-1.5">
+        <div data-drag-grip="" className="relative flex min-w-0 items-center gap-2.5 py-1 ps-3.5 pe-1.5">
           {editing ? (
             <input
               autoFocus
@@ -315,6 +315,7 @@ export function LayerRow({
               type="button"
               aria-pressed={selected}
               data-layer-select=""
+              data-drag-ok=""
               className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title={layer.name}
               onClick={() => onToggleSelect(layer.id)}

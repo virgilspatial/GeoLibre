@@ -19,24 +19,21 @@ import {
   useAppStore,
   layerGroupDepth,
   layerGroupMoveability,
-  layerGroupSortability,
   layerPanelGroupHeaders,
 } from "@geolibre/core";
 import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
 import { getTemporalLayersVersion, subscribeTemporalLayers } from "@geolibre/plugins";
-import { rendererCapabilities, type MapEngine } from "@geolibre/map";
+import { getLayerBounds, type MapEngine } from "@geolibre/map";
 import { getIsMobileViewport } from "../../hooks/useIsMobileViewport";
 import type { ThemeMode } from "../../hooks/useThemeMode";
 import { usePluginRegistry } from "../../hooks/usePlugins";
 import { useDesktopSettingsStore } from "../../hooks/useDesktopSettings";
 import { canOpenLayerAttributeTable } from "../../lib/attribute-table-source";
 import { isMacPlatform } from "../../lib/commands";
-import { isMobile } from "../../lib/is-mobile";
-import { masHidesDataSource } from "../../lib/mas-build";
 import { notify } from "../../lib/notify";
 import { canExportRasterLayer } from "../../lib/raster-export";
-import { activeInterfaceProfile, isDataSourceVisible } from "../../lib/ui-profile";
-import { Button, ScrollArea, Separator } from "@geolibre/ui";
+import { activeInterfaceProfile } from "../../lib/ui-profile";
+import { Button, cn, ScrollArea, Separator } from "@geolibre/ui";
 import { Layers, PanelLeftOpen } from "lucide-react";
 import { participantCanEditLayer } from "../../lib/collab-protocol";
 import type { CollaborationApi } from "../../hooks/useCollaboration";
@@ -44,7 +41,7 @@ import { useSidePanelStore } from "../layout/rail/sidePanelStore";
 import { BasemapPickerDialog } from "./BasemapPickerDialog";
 import { LayerPanelPlaceSearch } from "./LayerPanelPlaceSearch";
 import { useMapCapabilities } from "../../hooks/useMapCapabilities";
-import { ADD_DATA_DIALOG_SOURCES, BACKGROUND_SELECTION_ID } from "./layer-panel/layer-panel-utils";
+import { BACKGROUND_SELECTION_ID } from "./layer-panel/layer-panel-utils";
 import { BackgroundAppearanceDialog, BackgroundLayerRow } from "./layer-panel/BackgroundLayerRow";
 import { BindTimeSliderDialog } from "./layer-panel/BindTimeSliderDialog";
 import type { LayerActionsMenuShared, LayerCard } from "./layer-panel/LayerActionsMenu";
@@ -58,7 +55,22 @@ import {
   RefreshSettingsDialog,
   useRefreshSettingsDialog,
 } from "./layer-panel/RefreshSettingsDialog";
+import { RemoveGroupDialog, removeGroupAndContents } from "./layer-panel/RemoveGroupDialog";
 import { RemoveLayerDialog } from "./layer-panel/RemoveLayerDialog";
+import {
+  buildLayerTree,
+  childrenAt,
+  detachNode,
+  engineKeepsTree,
+  findGroupNode,
+  groupLevel,
+  insertNode,
+  layersInGroup,
+  MAX_GROUP_LEVELS,
+  withinDepthLimit,
+  writeLayerTree,
+} from "./layer-panel/layer-tree";
+import { useRowDrag } from "./layer-panel/useRowDrag";
 import { useLayerActions } from "./layer-panel/useLayerActions";
 import type { LayerRefresh } from "./layer-panel/useLayerRefresh";
 import { useLayerRename } from "./layer-panel/useLayerRename";
@@ -162,29 +174,11 @@ export function LayerPanel({
   onCollapsedChange,
   hideOwnRail = false,
 }: LayerPanelProps) {
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
   const isBeginnerProfile = useDesktopSettingsStore(
     (s) => activeInterfaceProfile(s.desktopSettings.uiProfile) === "beginner",
   );
-  const uiProfile = useDesktopSettingsStore((s) => s.desktopSettings.uiProfile);
-  // Same visibility rules the Add Data menu applies, for group headers' Add
-  // Data entries.
-  const mobile = useMemo(() => isMobile(), []);
   const isMac = useMemo(() => isMacPlatform(), []);
-  const controlLayerPanels = useAppStore(
-    (s) => rendererCapabilities(s.primaryRenderer).controlLayerPanels,
-  );
-  const addDataGroupSources = useMemo(
-    () =>
-      ADD_DATA_DIALOG_SOURCES.filter(
-        (entry) =>
-          isDataSourceVisible(uiProfile, entry.id) &&
-          (!["pmtiles", "raster", "zarr"].includes(entry.id) || !controlLayerPanels) &&
-          !((entry.id === "postgres" || entry.id === "mssql") && mobile) &&
-          !masHidesDataSource(entry.id),
-      ),
-    [uiProfile, mobile, controlLayerPanels],
-  );
   const addDataAvailable = useSidePanelStore((s) => s.addDataAvailable);
   const layers = useAppStore((s) => s.layers);
   const layerGroups = useAppStore((s) => s.layerGroups);
@@ -207,6 +201,9 @@ export function LayerPanel({
   );
   const reorderLayer = useAppStore((s) => s.reorderLayer);
   const addLayerGroup = useAppStore((s) => s.addLayerGroup);
+  const removeLayerGroup = useAppStore((s) => s.removeLayerGroup);
+  const moveLayerGroupToGroup = useAppStore((s) => s.moveLayerGroupToGroup);
+  const toggleLayerGroupCollapsed = useAppStore((s) => s.toggleLayerGroupCollapsed);
   const setAttributeTableOpen = useAppStore((s) => s.setAttributeTableOpen);
   const setRasterAttributeTableOpen = useAppStore((s) => s.setRasterAttributeTableOpen);
   const collaboration = useAppStore((s) => s.collaboration);
@@ -246,6 +243,7 @@ export function LayerPanel({
   const [basemapPickerOpen, setBasemapPickerOpen] = useState(false);
   const [backgroundAppearanceOpen, setBackgroundAppearanceOpen] = useState(false);
   const [layerPendingRemoval, setLayerPendingRemoval] = useState<GeoLibreLayer | null>(null);
+  const [groupPendingRemoval, setGroupPendingRemoval] = useState<LayerGroup | null>(null);
   // SWIFTMAP: search, and the selected layer's card and menu (Change 17).
   const [query, setQuery] = useState("");
   const [openCard, setOpenCard] = useState<LayerCard | null>(null);
@@ -294,8 +292,7 @@ export function LayerPanel({
 
   const visibleLayers = useMemo(() => [...layers].reverse(), [layers]);
   // Single selection, as in the mockup (Shift/Ctrl multi-select was dropped,
-  // item 24): the store's selected layer is the only one. No dragging until 4b
-  // (decided 2 Nov 2026): rows reorder from the ⋯ menu.
+  // item 24): the store's selected layer is the only one.
   const toggleSelect = useCallback(
     (layerId: string) => selectLayer(selectedLayerId === layerId ? null : layerId),
     [selectLayer, selectedLayerId],
@@ -385,10 +382,122 @@ export function LayerPanel({
     () => layerGroupMoveability(layers, layerGroups),
     [layers, layerGroups],
   );
-  const groupSortability = useMemo(
-    () => layerGroupSortability(layers, layerGroups, i18n.language),
-    [layers, layerGroups, i18n.language],
+  // SWIFTMAP: the panel as a tree, for empty groups and the group menu (Change 18).
+  const tree = useMemo(() => buildLayerTree(layers, layerGroups), [layers, layerGroups]);
+  const allGroupsById = useMemo(
+    () => new Map(layerGroups.map((g) => [g.id, g] as const)),
+    [layerGroups],
   );
+  const hiddenByParent = useCallback(
+    (group: LayerGroup) => {
+      let parentId = group.parentId;
+      const seen = new Set([group.id]);
+      while (parentId && !seen.has(parentId)) {
+        seen.add(parentId);
+        const parent = allGroupsById.get(parentId);
+        if (!parent) return false;
+        if (!parent.visible) return true;
+        parentId = parent.parentId;
+      }
+      return false;
+    },
+    [allGroupsById],
+  );
+
+  const warnDepthLimit = useCallback(
+    () => notify.info(t("layerPanel.groupDepthLimit", { max: MAX_GROUP_LEVELS })),
+    [t],
+  );
+
+  // Add subgroup: a new, empty group at the top of this one (as in the
+  // mockup), or as near the top as the engine keeps it.
+  const addSubgroup = (group: LayerGroup) => {
+    if (groupLevel(layerGroups, group.id) >= MAX_GROUP_LEVELS) {
+      warnDepthLimit();
+      return;
+    }
+    const id = addLayerGroup(t("layerPanel.newGroup"));
+    const state = useAppStore.getState();
+    const { tree: detached, node } = detachNode(
+      buildLayerTree(state.layers, state.layerGroups),
+      `group:${id}`,
+    );
+    const siblings = childrenAt(detached, group.id) ?? [];
+    let placed = false;
+    for (let index = 0; node && !placed && index <= siblings.length; index++) {
+      const next = insertNode(detached, node, { parentId: group.id, index });
+      if (next && engineKeepsTree(next, state.layers, state.layerGroups)) {
+        useAppStore.setState({
+          ...writeLayerTree(next, state.layers, state.layerGroups),
+          isDirty: true,
+        });
+        placed = true;
+      }
+    }
+    if (!placed) moveLayerGroupToGroup(id, group.id);
+    if (group.collapsed) toggleLayerGroupCollapsed(group.id);
+  };
+
+  const zoomToGroup = (group: LayerGroup) => {
+    const controller = mapControllerRef.current;
+    if (!controller) return;
+    const members = layersInGroup(layers, layerGroups, group.id);
+    // One layer: the map's own fit, which knows tile zoom limits and 3D tiles.
+    if (members.length === 1) {
+      if (!controller.fitLayer(members[0])) {
+        notify.info(t("layerPanel.zoomToGroupUnknownExtent", { name: group.name }));
+      }
+      return;
+    }
+    // Several: the box around every layer whose extent is known.
+    let box: [number, number, number, number] | null = null;
+    for (const layer of members) {
+      const bounds = getLayerBounds(layer);
+      if (!bounds) continue;
+      box = box
+        ? [
+            Math.min(box[0], bounds[0]),
+            Math.min(box[1], bounds[1]),
+            Math.max(box[2], bounds[2]),
+            Math.max(box[3], bounds[3]),
+          ]
+        : bounds;
+    }
+    if (box) controller.fitBounds(box);
+    else notify.info(t("layerPanel.zoomToGroupUnknownExtent", { name: group.name }));
+  };
+
+  // Ungroup: what the group held takes its place, inside its parent (GeoLibre
+  // moved the layers to the top level).
+  const ungroup = (group: LayerGroup) => {
+    const state = useAppStore.getState();
+    const current = buildLayerTree(state.layers, state.layerGroups);
+    const { tree: detached, node, from } = detachNode(current, `group:${group.id}`);
+    if (node?.kind === "group" && from) {
+      const siblings = childrenAt(detached, from.parentId);
+      siblings?.splice(from.index, 0, ...node.children);
+      useAppStore.setState({
+        ...writeLayerTree(detached, state.layers, state.layerGroups),
+        isDirty: true,
+      });
+    }
+    removeLayerGroup(group.id);
+  };
+
+  // A group with layers asks first (G6); an empty one goes straight away.
+  const removeGroup = (group: LayerGroup) => {
+    if (layersInGroup(layers, layerGroups, group.id).length > 0) setGroupPendingRemoval(group);
+    else removeGroupAndContents(group.id);
+  };
+
+  const moveGroupToGroup = (group: LayerGroup, targetId: string | null) => {
+    const node = findGroupNode(tree, group.id);
+    if (targetId && node && !withinDepthLimit(layerGroups, node, targetId)) {
+      warnDepthLimit();
+      return;
+    }
+    moveLayerGroupToGroup(group.id, targetId);
+  };
 
   const backgroundSelected = selectedLayerId === BACKGROUND_SELECTION_ID;
   const blankBackgroundActive = basemapStyleUrl === BLANK_BASEMAP;
@@ -399,15 +508,32 @@ export function LayerPanel({
       <LayerGroupHeader
         group={group}
         depth={groupDepth(group)}
-        isDropTarget={false}
+        empty={!searching && findGroupNode(tree, group.id)?.children.length === 0}
+        hiddenByParent={hiddenByParent(group)}
         moveability={groupMoveability.get(group.id)}
-        sortability={groupSortability.get(group.id)}
         moveTargets={groupMoveTargets(group)}
-        addDataGroupSources={addDataGroupSources}
         rename={rename}
+        onAddSubgroup={addSubgroup}
+        onZoomToGroup={zoomToGroup}
+        onUngroup={ungroup}
+        onRemoveGroup={removeGroup}
+        onMoveToGroup={moveGroupToGroup}
       />
     );
   };
+
+  // SWIFTMAP: drag and drop (Change 18). Off while searching.
+  const listRef = useRef<HTMLDivElement>(null);
+  const drag = useRowDrag({
+    listRef,
+    enabled: !searching,
+    canDrag: (key) => {
+      const [kind, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+      if (kind === "layer") return canEditLayer(id) && rename.editingLayerId !== id;
+      return rename.editingGroupId !== id;
+    },
+    onDepthLimit: warnDepthLimit,
+  });
 
   const toggleCard = useCallback(
     (card: LayerCard) => setOpenCard((current) => (current === card ? null : card)),
@@ -618,10 +744,15 @@ export function LayerPanel({
         {/* Rows, group headers and the Background card are listitems carrying
             their nesting depth as aria-level. */}
         <div
+          ref={listRef}
           data-layer-list=""
           role="list"
           aria-label={t("sharedRail.layers")}
-          className="flex w-full min-w-0 flex-col gap-px px-3 pb-3"
+          className={cn(
+            "relative flex w-full min-w-0 select-none flex-col gap-px px-3 pb-3",
+            drag.dragging && "cursor-grabbing [&_*]:cursor-grabbing",
+          )}
+          onPointerDown={drag.onPointerDown}
         >
           {displayLayers.map((layer) => {
             const group = layer.groupId ? groupById.get(layer.groupId) : undefined;
@@ -686,6 +817,32 @@ export function LayerPanel({
               />
             </div>
           ) : null}
+          {/* Where a drop lands: a 2px line in the gap the rows open. */}
+          {drag.indicator?.kind === "line" ? (
+            <div
+              data-drag-overlay=""
+              data-testid="layer-drop-line"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-3 h-0.5 rounded-full bg-foreground"
+              style={{ top: drag.indicator.top }}
+            />
+          ) : null}
+          {/* The group a drop goes into, outlined over its row (which shows
+              its hover fill under the pointer). */}
+          {drag.indicator?.kind === "outline" ? (
+            <div
+              data-drag-overlay=""
+              data-testid="layer-drop-outline"
+              aria-hidden="true"
+              className="pointer-events-none absolute z-10 rounded-[10px] border-2 border-foreground"
+              style={{
+                top: drag.indicator.top,
+                left: drag.indicator.left,
+                width: drag.indicator.width,
+                height: drag.indicator.height,
+              }}
+            />
+          ) : null}
         </div>
       </ScrollArea>
       {/* Kept until the map's own place search lands (item 27). */}
@@ -704,6 +861,15 @@ export function LayerPanel({
         setRefreshFailurePolicy={refresh.setRefreshFailurePolicy}
       />
       <RemoveLayerDialog layer={layerPendingRemoval} onClose={() => setLayerPendingRemoval(null)} />
+      <RemoveGroupDialog
+        group={groupPendingRemoval}
+        layerCount={
+          groupPendingRemoval
+            ? layersInGroup(layers, layerGroups, groupPendingRemoval.id).length
+            : 0
+        }
+        onClose={() => setGroupPendingRemoval(null)}
+      />
     </aside>
   );
 }

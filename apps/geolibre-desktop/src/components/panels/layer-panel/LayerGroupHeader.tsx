@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@geolibre/core";
 import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
@@ -7,21 +7,22 @@ import {
   cn,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@geolibre/ui";
 import { ChevronRight, Eye, EyeOff, MoreHorizontal } from "lucide-react";
-import { openAddData } from "../../layout/add-data/open-add-data";
-import type { ADD_DATA_DIALOG_SOURCES } from "./layer-panel-utils";
 import {
   LAYER_MENU_COLLISION_PADDING,
   LayerMenuItem,
   subTriggerClass,
 } from "./LayerActionsMenu";
+import { layersInGroup } from "./layer-tree";
 import { LayerOpacityCard } from "./LayerRowCards";
 import type { LayerRename } from "./useLayerRename";
 
@@ -29,14 +30,13 @@ interface LayerGroupHeaderProps {
   group: LayerGroup;
   /** Nesting depth of the group (0 at the top level). */
   depth: number;
-  /** Whether a dragged layer is hovering this header. */
-  isDropTarget: boolean;
+  /** Whether the group holds nothing at all (no layers, no subgroups). */
+  empty: boolean;
+  /** Whether a group above this one is hidden, which hides this one too. */
+  hiddenByParent: boolean;
   moveability: { up: boolean; down: boolean } | undefined;
-  sortability: { asc: boolean; desc: boolean } | undefined;
   /** Groups this one can be moved into (not itself or a descendant). */
   moveTargets: LayerGroup[];
-  /** The Add Data sources offered by "Add data to group". */
-  addDataGroupSources: typeof ADD_DATA_DIALOG_SOURCES;
   rename: Pick<
     LayerRename,
     | "editingGroupId"
@@ -46,52 +46,55 @@ interface LayerGroupHeaderProps {
     | "commitGroupRename"
     | "cancelGroupRename"
   >;
+  onAddSubgroup: (group: LayerGroup) => void;
+  onZoomToGroup: (group: LayerGroup) => void;
+  onUngroup: (group: LayerGroup) => void;
+  onRemoveGroup: (group: LayerGroup) => void;
+  /** Move into another group, unless that passes the depth limit. */
+  onMoveToGroup: (group: LayerGroup, targetId: string | null) => void;
 }
 
 /** How many layers sit in a group, counting those in its subgroups. */
 function countGroupLayers(layers: GeoLibreLayer[], groups: LayerGroup[], groupId: string): number {
-  const parentOf = new Map(groups.map((g) => [g.id, g.parentId] as const));
-  return layers.filter((layer) => {
-    let id = layer.groupId;
-    const seen = new Set<string>();
-    while (id && !seen.has(id)) {
-      if (id === groupId) return true;
-      seen.add(id);
-      id = parentOf.get(id);
-    }
-    return false;
-  }).length;
+  return layersInGroup(layers, groups, groupId).length;
 }
 
+/** The mockup's full-name tooltip: after about 450ms, only when the name is cut off. */
+const NAME_TOOLTIP_DELAY = 450;
+
 /**
- * SWIFTMAP: a group row in the Layers panel (Change 17), as in the mockup:
- * chevron, bold name, muted layer count, then ⋯ and the eye over the right end
- * on hover or keyboard focus (a hidden group keeps its crossed eye showing).
- * No background at rest, the hover fill on hover. Group opacity is in the ⋯
- * menu (the user's addition), opening the same Opacity card layers use. The
- * menu keeps GeoLibre's group items until 4b rebuilds it (Change 18).
+ * SWIFTMAP: a group row in the Layers panel (Changes 17 and 18), as in the
+ * mockup: chevron, bold name, muted layer count, then ⋯ and the eye over the
+ * right end on hover or keyboard focus (a hidden group keeps its crossed eye
+ * showing). The ⋯ menu is the mockup's (Rename, Add subgroup, Zoom to group,
+ * Ungroup, Remove group) plus Opacity, and GeoLibre's Move items, kept as the
+ * way to do without dragging what a drag does (Change 18, G2 and G3). An empty
+ * group shows "Empty. Drag layers here.", which is also a drop target.
  */
 export function LayerGroupHeader({
   group,
   depth,
-  isDropTarget,
+  empty,
+  hiddenByParent,
   moveability,
-  sortability,
   moveTargets,
-  addDataGroupSources,
   rename,
+  onAddSubgroup,
+  onZoomToGroup,
+  onUngroup,
+  onRemoveGroup,
+  onMoveToGroup,
 }: LayerGroupHeaderProps) {
-  const { i18n, t } = useTranslation();
-  const removeLayerGroup = useAppStore((s) => s.removeLayerGroup);
+  const { t } = useTranslation();
   const setLayerGroupVisibility = useAppStore((s) => s.setLayerGroupVisibility);
   const setLayerGroupOpacity = useAppStore((s) => s.setLayerGroupOpacity);
   const toggleLayerGroupCollapsed = useAppStore((s) => s.toggleLayerGroupCollapsed);
-  const moveLayerGroupToGroup = useAppStore((s) => s.moveLayerGroupToGroup);
   const reorderLayerGroup = useAppStore((s) => s.reorderLayerGroup);
-  const sortLayerGroup = useAppStore((s) => s.sortLayerGroup);
   const layerCount = useAppStore((s) => countGroupLayers(s.layers, s.layerGroups, group.id));
   const [opacityOpen, setOpacityOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [nameTipOpen, setNameTipOpen] = useState(false);
+  const nameRef = useRef<HTMLSpanElement>(null);
   const {
     editingGroupId,
     editingGroupName,
@@ -103,29 +106,44 @@ export function LayerGroupHeader({
   const eyeLabel = group.visible
     ? t("layerPanel.hideLayer", { name: group.name })
     : t("layerPanel.showLayer", { name: group.name });
+  const dimmed = !group.visible || hiddenByParent;
   // ⋯ and the eye show on hover, keyboard focus, touch screens and while the
   // menu is open; a hidden group's eye always shows.
   const reveal =
     "opacity-0 group-hover/grp:opacity-100 group-has-[:focus-visible]/grp:opacity-100 [@media(hover:none)]:opacity-100";
   const actionsShown = menuOpen || !group.visible;
+
+  // F2 renames and Delete removes the group while focus is on its row.
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.target instanceof HTMLInputElement) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === "F2") {
+      event.preventDefault();
+      beginGroupRename(group);
+    } else if (event.key === "Delete") {
+      event.preventDefault();
+      onRemoveGroup(group);
+    }
+  };
+
   return (
     <div
       data-group-header=""
       data-testid="layer-group-header"
       data-group-name={group.name}
       data-group-id={group.id}
+      data-drag-key={`group:${group.id}`}
       // Its level in the layer list's hierarchy; the expanded state is on
       // the collapse toggle, which is where a listitem may carry it.
       role="listitem"
       aria-level={depth + 1}
       className="w-full min-w-0"
       style={depth > 0 ? { paddingInlineStart: `${depth * 20}px` } : undefined}
+      onKeyDown={handleKeyDown}
     >
       <div
-        className={cn(
-          "group/grp relative flex min-w-0 items-center gap-1.5 rounded-[10px] py-1 pe-1.5 ps-1.5 transition-colors hover:bg-row-hover",
-          isDropTarget && "ring-1 ring-inset ring-foreground",
-        )}
+        data-drag-grip=""
+        className="group/grp relative flex min-w-0 items-center gap-1.5 rounded-[10px] py-1 pe-1.5 ps-1.5 transition-colors hover:bg-row-hover"
       >
         <button
           type="button"
@@ -164,27 +182,47 @@ export function LayerGroupHeader({
             }}
           />
         ) : (
-          // The name toggles the group, as in the mockup; double-click renames.
-          <button
-            type="button"
-            tabIndex={-1}
-            title={group.name}
-            className="flex min-w-0 flex-1 items-baseline gap-1.5 text-start"
-            onClick={() => toggleLayerGroupCollapsed(group.id)}
-            onDoubleClick={() => beginGroupRename(group)}
+          <Tooltip
+            open={nameTipOpen}
+            delayDuration={NAME_TOOLTIP_DELAY}
+            onOpenChange={(open) => {
+              const name = nameRef.current;
+              setNameTipOpen(open && !!name && name.scrollWidth > name.clientWidth);
+            }}
           >
-            <span
-              className={cn(
-                "min-w-0 truncate text-[13px] font-semibold",
-                !group.visible && "opacity-50",
-              )}
-            >
+            <TooltipTrigger asChild>
+              {/* The name toggles the group, as in the mockup; double-click renames. */}
+              <button
+                type="button"
+                tabIndex={-1}
+                data-drag-ok=""
+                className="flex min-w-0 flex-1 items-baseline gap-1.5 text-start"
+                onClick={() => toggleLayerGroupCollapsed(group.id)}
+                onDoubleClick={() => beginGroupRename(group)}
+              >
+                <span
+                  ref={nameRef}
+                  className={cn(
+                    "min-w-0 truncate text-[13px] font-semibold",
+                    dimmed && "opacity-50",
+                  )}
+                >
+                  {group.name}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 text-xs text-muted-foreground tabular-nums",
+                    dimmed && "opacity-50",
+                  )}
+                >
+                  {layerCount}
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6} className="rounded-lg px-2.5 py-1.5 text-xs font-medium">
               {group.name}
-            </span>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-              {layerCount}
-            </span>
-          </button>
+            </TooltipContent>
+          </Tooltip>
         )}
         {/* ⋯ and eye over the right end, on a short fade matching the row. */}
         <div
@@ -222,29 +260,35 @@ export function LayerGroupHeader({
               <DropdownMenuSeparator />
               {/* preventDefault keeps the menu's close from racing the input's autofocus. */}
               <LayerMenuItem
-                label={t("layers.renameGroup")}
+                label={t("layerPanel.rename")}
+                shortcut="F2"
                 onSelect={(e) => {
                   e.preventDefault();
                   beginGroupRename(group);
                 }}
               />
-              {addDataGroupSources.length > 0 && (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className={subTriggerClass}>
-                    {t("layers.addDataToGroup")}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {addDataGroupSources.map((entry) => (
-                      <DropdownMenuItem
-                        key={entry.id}
-                        onSelect={() => openAddData(entry.id, { groupId: group.id })}
-                      >
-                        {t(entry.labelKey)}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              )}
+              <LayerMenuItem
+                label={t("layerPanel.addSubgroup")}
+                onSelect={() => onAddSubgroup(group)}
+              />
+              <LayerMenuItem
+                label={t("layerPanel.zoomToGroup")}
+                disabled={layerCount === 0}
+                onSelect={() => onZoomToGroup(group)}
+              />
+              <LayerMenuItem label={t("layerPanel.ungroup")} onSelect={() => onUngroup(group)} />
+              {/* Kept from GeoLibre: the way to move a group without dragging. */}
+              <DropdownMenuSeparator />
+              <LayerMenuItem
+                label={t("layers.moveGroupUp")}
+                disabled={!moveability?.up}
+                onSelect={() => reorderLayerGroup(group.id, "up")}
+              />
+              <LayerMenuItem
+                label={t("layers.moveGroupDown")}
+                disabled={!moveability?.down}
+                onSelect={() => reorderLayerGroup(group.id, "down")}
+              />
               {moveTargets.length > 0 && (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className={subTriggerClass}>
@@ -256,7 +300,7 @@ export function LayerGroupHeader({
                         key={target.id}
                         label={target.name}
                         disabled={group.parentId === target.id}
-                        onSelect={() => moveLayerGroupToGroup(group.id, target.id)}
+                        onSelect={() => onMoveToGroup(group, target.id)}
                       />
                     ))}
                   </DropdownMenuSubContent>
@@ -265,38 +309,15 @@ export function LayerGroupHeader({
               {group.parentId && (
                 <LayerMenuItem
                   label={t("layers.removeFromGroup")}
-                  onSelect={() => moveLayerGroupToGroup(group.id, null)}
+                  onSelect={() => onMoveToGroup(group, null)}
                 />
               )}
-              <LayerMenuItem
-                label={t("layers.moveGroupUp")}
-                disabled={!moveability?.up}
-                onSelect={() => reorderLayerGroup(group.id, "up")}
-              />
-              <LayerMenuItem
-                label={t("layers.moveGroupDown")}
-                disabled={!moveability?.down}
-                onSelect={() => reorderLayerGroup(group.id, "down")}
-              />
-              <LayerMenuItem
-                label={t("layers.sortGroupAscending")}
-                disabled={!sortability?.asc}
-                onSelect={() => sortLayerGroup(group.id, "asc", i18n.language)}
-              />
-              <LayerMenuItem
-                label={t("layers.sortGroupDescending")}
-                disabled={!sortability?.desc}
-                onSelect={() => sortLayerGroup(group.id, "desc", i18n.language)}
-              />
               <DropdownMenuSeparator />
               <LayerMenuItem
-                label={t("layers.ungroupKeepLayers")}
-                onSelect={() => removeLayerGroup(group.id)}
-              />
-              <LayerMenuItem
-                label={t("layers.deleteGroupAndLayers")}
+                label={t("layerPanel.removeGroup")}
+                shortcut="Del"
                 danger
-                onSelect={() => removeLayerGroup(group.id, { removeChildren: true })}
+                onSelect={() => onRemoveGroup(group)}
               />
             </DropdownMenuContent>
           </DropdownMenu>
@@ -323,6 +344,15 @@ export function LayerGroupHeader({
             opacity={group.opacity}
             onChange={(v) => setLayerGroupOpacity(group.id, v)}
           />
+        </div>
+      ) : null}
+      {empty && !group.collapsed ? (
+        // Lines up with the names of the layers a group holds.
+        <div
+          data-drop-into={group.id}
+          className="mb-0.5 ms-[26px] mt-px rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground"
+        >
+          {t("layerPanel.emptyGroup")}
         </div>
       ) : null}
     </div>
