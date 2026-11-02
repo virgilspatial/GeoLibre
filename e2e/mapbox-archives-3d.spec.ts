@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { readFile } from "node:fs/promises";
-import { layerRow, openMenuBarMenu, openRailMenu, railButton } from "./helpers";
+import { layerRow, openMenuBarMenu, openRailMenu, railButton, selectLayerRow } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 const PMTILES = "https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.pmtiles";
@@ -143,8 +143,9 @@ for (const theme of ["light", "dark"] as const) {
     await page.screenshot({ path: info.outputPath(`lidar-${theme}.png`) });
 
     // Toggle through the Layers panel and persist the resulting visibility.
-    await layerRow(page, "AGI HQ").getByRole("button", { name: "Hide layer", exact: true }).click();
-    await layerRow(page, "AGI HQ").getByRole("button", { name: "Show layer", exact: true }).click();
+    // SWIFTMAP (Change 17): the eye is named after its layer ("Hide AGI HQ").
+    await layerRow(page, "AGI HQ").getByRole("button", { name: /^Hide / }).click();
+    await layerRow(page, "AGI HQ").getByRole("button", { name: /^Show / }).click();
     const downloading = page.waitForEvent("download");
     await openMenuBarMenu(page, "Project");
     await page.getByRole("menuitem", { name: "Save", exact: true }).click();
@@ -279,15 +280,17 @@ for (const theme of ["light", "dark"]) {
       "earth",
       "boundaries",
     ]) {
-      await layerRow(page, name).getByRole("button", { name: "Hide layer", exact: true }).click();
+      await layerRow(page, name).getByRole("button", { name: /^Hide / }).click();
     }
     await page.evaluate(() =>
       (window as any).mapboxArchiveTestRef.current
         .getMapboxMap()
         .jumpTo({ center: [-74.006, 40.713], zoom: 15, pitch: 60 }),
     );
+    // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
+    await selectLayerRow(page, "buildings");
     await layerRow(page, "buildings")
-      .getByRole("button", { name: "Open Style panel", exact: true })
+      .getByRole("button", { name: "Open style panel", exact: true })
       .click();
     await page.getByRole("radio", { name: "3D extrusion", exact: true }).check();
     // This failed before the fix even though the native tiles had height data.

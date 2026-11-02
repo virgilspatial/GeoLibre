@@ -195,13 +195,14 @@ for (const theme of ["light", "dark"] as const) {
       path: info.outputPath(`mapbox-deck-viz-${theme}.png`),
     });
 
-    // Visibility flows through the store to the overlay.
+    // Visibility flows through the store to the overlay. SWIFTMAP (Change 17):
+    // the eye is named after its layer ("Hide Scatterplot").
     await layerRow(page, "Scatterplot")
-      .getByRole("button", { name: "Hide layer", exact: true })
+      .getByRole("button", { name: /^Hide / })
       .click();
     await expect.poll(async () => (await deckLayers(page)).layers.ScatterplotLayer).toBeUndefined();
     await layerRow(page, "Scatterplot")
-      .getByRole("button", { name: "Show layer", exact: true })
+      .getByRole("button", { name: /^Show / })
       .click();
     await waitForDeckLayer(page, "ScatterplotLayer");
 

@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { dropGeoJson, layerRow, readFixture, waitForMap } from "./helpers";
+import { dropGeoJson, layerRow, openLayerActions, readFixture, waitForMap } from "./helpers";
 
 const FIXTURE_TEXT = readFixture("smoke.geojson");
 const FIXTURE_FEATURE_COUNT = (JSON.parse(FIXTURE_TEXT) as { features: unknown[] }).features.length;
@@ -24,7 +24,8 @@ test("loads a layer and opens the attribute table in dark theme", async ({ page 
   const row = layerRow(page, "smoke");
   await expect(row).toBeVisible();
 
-  await row.locator('button[aria-label="Layer actions"]').click();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+  await openLayerActions(page, "smoke");
   await page.getByRole("menuitem", { name: "Open attribute table" }).click();
   await expect(page.getByTestId("attribute-table")).toBeVisible();
   await expect(page.locator('[data-testid="attribute-table"] tbody tr')).toHaveCount(

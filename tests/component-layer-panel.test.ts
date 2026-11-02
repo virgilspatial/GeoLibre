@@ -122,7 +122,7 @@ describe("LayerPanel", () => {
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
   });
 
-  it("reorders using captured pointer movement in both directions", (t) => {
+  it("reorders using captured pointer movement in both directions", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
@@ -145,7 +145,7 @@ describe("LayerPanel", () => {
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
   });
 
-  it("does not reorder on a click, cancelled drag, or release outside the list", (t) => {
+  it("does not reorder on a click, cancelled drag, or release outside the list", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
@@ -168,7 +168,9 @@ describe("LayerPanel", () => {
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
   });
 
-  it("moves selected layers together when dragging one of their handles", (t) => {
+  // SWIFTMAP (Change 17): multi-select was dropped (single selection, as in
+  // the mockup), so a Ctrl-click selects one layer and a drag moves only it.
+  it("keeps one layer selected and drags only that one", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
@@ -177,16 +179,17 @@ describe("LayerPanel", () => {
       ],
     });
     renderLayerPanel();
-    fireEvent.click(row("Rivers"));
-    fireEvent.click(row("Parks"), { ctrlKey: true });
+    fireEvent.click(within(row("Rivers")).getByText("Rivers"));
+    fireEvent.click(within(row("Parks")).getByText("Parks"), { ctrlKey: true });
+    assert.equal(useAppStore.getState().selectedLayerId, "parks");
     const drag = pointerDrag(t, "Rivers");
     drag.send("pointerdown", 10);
     drag.send("pointermove", 30, row("Roads"));
     drag.send("pointerup", 30);
-    assert.deepEqual(rowNames(), ["Parks", "Rivers", "Roads"]);
+    assert.deepEqual(rowNames(), ["Rivers", "Roads", "Parks"]);
   });
 
-  it("drops into a collapsed group and back out onto an ungrouped row", (t) => {
+  it("drops into a collapsed group and back out onto an ungrouped row", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
@@ -227,11 +230,12 @@ describe("LayerPanel", () => {
     useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks" })] });
     renderLayerPanel();
 
-    fireEvent.click(within(row("Parks")).getByRole("button", { name: "Hide layer" }));
+    // SWIFTMAP (Change 17): the eye is named after its layer, as in the mockup.
+    fireEvent.click(within(row("Parks")).getByRole("button", { name: "Hide Parks" }));
     assert.equal(layer("parks")?.visible, false);
 
     // The button flips to the opposite action once the layer is hidden.
-    fireEvent.click(within(row("Parks")).getByRole("button", { name: "Show layer" }));
+    fireEvent.click(within(row("Parks")).getByRole("button", { name: "Show Parks" }));
     assert.equal(layer("parks")?.visible, true);
   });
 
@@ -292,7 +296,9 @@ describe("LayerPanel", () => {
     });
     renderLayerPanel();
 
-    fireEvent.click(row("Rivers"));
+    // SWIFTMAP (Change 17): the row's name line is what selects it; clicking a
+    // selected row again deselects it.
+    fireEvent.click(within(row("Rivers")).getByText("Rivers"));
 
     assert.equal(useAppStore.getState().selectedLayerId, "rivers");
     // The selection state lives on the row's name button, not the card: the
@@ -302,6 +308,9 @@ describe("LayerPanel", () => {
     assert.equal(selectButton("Parks").getAttribute("aria-pressed"), "false");
     assert.equal(row("Rivers").getAttribute("role"), "listitem");
     assert.equal(row("Rivers").hasAttribute("tabindex"), false);
+
+    fireEvent.click(within(row("Rivers")).getByText("Rivers"));
+    assert.equal(useAppStore.getState().selectedLayerId, null);
   });
 
   it("selects a layer from its name button, the row's keyboard target", () => {
@@ -358,7 +367,11 @@ describe("LayerPanel", () => {
     });
     renderLayerPanel();
 
-    fireEvent.click(within(row("Rivers")).getByRole("button", { name: "Move up" }));
+    // SWIFTMAP (Change 17): Move up is in the ⋯ menu, and Alt/Option+Up on the
+    // selected layer.
+    const name = within(row("Rivers")).getByRole("button", { name: "Rivers" });
+    fireEvent.click(name);
+    fireEvent.keyDown(name, { key: "ArrowUp", altKey: true });
 
     assert.deepEqual(
       useAppStore.getState().layers.map((entry) => entry.id),
@@ -437,40 +450,39 @@ describe("LayerPanel", () => {
     input.remove();
   });
 
-  it("keeps the metadata dialog in step with the live layer", () => {
+  // SWIFTMAP (Change 17): GeoLibre's Metadata dialog was dropped (item 20);
+  // the read-only Properties card took its place and must stay just as live.
+  it("keeps the Properties card in step with the live layer", () => {
+    const point = {
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [151, -33] },
+      properties: {},
+    };
+    const features = (n: number) => ({
+      type: "FeatureCollection" as const,
+      features: Array.from({ length: n }, () => point),
+    });
     useAppStore.setState({
-      layers: [geojsonLayer({ id: "parks", name: "Parks", metadata: { featureCount: 3 } })],
+      layers: [geojsonLayer({ id: "parks", name: "Parks", geojson: features(3) })],
+      selectedLayerId: "parks",
     });
     renderLayerPanel();
 
-    fireEvent.click(within(row("Parks")).getByRole("button", { name: "Metadata" }));
-    let dialog = screen.getByRole("dialog");
-    within(dialog).getByText("Parks metadata");
+    fireEvent.keyDown(within(row("Parks")).getByRole("button", { name: "Parks" }), { key: "i" });
+    const card = () => row(useAppStore.getState().layers[0]?.name ?? "").querySelector("dl");
+    assert.ok(card());
+    assert.match(card()?.textContent ?? "", /Features3/);
 
-    // A rename and a metadata change made while the dialog is open (the row's
-    // rename, a refresh) show up in it rather than the snapshot taken on open.
+    // A rename and new features made while the card is open show up in it.
     act(() => {
-      useAppStore.getState().updateLayer("parks", {
-        name: "City parks",
-        metadata: { featureCount: 5 },
-      });
+      useAppStore.getState().updateLayer("parks", { name: "City parks", geojson: features(5) });
     });
-    dialog = screen.getByRole("dialog");
-    within(dialog).getByText("City parks metadata");
-    const json = JSON.parse(dialog.querySelector("pre")?.textContent ?? "{}");
-    assert.equal(json.layerName, "City parks");
-    assert.equal(json.featureCount, 5);
+    assert.match(card()?.textContent ?? "", /Features5/);
 
-    // Removing the layer closes the dialog instead of leaving it on a ghost.
+    // Removing the layer takes the card with it.
     act(() => {
       useAppStore.getState().removeLayer("parks");
     });
-    assert.equal(screen.queryAllByRole("dialog").length, 0);
-
-    // The id was dropped too: a new layer that reuses it does not reopen it.
-    act(() => {
-      useAppStore.setState({ layers: [geojsonLayer({ id: "parks", name: "Parks again" })] });
-    });
-    assert.equal(screen.queryAllByRole("dialog").length, 0);
+    assert.equal(document.querySelectorAll("dl").length, 0);
   });
 });

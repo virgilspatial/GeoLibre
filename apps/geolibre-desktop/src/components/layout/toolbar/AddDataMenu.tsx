@@ -42,6 +42,9 @@ interface AddDataMenuProps extends MenuTriggerOverride {
   onAddGltfModel: () => void;
   onOpenOsmPbfDialog: () => void;
   onOpenTilePackageDialog: () => void;
+  /** SWIFTMAP: controlled open state, so the Layers panel's + can open the rail's menu (Change 17). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface AddDataItem {
@@ -70,6 +73,8 @@ export function AddDataMenu({
   onOpenTilePackageDialog,
   trigger,
   triggerAlign,
+  open,
+  onOpenChange,
 }: AddDataMenuProps) {
   const { t } = useTranslation();
   const uiProfile = useDesktopSettingsStore((state) => state.desktopSettings.uiProfile);
@@ -171,7 +176,7 @@ export function AddDataMenu({
   })).filter((group) => group.entries.length > 0);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild disabled={disabled}>
         {trigger ?? (
           <Button

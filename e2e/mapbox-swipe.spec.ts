@@ -476,7 +476,9 @@ test("keeps one comparison pane across basemap changes", async ({ page }, info) 
 
   // Opening Basemaps displaces the docked swipe panel, which must not stop the
   // swipe itself.
-  await page.getByRole("button", { name: "Basemaps", exact: true }).click();
+  // SWIFTMAP (Change 17): the Layers panel's Basemaps button was dropped; Tools has it.
+  await openRailMenu(page, "Tools");
+  await page.getByRole("menuitem", { name: "Basemaps", exact: true }).click();
 
   // Only a `STYLE` basemap replaces the map's style; a raster one is added as
   // a layer and never reaches `setStyle`, so it cannot reproduce this.

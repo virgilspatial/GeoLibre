@@ -1,15 +1,10 @@
-import {
-  type PointerEvent as ReactPointerEvent,
-  type MouseEvent as ReactMouseEvent,
-  useMemo,
-} from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   IDENTIFY_ALL_LAYERS_ID,
   effectiveLayerRenderState,
   identifyAllIncludes,
   hasActiveLayerFilter,
-  isCesiumOnlyLayer,
   isDuckDBQueryLayer,
   pluginOwnsPaint,
   rendererAppliesOpacity,
@@ -21,64 +16,55 @@ import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
 import {
   isArcgisSupportedLayer,
   isCesiumSupportedLayerType,
-  isMapboxSupportedLayer,
   isPlaceholderLayer,
   placeholderMessage,
 } from "@geolibre/map";
-import { arcGISLayerHasPendingEdits, isArcGISWritableLayer } from "@geolibre/plugins";
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@geolibre/ui";
+import { arcGISLayerHasPendingEdits, isArcGISWritableLayer, RASTER_SOURCE_KIND } from "@geolibre/plugins";
 import {
-  ChevronDown,
-  ChevronUp,
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@geolibre/ui";
+import {
   Eye,
   EyeOff,
   Filter,
-  GripVertical,
-  Info,
-  Lock,
   MoreHorizontal,
   MousePointerClick,
   Palette,
   PencilRuler,
-  Trash2,
   ZoomIn,
 } from "lucide-react";
 import { layerFilteredHintKey } from "../../../lib/layer-filter-hint";
 import { getLayerRefreshConfig } from "../../../lib/layer-refresh";
 import { notify } from "../../../lib/notify";
-import { LayerSwatchIcon } from "../LayerSwatchIcon";
+import { hasNativeIdentifyLayers, type LayerRefreshStatus } from "./layer-panel-utils";
 import {
-  hasNativeIdentifyLayers,
-  layerTypeLabel,
-  relativeSyncTime,
-  type LayerRefreshStatus,
-} from "./layer-panel-utils";
-import { LayerActionsMenuItems, type LayerActionsMenuShared } from "./LayerActionsMenu";
-import { LayerOpacitySlider } from "./LayerOpacitySlider";
-import { useCompactLayerList } from "./useCompactLayerList";
+  LAYER_MENU_COLLISION_PADDING,
+  LayerActionsMenuItems,
+  type LayerActionsMenuShared,
+} from "./LayerActionsMenu";
+import { LayerOpacityCard, LayerPropertiesCard } from "./LayerRowCards";
 
 interface LayerRowProps {
   layer: GeoLibreLayer;
   /** The row's index in panel (top-to-bottom) order. */
   displayIndex: number;
+  /** How many layer rows the panel lists, for Move up/down at the ends. */
+  displayCount: number;
   /** The group the layer belongs to, if any. */
   group: LayerGroup | undefined;
   /** Every group by id, for folding ancestor visibility into the row. */
   groupById: Map<string, LayerGroup>;
   groupDepth: (group: LayerGroup) => number;
-  /** Whether the row is part of the panel's multi-selection. */
   selected: boolean;
-  /** Whether this row is the one being dragged. */
-  dragged: boolean;
-  /** Whether a dragged row is hovering this one. */
-  dropTarget: boolean;
-  /** Panel index of the dragged row, or -1 when nothing is dragged. */
-  draggedDisplayIndex: number;
-  onPointerDown: (event: ReactPointerEvent<HTMLElement>, layerId: string) => void;
-  onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
-  onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
-  onPointerCancel: () => void;
-  onSelect: (event: ReactMouseEvent<HTMLDivElement>, layerId: string) => void;
+  /** Select the layer, or deselect it when it is already selected. */
+  onToggleSelect: (layerId: string) => void;
   /** Whether this row's name is open for inline rename. */
   editing: boolean;
   editingName: string;
@@ -92,33 +78,81 @@ interface LayerRowProps {
   onToggleGeometryEdit: (layerId: string) => void;
   onCancelGeometryEdit: () => void;
   cesiumPrimary: boolean;
-  mapboxPrimary: boolean;
   arcgisPrimary: boolean;
   /** Whether the ArcGIS engine can host deck.gl overlays. */
   deckOverlay: boolean;
   canEditLayer: (layerId: string) => boolean;
-  onOpenMetadata: (layer: GeoLibreLayer) => void;
-  onRequestRemove: (layer: GeoLibreLayer) => void;
+  /** Whether a copy of this layer can be drawn (Duplicate). */
+  canDuplicate: boolean;
+  /** Open state of the selected row's ⋯ menu and its Export submenu. */
+  menuOpen: boolean;
+  setMenuOpen: (open: boolean) => void;
+  exportOpen: boolean;
+  setExportOpen: (open: boolean) => void;
   /** Panel-wide state and handlers for the row's actions menu. */
   menu: LayerActionsMenuShared;
 }
 
-/** One layer card in the layer list: visibility, name, badges, opacity and actions. */
+/** The mockup's toolbar tooltip: 12px medium text, opening above the button. */
+const toolTipClass = "rounded-lg px-2.5 py-1.5 text-xs font-medium";
+
+function ToolButton({
+  label,
+  pressed,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* A disabled button fires no pointer events, so the tooltip hangs on a wrapper. */}
+        <span className="inline-flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={label}
+            aria-pressed={pressed}
+            disabled={disabled}
+            className={cn(
+              "h-7 w-7 rounded-md",
+              pressed && "bg-foreground text-background hover:bg-foreground/90 hover:text-background",
+            )}
+            onClick={onClick}
+          >
+            {children}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8} className={toolTipClass}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * SWIFTMAP: one layer in the Layers panel (Change 17). At rest the row is the
+ * layer's name and its eye; selecting it adds the toolbar (Zoom to layer,
+ * Identify, Style, ⋯) and, from the ⋯ menu, the Opacity or Properties card.
+ * No drag handle (decided 2 Nov 2026): rows reorder from the ⋯ menu until 4b
+ * makes the whole row draggable.
+ */
 export function LayerRow({
   layer,
   displayIndex,
+  displayCount,
   group,
   groupById,
   groupDepth,
   selected,
-  dragged,
-  dropTarget,
-  draggedDisplayIndex,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-  onSelect,
+  onToggleSelect,
   editing,
   editingName,
   setEditingName,
@@ -130,43 +164,41 @@ export function LayerRow({
   onToggleGeometryEdit,
   onCancelGeometryEdit,
   cesiumPrimary,
-  mapboxPrimary,
   arcgisPrimary,
   deckOverlay,
   canEditLayer,
-  onOpenMetadata,
-  onRequestRemove,
+  canDuplicate,
+  menuOpen,
+  setMenuOpen,
+  exportOpen,
+  setExportOpen,
   menu,
 }: LayerRowProps) {
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
+  // The ⋯ tooltip shows on hover or keyboard focus only. When its menu closes,
+  // Radix returns focus to the button, which would reopen the tooltip; that
+  // focus is ignored until the pointer comes back or focus leaves and returns.
+  const [actionsTipOpen, setActionsTipOpen] = useState(false);
+  const suppressActionsTip = useRef(false);
   const setLayerVisibility = useAppStore((s) => s.setLayerVisibility);
   const setLayerOpacity = useAppStore((s) => s.setLayerOpacity);
   const primaryRenderer = useAppStore((s) => s.primaryRenderer);
-  const reorderLayer = useAppStore((s) => s.reorderLayer);
   const selectLayer = useAppStore((s) => s.selectLayer);
   const setIdentifyLayer = useAppStore((s) => s.setIdentifyLayer);
-  const { collaboration, mapControllerRef, beginRename, onOpenStylePanel } = menu;
-  // When an ancestor group is hidden, a layer whose own visibility
-  // toggle is still on is not rendered — a surprising state. Grey its
-  // name and eye out as a cue that the group-level setting is what's
-  // hiding it (issue #430). If the layer's own toggle is also off,
-  // the EyeOff icon already explains it, so skip the group cue then.
-  // Folded through effectiveLayerRenderState rather than read off the
-  // immediate parent, so a hidden grandparent gets the cue too. Given
-  // the memoized `groupById` rather than the array, so folding every
-  // row does not rebuild that map once per layer.
+  const identifyLayerIds = useAppStore((s) => s.identifyLayerIds);
+  const { mapControllerRef, beginRename, onOpenStylePanel, onOpenRasterStylePanel, openCard } =
+    menu;
+  // A layer inside a hidden group dims too, but keeps its own eye state.
   const layerRendered = effectiveLayerRenderState(layer, groupById).visible;
   const groupHidden = layer.visible && !layerRendered;
-  const visibilityToggleLabel = groupHidden
-    ? `${t("layers.hiddenByGroup")} — ${t("layers.hideLayer")}`
+  const dimmed = !layer.visible || groupHidden;
+  const eyeLabel = groupHidden
+    ? t("layerPanel.hiddenByGroup", {
+        name: t("layerPanel.hideLayer", { name: layer.name }),
+      })
     : layer.visible
-      ? t("layers.hideLayer")
-      : t("layers.showLayer");
-  // Explicit per-layer capabilities (issue #1674) overlaid on the
-  // defaults inferred from the layer's source kind. Each flag gates
-  // only the actions it names: `query` the read/inspect paths,
-  // `create`/`update`/`delete` the feature writes, `export` the
-  // paths that copy the layer's data out.
+      ? t("layerPanel.hideLayer", { name: layer.name })
+      : t("layerPanel.showLayer", { name: layer.name });
   const layerCaps = resolveLayerCapabilities(layer);
   const canIdentify =
     layerCaps.query &&
@@ -185,47 +217,27 @@ export function LayerRow({
       layer.type === "cog" ||
       hasNativeIdentifyLayers(layer));
   const identifyActive = identifyLayerId === layer.id;
-  // A gesture that takes over map clicks has to turn Identify off, or
-  // its toolbar button stays lit over a handler that no longer
-  // answers. All-layer Identify counts the same as this layer's own, unless a
-  // script or project limited it to a list that leaves this layer out.
-  const identifyLayerIds = useAppStore((s) => s.identifyLayerIds);
   const identifyOwnsClicks =
     identifyActive ||
     (identifyLayerId === IDENTIFY_ALL_LAYERS_ID && identifyAllIncludes(layer.id, identifyLayerIds));
-  // COGs inspect raw pixel/band values rather than vector features, so
-  // the icon's tooltip reflects that distinct action. Time Slider COG
-  // and mosaic sources read the same way, at the current timeline
-  // date, and mark themselves with `pixelIdentify`.
   const isPixelIdentify = layer.type === "cog" || layer.metadata.pixelIdentify === true;
-  // Shared by the button's title and aria-label so they can't diverge.
   const identifyLabel = canIdentify
-    ? identifyActive
-      ? isPixelIdentify
-        ? t("layers.identifyStopInspectPixels")
-        : t("layers.identifyDeactivate")
-      : isPixelIdentify
-        ? t("layers.identifyInspectPixels")
-        : t("layers.identifyFeatures")
-    : // A layer whose `query` capability is denied is not the same as
-      // one whose type has no identify route, and saying "only
-      // available for vector, WMS, and COG layers" on a vector layer
-      // reads as a bug.
-      layerCaps.query
+    ? isPixelIdentify
+      ? t("layers.identifyInspectPixels")
+      : t("layerPanel.identify")
+    : layerCaps.query
       ? t("layers.identifyUnavailable")
       : t("layers.identifyCapabilityDisabled");
   const geometryEditActive = geometryEditLayerId === layer.id;
   const geometryEditElsewhere = geometryEditLayerId !== null && !geometryEditActive;
-  // Edits to an ArcGIS layer stay local until Save edits to ArcGIS service, so
-  // say so once a geometry session or table edit leaves some unsent. Keyed on
-  // the features and baseline, which every edit and save replaces.
+  // Edits to an ArcGIS layer stay local until Save edits to ArcGIS service.
   const arcgisEditsUnsent = useMemo(
     () =>
       !geometryEditActive &&
       layer.metadata.arcgisSaveUncertain !== true &&
       isArcGISWritableLayer(layer) &&
       arcGISLayerHasPendingEdits(layer.id),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the features and baseline, which every edit and save replaces
     [
       geometryEditActive,
       layer.geojson,
@@ -234,455 +246,300 @@ export function LayerRow({
       layer.metadata.arcgisSaveUncertain,
     ],
   );
-  const isLayerLocked =
-    collaboration.isActive && (collaboration.lockedLayerIds ?? []).includes(layer.id);
-  // Whether collaboration lets this session touch the layer at all —
-  // rename, remove, move between groups. Deliberately *not* anded
-  // with `layerCaps.update`: that flag governs the layer's features
-  // and attributes, so a read-only reference layer can still be
-  // renamed or taken off the map.
   const layerEditable = canEditLayer(layer.id);
   const refreshConfig = getLayerRefreshConfig(layer);
+  // Only the sync error is kept from GeoLibre's status lines (Change 17,
+  // item 21), plus transient notes from actions such as Refresh.
   const refreshStatus: LayerRefreshStatus | undefined =
     transientRefreshStatus ??
     (layer.connection?.lastError
       ? {
           type: "error",
-          message: t("layers.syncErrorStatus", {
-            message: layer.connection.lastError,
-          }),
+          message: t("layers.syncErrorStatus", { message: layer.connection.lastError }),
         }
-      : layer.connection?.lastSyncedAt
-        ? {
-            type: "success",
-            message: t("layers.lastSynced", {
-              time: relativeSyncTime(layer.connection.lastSyncedAt, i18n.language),
-            }),
-          }
-        : undefined);
+      : undefined);
   const isRefreshing = refreshStatus?.type === "refreshing";
-  // Compact rows keep only the header line; the selected row (and any row
-  // mid-rename or mid-edit) still shows its slider and actions.
-  const [compactLayerList] = useCompactLayerList();
-  const showDetails = !compactLayerList || selected || editing || geometryEditActive;
+  // A plugin-painted layer has no paint property for opacity to land on, so
+  // the slider is offered only when it has an effect (#1445).
+  const opacityAvailable =
+    !pluginOwnsPaint(layer) ||
+    supportsBridgedOpacity(layer.id) ||
+    rendererAppliesOpacity(layer, primaryRenderer);
+  const rasterStyled = layer.metadata.sourceKind === RASTER_SOURCE_KIND;
+  const styleAvailable = rasterStyled || Boolean(onOpenStylePanel);
+  const depth = group ? groupDepth(group) + 1 : 0;
+  const filtered = hasActiveLayerFilter(layer);
+
   return (
     <div
       data-testid="layer-row"
       data-layer-name={layer.name}
       data-layer-id={layer.id}
-      className={`relative min-w-0 max-w-full rounded-md border transition-colors ${
-        showDetails ? "p-2" : "px-2 py-0.5"
-      } ${
-        selected
-          ? "border-primary bg-primary/5"
-          : "border-border bg-background hover:border-muted-foreground/40 hover:bg-muted/20"
-      } ${dragged ? "opacity-50" : ""} ${
-        // Nested rows get a calculated inline width below so
-        // their indentation cannot overflow the panel.
-        group ? "" : "w-full"
-      }`}
-      style={
-        group
-          ? {
-              marginInlineStart: `${groupDepth(group) + 1}rem`,
-              width: `calc(100% - ${groupDepth(group) + 1}rem)`,
-            }
-          : undefined
-      }
-      // A listitem, not a button: the card holds a dozen controls of its own,
-      // and an interactive element must not nest others (axe
-      // `nested-interactive`). Clicking anywhere on the card still selects
-      // for the mouse; the keyboard and assistive-technology path is the
-      // name button below, which carries the selection state.
       role="listitem"
       aria-level={group ? groupDepth(group) + 2 : 1}
-      onClick={(e) => onSelect(e, layer.id)}
+      className="relative min-w-0"
+      style={depth > 0 ? { paddingInlineStart: `${depth * 20}px` } : undefined}
     >
-      {dropTarget && draggedDisplayIndex > displayIndex && (
-        <div className="pointer-events-none absolute -top-1 left-2 right-2 h-1 rounded-full bg-primary shadow-[0_0_0_2px_hsl(var(--background))]" />
-      )}
-      {dropTarget && draggedDisplayIndex >= 0 && draggedDisplayIndex < displayIndex && (
-        <div className="pointer-events-none absolute -bottom-1 left-2 right-2 h-1 rounded-full bg-primary shadow-[0_0_0_2px_hsl(var(--background))]" />
-      )}
-      <div className="flex min-w-0 items-center gap-1">
-        <span
-          role="button"
-          tabIndex={0}
-          title={t("layers.dragToReorder")}
-          aria-label={t("layers.dragNamedToReorder", {
-            name: layer.name,
-          })}
-          className="touch-none select-none cursor-grab rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
-          onClick={(e: ReactMouseEvent) => e.stopPropagation()}
-          onPointerDown={(e) => onPointerDown(e, layer.id)}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerCancel}
-          onLostPointerCapture={onPointerCancel}
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </span>
-        <button
-          type="button"
-          className="rounded p-0.5 hover:bg-muted"
-          // The eye stays the layer's *own* switch even while a
-          // group hides it — showing EyeOff here would offer a
-          // "Show layer" that turns the layer's own toggle off,
-          // so revealing it later would take two clicks. The
-          // muted icon plus the tooltip say why it is not drawn.
-          // Same string for the tooltip and the accessible name,
-          // so the group-hidden context reaches a screen reader
-          // and not only a sighted hover.
-          title={visibilityToggleLabel}
-          aria-label={visibilityToggleLabel}
-          onClick={(e) => {
-            e.stopPropagation();
-            setLayerVisibility(layer.id, !layer.visible);
-          }}
-        >
-          {layer.visible ? (
-            <Eye className={`h-3.5 w-3.5 ${groupHidden ? "text-muted-foreground" : ""}`} />
+      <div
+        className={cn(
+          "group/row rounded-[10px] transition-colors hover:bg-row-hover",
+          selected && "bg-row-hover ring-1 ring-inset ring-accent",
+        )}
+      >
+        <div className="relative flex min-w-0 items-center gap-2.5 py-1 ps-3.5 pe-1.5">
+          {editing ? (
+            <input
+              autoFocus
+              type="text"
+              className="h-6 min-w-0 flex-1 rounded-md border border-input bg-background px-1.5 text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={editingName}
+              aria-label={t("layers.renameNamed", { name: layer.name })}
+              onChange={(e) => setEditingName(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitRename();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelRename();
+                }
+              }}
+            />
           ) : (
-            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+            // The row's selection control: click selects, click again deselects.
+            // Double-click renames (kept, item 23), and so does F2.
+            <button
+              type="button"
+              aria-pressed={selected}
+              data-layer-select=""
+              className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title={layer.name}
+              onClick={() => onToggleSelect(layer.id)}
+              onDoubleClick={() => {
+                if (layerEditable) beginRename(layer);
+              }}
+              // F2 renames the focused row's layer, selected or not.
+              onKeyDown={(e) => {
+                if (e.key !== "F2" || !layerEditable) return;
+                e.preventDefault();
+                beginRename(layer);
+              }}
+            >
+              <span
+                className={cn(
+                  "min-w-0 truncate text-[13px] font-medium",
+                  dimmed && "opacity-50",
+                )}
+              >
+                {layer.name}
+              </span>
+              {/* Kept until branch 7 with Clear filters (item 21). */}
+              {filtered ? (
+                <Filter
+                  className="h-3 w-3 shrink-0 text-muted-foreground"
+                  aria-label={t(layerFilteredHintKey(layer))}
+                >
+                  <title>{t(layerFilteredHintKey(layer))}</title>
+                </Filter>
+              ) : null}
+            </button>
           )}
-        </button>
-        <LayerSwatchIcon layer={layer} />
-        {editing ? (
-          <input
-            autoFocus
-            type="text"
-            className="flex-1 min-w-0 rounded border border-input bg-background px-1 py-0.5 text-sm font-medium outline-none focus:ring-1 focus:ring-ring"
-            value={editingName}
-            aria-label={t("layers.renameNamed", {
-              name: layer.name,
-            })}
-            onChange={(e) => setEditingName(e.target.value)}
-            onClick={(e: ReactMouseEvent) => e.stopPropagation()}
-            onFocus={(e) => e.currentTarget.select()}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitRename();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                cancelRename();
-              }
-            }}
-          />
-        ) : (
-          // The row's selection control. Its click bubbles to the card's
-          // handler, so Enter/Space selects the layer and a Shift/Ctrl click
-          // still extends or toggles the multi-selection.
           <button
             type="button"
-            aria-pressed={selected}
-            data-layer-select=""
-            className={`min-w-0 flex-1 truncate rounded text-start text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              groupHidden ? "text-muted-foreground" : ""
-            }`}
-            // Lead with the full name: the visible label truncates.
-            title={`${layer.name}\n${
-              isLayerLocked
-                ? t("collaborate.layerLockedHint")
-                : groupHidden
-                  ? `${t("layers.hiddenByGroup")} — ${t("layers.doubleClickToRename")}`
-                  : t("layers.doubleClickToRename")
-            }`}
-            onDoubleClick={(e: ReactMouseEvent) => {
-              e.stopPropagation();
-              if (layerEditable) beginRename(layer);
-            }}
-            // F2 is the keyboard counterpart of the double-click rename.
-            onKeyDown={(e) => {
-              if (e.key !== "F2" || !layerEditable) return;
-              e.preventDefault();
-              beginRename(layer);
-            }}
+            aria-label={eyeLabel}
+            aria-pressed={layer.visible}
+            title={eyeLabel}
+            className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/row:opacity-[.85] group-has-[:focus-visible]/row:opacity-[.85] [@media(hover:none)]:opacity-[.85]",
+              selected && "opacity-[.85]",
+              !layer.visible && "opacity-75",
+            )}
+            onClick={() => setLayerVisibility(layer.id, !layer.visible)}
           >
-            {layer.name}
+            {layer.visible ? (
+              <Eye className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <EyeOff className="h-4 w-4" strokeWidth={1.75} />
+            )}
           </button>
-        )}
-        {isLayerLocked && (
-          <span title={t("collaborate.layerLockedHint")}>
-            <Lock
-              className="h-3 w-3 shrink-0 text-amber-500"
-              aria-label={t("collaborate.layerLockedHint")}
-            />
-          </span>
-        )}
-        {/* A layer filter hides features, so say so on the row:
-            without this a filtered layer reads as missing data. */}
-        {hasActiveLayerFilter(layer) && (
-          <span title={t(layerFilteredHintKey(layer))}>
-            <Filter
-              className="h-3 w-3 shrink-0 text-primary"
-              aria-label={t(layerFilteredHintKey(layer))}
-            />
-          </span>
-        )}
-        {/* The 3D globe renders a subset of the layer kinds the
-            2D map does (#2217). An unsupported layer stays in the
-            project and comes back when MapLibre does, so flag the
-            row rather than leaving the layer silently absent. */}
-        {cesiumPrimary && !isCesiumSupportedLayerType(layer) && (
-          <span
-            title={t("renderer.layerUnsupported")}
-            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
+        </div>
+        {selected ? (
+          <div
+            role="toolbar"
+            aria-label={t("layerPanel.toolbar")}
+            className="flex items-center gap-1 pb-1.5 pe-1 ps-2 pt-0.5"
           >
-            {t("mapGrid.only2d")}
-          </span>
-        )}
-        {/* The mirror image: a Cesium Ion asset (issue #2290) has
-            no 2D rendering, so flag it while MapLibre is primary. */}
-        {!cesiumPrimary && isCesiumOnlyLayer(layer) && (
-          <span
-            title={t("renderer.layerCesiumOnly")}
-            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
-          >
-            {t("mapGrid.only3d")}
-          </span>
-        )}
-        {mapboxPrimary && !isCesiumOnlyLayer(layer) && !isMapboxSupportedLayer(layer) && (
-          <span
-            title={t("renderer.layerMapboxUnsupported")}
-            className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
-          >
-            {t("mapGrid.noMapbox")}
-          </span>
-        )}
-        {arcgisPrimary &&
-          !isCesiumOnlyLayer(layer) &&
-          !isArcgisSupportedLayer(layer, deckOverlay) && (
-            <span
-              title={t("renderer.layerArcgisUnsupported")}
-              className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase text-muted-foreground"
+            <ToolButton
+              label={t("layerPanel.zoomToLayer")}
+              onClick={() => {
+                const controller = mapControllerRef.current;
+                // A layer with no known extent cannot be framed; say so.
+                if (controller && !controller.fitLayer(layer)) {
+                  notify.info(t("layers.zoomToLayerUnknownExtent", { name: layer.name }));
+                }
+              }}
             >
-              {t("mapGrid.noArcgis")}
-            </span>
-          )}
-        <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
-          {layerTypeLabel(layer, t)}
-        </span>
+              <ZoomIn className="h-4 w-4" />
+            </ToolButton>
+            <ToolButton
+              label={identifyLabel}
+              pressed={identifyActive}
+              disabled={!canIdentify || geometryEditActive}
+              onClick={() => {
+                if (!canIdentify) return;
+                selectLayer(layer.id);
+                setIdentifyLayer(identifyActive ? null : layer.id);
+              }}
+            >
+              <MousePointerClick className="h-4 w-4" />
+            </ToolButton>
+            <ToolButton
+              label={styleAvailable ? t("layerPanel.style") : t("layerPanel.styleUnavailable")}
+              disabled={!styleAvailable}
+              onClick={() => {
+                selectLayer(layer.id);
+                // GeoLibre's own panels until branch 7: rasters added through
+                // the raster panel are styled there, everything else in the
+                // Style panel.
+                if (rasterStyled) onOpenRasterStylePanel();
+                else onOpenStylePanel?.();
+              }}
+            >
+              <Palette className="h-4 w-4" />
+            </ToolButton>
+            <div className="ms-auto">
+              <DropdownMenu
+                open={menuOpen}
+                onOpenChange={(open) => {
+                  setMenuOpen(open);
+                  if (!open) {
+                    setExportOpen(false);
+                    suppressActionsTip.current = true;
+                  }
+                  setActionsTipOpen(false);
+                }}
+              >
+                <Tooltip
+                  open={actionsTipOpen && !menuOpen}
+                  onOpenChange={(open) => {
+                    if (open && suppressActionsTip.current) return;
+                    setActionsTipOpen(open);
+                  }}
+                >
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("layerPanel.actions")}
+                        onPointerEnter={() => {
+                          suppressActionsTip.current = false;
+                        }}
+                        onBlur={() => {
+                          suppressActionsTip.current = false;
+                        }}
+                        className={cn(
+                          "h-7 w-7 rounded-md",
+                          menuOpen &&
+                            "bg-foreground text-background hover:bg-foreground/90 hover:text-background",
+                        )}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={8} className={toolTipClass}>
+                    {t("layerPanel.actions")}
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={6}
+                  collisionPadding={LAYER_MENU_COLLISION_PADDING}
+                  className="min-w-[210px] rounded-[10px]"
+                >
+                  <LayerActionsMenuItems
+                    shared={menu}
+                    layer={layer}
+                    layerCaps={layerCaps}
+                    layerRendered={layerRendered}
+                    identifyOwnsClicks={identifyOwnsClicks}
+                    geometryEditActive={geometryEditActive}
+                    geometryEditElsewhere={geometryEditElsewhere}
+                    layerEditable={layerEditable}
+                    refreshConfig={refreshConfig}
+                    isRefreshing={isRefreshing}
+                    opacityAvailable={opacityAvailable}
+                    canDuplicate={canDuplicate}
+                    canMoveUp={displayIndex > 0}
+                    canMoveDown={displayIndex < displayCount - 1}
+                    exportOpen={exportOpen}
+                    setExportOpen={setExportOpen}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        ) : null}
+        {selected && openCard === "opacity" && opacityAvailable ? (
+          <LayerOpacityCard
+            name={layer.name}
+            opacity={layer.opacity}
+            onChange={(v) => setLayerOpacity(layer.id, v)}
+          />
+        ) : null}
+        {selected && openCard === "properties" ? <LayerPropertiesCard layer={layer} /> : null}
       </div>
-      {/* Placeholder detection checks MapLibre source ids, which the
-          globe's own layers never create. Suppress it only for the
-          kinds Cesium actually draws — a kind it cannot draw (e.g.
-          duckdb-query) keeps its message while the globe is primary. */}
+      {/* A load failure says why the layer shows nothing. Suppressed for the
+          kinds the globe or ArcGIS view draws themselves. */}
       {(!cesiumPrimary || !isCesiumSupportedLayerType(layer)) &&
         (!arcgisPrimary || !isArcgisSupportedLayer(layer, deckOverlay)) &&
         isPlaceholderLayer(layer) && (
-          <p className="mt-1 text-[10px] text-amber-600">{placeholderMessage(layer)}</p>
+          <p className="px-3.5 pb-1 text-[11px] text-amber-600">{placeholderMessage(layer)}</p>
         )}
       {refreshStatus && (
         <p
-          title={layer.connection?.lastError ?? layer.connection?.lastSyncedAt ?? ""}
-          className={`mt-1 text-[10px] ${
+          title={layer.connection?.lastError ?? ""}
+          className={cn(
+            "px-3.5 pb-1 text-[11px]",
             refreshStatus.type === "error"
               ? "text-destructive"
-              : refreshStatus.type === "success"
-                ? "text-emerald-600"
-                : refreshStatus.type === "warning"
-                  ? "text-amber-600"
-                  : "text-muted-foreground"
-          }`}
+              : refreshStatus.type === "warning"
+                ? "text-amber-600"
+                : "text-muted-foreground",
+          )}
         >
           {refreshStatus.message}
         </p>
       )}
       {arcgisEditsUnsent && !refreshStatus && (
-        <p className="mt-1 text-[10px] text-amber-600">{t("layers.arcgisEditsUnsent")}</p>
+        <p className="px-3.5 pb-1 text-[11px] text-amber-600">{t("layers.arcgisEditsUnsent")}</p>
       )}
+      {/* The geometry-editing strip stays while editing is kept (item 22). */}
       {geometryEditActive && (
-        <div className="mt-1 flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-1">
-          <PencilRuler className="h-3 w-3 text-primary" />
-          <span className="flex-1 text-[10px] font-medium text-primary">
-            {t("layers.editingGeometry")}
-          </span>
+        <div className="mx-2 mb-1 flex items-center gap-1 rounded-md bg-muted px-1.5 py-1">
+          <PencilRuler className="h-3 w-3" />
+          <span className="flex-1 text-[11px] font-medium">{t("layers.editingGeometry")}</span>
           <Button
             variant="default"
             size="sm"
-            className="h-6 px-2 text-[10px]"
+            className="h-6 px-2 text-[11px]"
             title={t("layers.saveGeometryEdits")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleGeometryEdit(layer.id);
-            }}
+            onClick={() => onToggleGeometryEdit(layer.id)}
           >
             {t("common.save")}
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px]"
+            className="h-6 px-2 text-[11px]"
             title={t("layers.discardGeometryEdits")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancelGeometryEdit();
-            }}
+            onClick={onCancelGeometryEdit}
           >
             {t("common.cancel")}
-          </Button>
-        </div>
-      )}
-      {/* A plugin-painted layer (a MapLibre custom WebGL layer)
-          has no paint property for opacity to land on, so the
-          slider is only shown when the plugin bridged a setter for
-          it — otherwise it would move with no effect (#1445) — or
-          when the primary renderer draws the layer itself. */}
-      {showDetails &&
-        (!pluginOwnsPaint(layer) ||
-          supportsBridgedOpacity(layer.id) ||
-          rendererAppliesOpacity(layer, primaryRenderer)) && (
-          <LayerOpacitySlider
-            label={t("layers.opacity")}
-            ariaLabel={t("layers.opacityFor", { name: layer.name })}
-            value={layer.opacity}
-            onChange={(v) => setLayerOpacity(layer.id, v)}
-          />
-        )}
-      {showDetails && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            title={t("layers.moveUp")}
-            aria-label={t("layers.moveUp")}
-            onClick={(e) => {
-              e.stopPropagation();
-              reorderLayer(layer.id, "up");
-            }}
-          >
-            <ChevronUp className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            title={t("layers.moveDown")}
-            aria-label={t("layers.moveDown")}
-            onClick={(e) => {
-              e.stopPropagation();
-              reorderLayer(layer.id, "down");
-            }}
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            title={t("layers.zoomToLayer")}
-            aria-label={t("layers.zoomToLayer")}
-            onClick={(e) => {
-              e.stopPropagation();
-              const controller = mapControllerRef.current;
-              // A layer with no known extent (e.g. a bare `{z}/{x}/{y}` vector
-              // tile URL viewed nowhere near its data) cannot be framed; say so
-              // rather than leave the button looking broken.
-              if (controller && !controller.fitLayer(layer)) {
-                notify.info(t("layers.zoomToLayerUnknownExtent", { name: layer.name }));
-              }
-            }}
-          >
-            <ZoomIn className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-7 w-7 ${
-              identifyActive
-                ? "border border-primary bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-primary-foreground"
-                : ""
-            }`}
-            title={identifyLabel}
-            aria-label={identifyLabel}
-            disabled={!canIdentify || geometryEditActive}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!canIdentify) return;
-              selectLayer(layer.id);
-              setIdentifyLayer(identifyActive ? null : layer.id);
-            }}
-          >
-            <MousePointerClick className="h-3.5 w-3.5" />
-          </Button>
-          {onOpenStylePanel && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              title={t("layers.openStylePanel")}
-              aria-label={t("layers.openStylePanel")}
-              onClick={(e) => {
-                e.stopPropagation();
-                selectLayer(layer.id);
-                onOpenStylePanel();
-              }}
-            >
-              <Palette className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-7 w-7 ${
-                  refreshConfig.enabled ? "border border-primary text-primary" : ""
-                }`}
-                title={t("layers.layerActions")}
-                aria-label={t("layers.layerActions")}
-                onClick={(e: ReactMouseEvent) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e: ReactMouseEvent) => e.stopPropagation()}>
-              <LayerActionsMenuItems
-                shared={menu}
-                layer={layer}
-                layerCaps={layerCaps}
-                layerRendered={layerRendered}
-                identifyOwnsClicks={identifyOwnsClicks}
-                geometryEditActive={geometryEditActive}
-                geometryEditElsewhere={geometryEditElsewhere}
-                isLayerLocked={isLayerLocked}
-                layerEditable={layerEditable}
-                refreshConfig={refreshConfig}
-                isRefreshing={isRefreshing}
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            title={t("layers.metadata")}
-            aria-label={t("layers.metadata")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenMetadata(layer);
-            }}
-          >
-            <Info className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive disabled:opacity-40"
-            title={!layerEditable ? t("collaborate.layerLockedHint") : t("layers.removeLayer")}
-            aria-label={t("layers.removeLayer")}
-            disabled={!layerEditable}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!layerEditable) return;
-              onRequestRemove(layer);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       )}

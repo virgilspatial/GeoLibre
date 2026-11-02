@@ -27,7 +27,7 @@ import {
   UserPlus,
   Wrench,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useConsentGatedActions } from "../../hooks/useConsentGatedActions";
@@ -97,6 +97,7 @@ import { HeaderIconButton } from "./header/HeaderIconButton";
 import { MenuBarOverflow } from "./header/MenuBarOverflow";
 import { RailButton, railLucideProps } from "./rail/RailButton";
 import { SwiftmapRail } from "./rail/SwiftmapRail";
+import { useSidePanelStore } from "./rail/sidePanelStore";
 import { ProjectSwitcher } from "./header/ProjectSwitcher";
 import { SwiftmapMark } from "./header/SwiftmapMark";
 
@@ -150,6 +151,8 @@ export function TopToolbar({
   railHost = null,
 }: TopToolbarProps) {
   const { t } = useTranslation();
+  const addDataMenuOpen = useSidePanelStore((s) => s.addDataMenuOpen);
+  const setAddDataMenuOpen = useSidePanelStore((s) => s.setAddDataMenuOpen);
   const deploymentCapabilities = useAppStore((state) => state.deploymentCapabilities);
   usePluginLabelSync();
 
@@ -321,6 +324,8 @@ export function TopToolbar({
             <Database {...railLucideProps} />
           </RailButton>
         }
+        open={addDataMenuOpen}
+        onOpenChange={setAddDataMenuOpen}
         disabled={!addDataReady}
         chrome={chrome}
         addLayer={addLayer}
@@ -335,6 +340,11 @@ export function TopToolbar({
         onOpenTilePackageDialog={() => tilePackage.setDialogOpen(true)}
       />
     ) : null;
+  const railAddDataShown = railAddData !== null;
+  const setAddDataAvailable = useSidePanelStore((s) => s.setAddDataAvailable);
+  useEffect(() => {
+    setAddDataAvailable(railAddDataShown);
+  }, [railAddDataShown, setAddDataAvailable]);
   const railTools =
     !viewer &&
     isMenuVisible(uiProfile, "plugins") &&

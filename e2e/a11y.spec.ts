@@ -2,6 +2,7 @@ import { expect, test, type Page } from "./test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expectAccessible } from "./a11y";
+import { openLayerActions } from "./helpers";
 
 const FIXTURE_TEXT = readFileSync(join(__dirname, "fixtures", "smoke.geojson"), "utf8");
 
@@ -50,8 +51,8 @@ test("no critical/serious axe violations across key screens", async ({ page }, t
   // Attribute table. The layer-actions menu intentionally stays open after a
   // selection, and an open modal menu aria-hides the background, so close it
   // before scanning the table's resting state.
-  const row = page.locator('[data-testid="layer-row"][data-layer-name="smoke"]');
-  await row.locator('button[aria-label="Layer actions"]').click();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+  await openLayerActions(page, "smoke");
   await page.getByRole("menuitem", { name: "Open attribute table" }).click();
   await expect(page.getByTestId("attribute-table")).toBeVisible();
   await page.keyboard.press("Escape");

@@ -165,7 +165,11 @@ test("a Zarr store added through the panel mounts as a custom layer on the Mapbo
   await page.screenshot({ path: info.outputPath("mapbox-zarr.png") });
 
   // Removing the store layer takes the control's custom layer off the map.
-  await row.getByRole("button", { name: "Remove layer", exact: true }).click();
+  // SWIFTMAP (Change 17): Remove layer is in the selected row's ⋯ menu.
+  const select = row.locator("[data-layer-select]");
+  if ((await select.getAttribute("aria-pressed")) !== "true") await select.click();
+  await row.getByRole("button", { name: "Layer actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Remove layer/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove", exact: true }).click();
   await expect(row).toBeHidden();
   await expect.poll(() => customLayerIds(page)).toHaveLength(0);

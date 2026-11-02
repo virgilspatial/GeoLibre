@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, openMenuBarMenu, openRailMenu } from "./helpers";
+import { layerRow, openLayerActions, openMenuBarMenu, openRailMenu } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 const DATA_PATH = "e2e/fixtures/smoke.geojson";
@@ -8,8 +8,8 @@ test.skip(!process.env.MAPBOX_TOKEN, "Set MAPBOX_TOKEN to test the Mapbox render
 test.use({ actionTimeout: 30_000 });
 
 async function chooseSelectionTool(page: Page, layerName: string, toolName: string) {
-  const row = layerRow(page, layerName);
-  await row.locator('button[aria-label="Layer actions"]').click();
+  // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+  await openLayerActions(page, layerName);
   await page.getByRole("menuitem", { name: "Select features", exact: true }).hover();
   await page.getByRole("menuitem", { name: toolName, exact: true }).click();
 }
@@ -111,7 +111,8 @@ for (const theme of ["light", "dark"] as const) {
           : null;
       }, featurePoint),
     ).toMatchObject({ cursor: "crosshair" });
-    await row.getByRole("button", { name: "Deactivate identify", exact: true }).click();
+    // SWIFTMAP (Change 17): one "Identify features" toggle, pressed while active.
+    await row.getByRole("button", { name: "Identify features", exact: true, pressed: true }).click();
 
     for (const tool of [
       "Select features by click",
@@ -135,7 +136,8 @@ for (const theme of ["light", "dark"] as const) {
     await page.mouse.up();
     await expect(canvas).not.toHaveCSS("cursor", "crosshair");
 
-    await row.locator('button[aria-label="Layer actions"]').click();
+    // SWIFTMAP (Change 17): the selection actions left the layer menu for the Edit menu (item 10).
+    await openMenuBarMenu(page, "Edit");
     await expect(
       page.getByRole("menuitem", { name: "Zoom to selection", exact: true }),
     ).toBeVisible();

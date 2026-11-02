@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, openMenuBarMenu, railButton, RENDERER_SWAP_TIMEOUT } from "./helpers";
+import {
+  layerRow,
+  openLayerActions,
+  openMenuBarMenu,
+  openRailMenu,
+  railButton,
+  RENDERER_SWAP_TIMEOUT,
+} from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // The Geo Editor on the Mapbox renderer (issue #2420). Geoman and the
@@ -222,9 +229,11 @@ for (const theme of ["light", "dark"] as const) {
     async function run() {
       await openMapboxProject(page, info.project.use.baseURL!, theme);
 
-      // The Layers panel toggle activates the plugin on the Mapbox map; its
-      // toolbar mounts in the same corner it uses on MapLibre.
-      const toggle = page.getByRole("button", { name: "GeoEditor", exact: true });
+      // The Tools menu toggle activates the plugin on the Mapbox map; its
+      // toolbar mounts in the same corner it uses on MapLibre. SWIFTMAP (Change
+      // 17): the Layers panel's GeoEditor button was dropped; Tools has it.
+      await openRailMenu(page, "Tools");
+      const toggle = page.getByRole("menuitem", { name: "GeoEditor", exact: true });
       await expect(toggle).toBeEnabled();
       await toggle.click();
       const toolbar = page.locator(".geo-editor-toolbar");
@@ -297,8 +306,8 @@ for (const theme of ["light", "dark"] as const) {
       // In-place geometry editing has no attribute schema for a newly drawn
       // point. GeoEditor opens an empty form after the callback returns; the
       // plugin must close it without changing the normal Sketches behavior above.
-      const editableRow = layerRow(page, "Editable points");
-      await editableRow.getByRole("button", { name: "Layer actions" }).click();
+      // SWIFTMAP (Change 17): the ⋯ menu is on the selected row's toolbar.
+      await openLayerActions(page, "Editable points");
       await page.getByRole("menuitem", { name: "Edit geometry", exact: true }).click();
       const expandToolbar = toolbar.locator('button[title="Expand toolbar"]');
       if (await expandToolbar.isVisible()) await expandToolbar.click();
@@ -308,7 +317,7 @@ for (const theme of ["light", "dark"] as const) {
       const attributePanel = page.locator(".geo-editor-attribute-panel");
       await expect(attributePanel).toHaveClass(/attribute-panel--hidden/);
 
-      await editableRow.getByRole("button", { name: "Layer actions" }).click();
+      await openLayerActions(page, "Editable points");
       await page.getByRole("menuitem", { name: "Finish editing geometry", exact: true }).click();
       // Saving the session writes the drawn point back to the layer, proving the
       // hidden-panel assertion above followed a real creation.
