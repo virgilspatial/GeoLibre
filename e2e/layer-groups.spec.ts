@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openLayerActions, openMenuBarMenu } from "./helpers";
+import { dropGeoJson as dropLayer, layerRow, openLayerActions, openMenuBarMenu } from "./helpers";
 
 const FIXTURE_PATH = join(__dirname, "fixtures", "smoke.geojson");
 const FIXTURE_TEXT = readFileSync(FIXTURE_PATH, "utf8");
@@ -120,4 +120,83 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+
+/**
+ * SWIFTMAP (Change 18): rows drag by their name line with no handle. A drag
+ * starts only after the pointer moves, so a click still selects and a
+ * double-click still renames; a group takes a layer dropped on its middle;
+ * a group moves with what it holds; and groups stop at three levels.
+ */
+test("drags layers and groups and stops nesting at three levels", async ({ page }) => {
+  await waitForMap(page);
+  for (const name of ["aaa", "bbb", "ccc"]) await dropLayer(page, name, FIXTURE_TEXT);
+  await page.keyboard.press("Escape"); // new layers arrive selected
+
+  // An empty group from the header; its name opens for editing.
+  await page.getByRole("button", { name: "New group" }).click();
+  await page.keyboard.press("Enter");
+  const header = page.locator('[data-testid="layer-group-header"][data-group-name="New group"]');
+  await expect(header).toContainText("Empty. Drag layers here.");
+
+  const rows = () =>
+    page
+      .locator("[data-layer-list] > [data-drag-key]")
+      .evaluateAll((els) =>
+        els.map((r) => `${r.getAttribute("aria-level")}:${r.getAttribute("data-layer-name") ?? "group"}`),
+      );
+  const grab = async (locator: ReturnType<typeof page.locator>) => {
+    const box = await locator.boundingBox();
+    if (!box) throw new Error("not visible");
+    return { x: box.x + 30, y: box.y + box.height / 2, height: box.height };
+  };
+  const nameOf = (name: string) => layerRow(page, name).locator("[data-layer-select]");
+  const dragTo = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, from.y + 6, { steps: 2 });
+    await page.mouse.move(to.x, to.y, { steps: 10 });
+    await page.mouse.up();
+  };
+  /** The lower half of a row, where a drop goes below it. */
+  const below = async (name: string) => {
+    const at = await grab(layerRow(page, name));
+    return { x: at.x, y: at.y + at.height / 4 };
+  };
+
+  // A layer dropped on the middle of a group's row goes inside it.
+  await dragTo(await grab(nameOf("aaa")), await grab(header.locator("[data-drag-grip]")));
+  await expect.poll(rows).toEqual(["1:group", "2:aaa", "1:ccc", "1:bbb"]);
+  await expect(header).not.toContainText("Empty. Drag layers here.");
+
+  // A layer dropped on the lower half of another goes below it.
+  await dragTo(await grab(nameOf("ccc")), await below("bbb"));
+  await expect.poll(rows).toEqual(["1:group", "2:aaa", "1:bbb", "1:ccc"]);
+
+  // A group drags with what it holds.
+  await dragTo(await grab(header.locator("[data-drag-grip]")), await below("ccc"));
+  await expect.poll(rows).toEqual(["1:bbb", "1:ccc", "1:group", "2:aaa"]);
+
+  // A click still selects and a double-click still renames.
+  await nameOf("bbb").click();
+  await expect(nameOf("bbb")).toHaveAttribute("aria-pressed", "true");
+  await nameOf("bbb").dblclick();
+  await expect(page.getByRole("textbox", { name: /Rename/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // Add subgroup twice makes three levels; a fourth is refused.
+  const addSubgroup = async (level: number) => {
+    const row = page.locator(`[data-testid="layer-group-header"][aria-level="${level}"]`).first();
+    await row.hover();
+    await row.getByRole("button", { name: "Group actions" }).click();
+    await page.getByRole("menuitem", { name: "Add subgroup" }).click();
+  };
+  await addSubgroup(1);
+  await expect(page.locator('[data-testid="layer-group-header"][aria-level="2"]')).toHaveCount(1);
+  await addSubgroup(2);
+  await expect(page.locator('[data-testid="layer-group-header"][aria-level="3"]')).toHaveCount(1);
+  await addSubgroup(3);
+  await expect(page.getByText("Groups can be nested up to 3 levels")).toBeVisible();
+  await expect(page.locator('[data-testid="layer-group-header"][aria-level="4"]')).toHaveCount(0);
 });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAppStore } from "@geolibre/core";
 import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
 
@@ -11,6 +12,8 @@ import type { GeoLibreLayer, LayerGroup } from "@geolibre/core";
  * @returns The editing state and the begin/commit/cancel handlers.
  */
 export function useLayerRename(layers: GeoLibreLayer[], layerGroups: LayerGroup[]) {
+  // SWIFTMAP: new groups are called "New group", as in the mockup (Change 18).
+  const { t } = useTranslation();
   const updateLayer = useAppStore((s) => s.updateLayer);
   const renameLayerGroup = useAppStore((s) => s.renameLayerGroup);
   const addLayerGroup = useAppStore((s) => s.addLayerGroup);
@@ -61,7 +64,7 @@ export function useLayerRename(layers: GeoLibreLayer[], layerGroups: LayerGroup[
   };
 
   const handleCreateGroup = () => {
-    const id = addLayerGroup();
+    const id = addLayerGroup(t("layerPanel.newGroup"));
     // Open the new (empty) folder's name for editing right away.
     const group = useAppStore.getState().layerGroups.find((g) => g.id === id);
     if (group) beginGroupRename(group);

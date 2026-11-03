@@ -3522,7 +3522,17 @@
     "sourceArcgisService": "ArcGIS service",
     "sourceWebLink": "Web link",
     "crsWgs84": "WGS 84 (EPSG:4326)",
-    "crsWebMercator": "Web Mercator (EPSG:3857)"
+    "crsWebMercator": "Web Mercator (EPSG:3857)",
+    "addSubgroup": "Add subgroup",
+    "zoomToGroup": "Zoom to group",
+    "zoomToGroupUnknownExtent": "No layer in {{name}} has a known extent to zoom to",
+    "ungroup": "Ungroup",
+    "removeGroup": "Remove group",
+    "removeGroupConfirmTitle": "Remove group?",
+    "removeGroupConfirmBody_one": "This removes {{name}} and the layer in it from the project.",
+    "removeGroupConfirmBody_other": "This removes {{name}} and the {{count}} layers in it from the project.",
+    "emptyGroup": "Empty. Drag layers here.",
+    "groupDepthLimit": "Groups can be nested up to {{max}} levels"
   },
   "rail": {
     "label": "Panels",

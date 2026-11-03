@@ -51,36 +51,59 @@ function layer(id: string) {
   return useAppStore.getState().layers.find((entry) => entry.id === id);
 }
 
-/** Supply hit testing and capture, which the non-layout DOM cannot perform. */
-function pointerDrag(t: TestContext, name: string) {
-  const handle = within(row(name)).getByRole("button", { name: `Drag ${name} to reorder` });
-  let hit: Element | null = null;
-  let captured = false;
-  Object.assign(handle, {
-    setPointerCapture: () => {
-      captured = true;
-    },
-    hasPointerCapture: () => captured,
-    releasePointerCapture: () => {
-      captured = false;
-    },
+/** Each row's top in the laid-out list: rows are 32px tall, the list starts at 100. */
+const ROW_HEIGHT = 32;
+const LIST_TOP = 100;
+const rowTop = (index: number) => LIST_TOP + index * ROW_HEIGHT;
+
+/**
+ * SWIFTMAP (Change 18): whole-row drag. The non-layout DOM measures nothing,
+ * so each child of the list is given a 32px slot in order; the scroll area and
+ * the list itself are tall enough that no edge scrolling starts.
+ */
+function pointerDrag(t: TestContext) {
+  t.mock.method(HTMLElement.prototype, "getBoundingClientRect", function (this: HTMLElement) {
+    const list = this.closest("[data-layer-list]");
+    const slot = list && this !== list ? this.closest("[data-layer-list] > *") : null;
+    const top = slot && list ? rowTop([...list.children].indexOf(slot)) : 0;
+    const height = slot ? ROW_HEIGHT : 1000;
+    return {
+      x: 0,
+      y: top,
+      top,
+      left: 0,
+      width: 300,
+      height,
+      right: 300,
+      bottom: top + height,
+      toJSON: () => ({}),
+    } as DOMRect;
   });
-  t.mock.method(document, "elementFromPoint", () => hit);
-  const send = (type: string, x: number, target: Element | null = hit) => {
-    hit = target;
+  const pointer = (type: string, target: Element | Window, y: number, x = 40) =>
     fireEvent(
-      handle,
+      target,
       new PointerEvent(type, {
         bubbles: true,
         pointerId: 1,
         isPrimary: true,
         button: 0,
+        pointerType: "mouse",
         clientX: x,
-        clientY: 20,
+        clientY: y,
       }),
     );
+  return {
+    /** Press on a row's name, move through `ys`, and release (or not). */
+    drag(name: string, ys: number[], options: { release?: boolean; x?: number } = {}) {
+      const el = row(name);
+      const start = rowTop([...(el.parentElement?.children ?? [])].indexOf(el)) + ROW_HEIGHT / 2;
+      pointer("pointerdown", within(el).getByRole("button", { name }), start);
+      for (const y of ys) pointer("pointermove", window, y, options.x);
+      if (options.release !== false) pointer("pointerup", window, ys.at(-1) ?? start, options.x);
+    },
+    up: (y: number) => pointer("pointerup", window, y),
+    cancel: () => fireEvent(window, new PointerEvent("pointercancel", { pointerId: 1 })),
   };
-  return { send };
 }
 
 describe("LayerPanel", () => {
@@ -122,74 +145,76 @@ describe("LayerPanel", () => {
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
   });
 
-  it("reorders using captured pointer movement in both directions", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
+  // SWIFTMAP (Change 18): rows drag by their name line, with no handle.
+  it("reorders by dragging a row in both directions", (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
         geojsonLayer({ id: "parks", name: "Parks" }),
       ],
+      layerGroups: [],
     });
     renderLayerPanel();
-    const drag = pointerDrag(t, "Rivers");
-    drag.send("pointerdown", 10);
-    drag.send("pointermove", 30, row("Parks"));
-    drag.send("pointerup", 30);
+    const { drag } = pointerDrag(t);
+    // Onto the upper half of Parks: above it.
+    drag("Rivers", [rowTop(0) + 6]);
     assert.deepEqual(rowNames(), ["Rivers", "Parks"]);
     assert.deepEqual(
-      useAppStore.getState().layers.map((layer) => layer.id),
+      useAppStore.getState().layers.map((entry) => entry.id),
       ["parks", "rivers"],
     );
-    drag.send("pointerdown", 10);
-    drag.send("pointermove", 30, row("Parks"));
-    drag.send("pointerup", 30);
+    // Onto the lower half of Parks: below it.
+    drag("Rivers", [rowTop(1) + 26]);
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
   });
 
-  it("does not reorder on a click, cancelled drag, or release outside the list", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
+  it("does not reorder on a click, a cancelled drag, Esc, or a release away from the list", (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
         geojsonLayer({ id: "parks", name: "Parks" }),
       ],
+      layerGroups: [],
+      selectedLayerId: null,
     });
     renderLayerPanel();
-    const drag = pointerDrag(t, "Rivers");
-    drag.send("pointerdown", 10);
-    drag.send("pointerup", 11, row("Parks"));
+    const { drag, cancel, up } = pointerDrag(t);
+    // A press that moves less than the threshold is a click, not a drag.
+    drag("Rivers", [rowTop(1) + 14]);
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
-    drag.send("pointerdown", 10);
-    drag.send("pointermove", 30, row("Parks"));
-    drag.send("pointercancel", 30);
-    drag.send("pointerup", 30);
+    drag("Rivers", [rowTop(0) + 6], { release: false });
+    assert.ok(screen.getByTestId("layer-drop-line"));
+    cancel();
+    up(rowTop(0) + 6);
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
-    drag.send("pointerdown", 10);
-    drag.send("pointermove", 30, row("Parks"));
-    drag.send("pointerup", 30, document.body);
+    assert.equal(screen.queryByTestId("layer-drop-line"), null);
+    drag("Rivers", [rowTop(0) + 6], { release: false });
+    fireEvent.keyDown(window, { key: "Escape" });
+    up(rowTop(0) + 6);
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
+    drag("Rivers", [rowTop(0) + 6, rowTop(0) + 6], { x: 2000 });
+    assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
+    // Esc ended the drag only; nothing was selected along the way.
+    assert.equal(useAppStore.getState().selectedLayerId, null);
   });
 
-  // SWIFTMAP (Change 17): multi-select was dropped (single selection, as in
-  // the mockup), so a Ctrl-click selects one layer and a drag moves only it.
-  it("keeps one layer selected and drags only that one", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
+  it("does not select the row the click after a drag lands on", (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
         geojsonLayer({ id: "parks", name: "Parks" }),
-        geojsonLayer({ id: "roads", name: "Roads" }),
       ],
+      layerGroups: [],
+      selectedLayerId: null,
     });
     renderLayerPanel();
-    fireEvent.click(within(row("Rivers")).getByText("Rivers"));
-    fireEvent.click(within(row("Parks")).getByText("Parks"), { ctrlKey: true });
-    assert.equal(useAppStore.getState().selectedLayerId, "parks");
-    const drag = pointerDrag(t, "Rivers");
-    drag.send("pointerdown", 10);
-    drag.send("pointermove", 30, row("Roads"));
-    drag.send("pointerup", 30);
-    assert.deepEqual(rowNames(), ["Rivers", "Roads", "Parks"]);
+    const { drag } = pointerDrag(t);
+    drag("Rivers", [rowTop(0) + 6]);
+    fireEvent.click(within(row("Rivers")).getByRole("button", { name: "Rivers" }));
+    assert.equal(useAppStore.getState().selectedLayerId, null);
   });
 
-  it("drops into a collapsed group and back out onto an ungrouped row", { skip: "SWIFTMAP (Change 17): no drag handle until 4b, which rewrites this for whole-row drag (Change 18)" }, (t) => {
+  it("drops into a collapsed group and back out below an ungrouped row", (t) => {
     useAppStore.setState({
       layers: [
         geojsonLayer({ id: "rivers", name: "Rivers" }),
@@ -198,19 +223,118 @@ describe("LayerPanel", () => {
       layerGroups: [{ id: "group", name: "Folder", collapsed: true, visible: true, opacity: 1 }],
     });
     renderLayerPanel();
-    const drag = pointerDrag(t, "Rivers");
-    drag.send("pointerdown", 10);
-    drag.send("pointermove", 30, screen.getByTestId("layer-group-header"));
-    drag.send("pointerup", 30);
+    const { drag } = pointerDrag(t);
+    // The empty folder sits at the top; the middle of its row drops inside it.
+    drag("Rivers", [rowTop(0) + 16]);
     assert.equal(layer("rivers")?.groupId, "group");
     assert.deepEqual(rowNames(), ["Parks"]);
     act(() => useAppStore.getState().toggleLayerGroupCollapsed("group"));
-    const outward = pointerDrag(t, "Rivers");
-    outward.send("pointerdown", 10);
-    outward.send("pointermove", 30, row("Parks"));
-    outward.send("pointerup", 30);
+    assert.deepEqual(rowNames(), ["Rivers", "Parks"]);
+    // Folder, Rivers, Parks: the lower half of Parks puts Rivers below it, ungrouped.
+    drag("Rivers", [rowTop(2) + 26]);
     assert.equal(layer("rivers")?.groupId ?? null, null);
     assert.deepEqual(rowNames(), ["Parks", "Rivers"]);
+  });
+
+  // Reported in review: groups below layers and layers above groups, at the
+  // top level and inside a group.
+  it("drags a group below layers and a layer above a group, at every level", (t) => {
+    useAppStore.setState({
+      layers: [
+        geojsonLayer({ id: "q", name: "Q", groupId: "p" }),
+        geojsonLayer({ id: "pp", name: "PP", groupId: "p" }),
+        geojsonLayer({ id: "h", name: "H", groupId: "s" }),
+        geojsonLayer({ id: "b", name: "B" }),
+        geojsonLayer({ id: "a", name: "A" }),
+        geojsonLayer({ id: "x", name: "X", groupId: "g" }),
+      ],
+      layerGroups: [
+        { id: "g", name: "G", collapsed: false, visible: true, opacity: 1 },
+        { id: "p", name: "P", collapsed: false, visible: true, opacity: 1 },
+        { id: "s", name: "S", collapsed: false, visible: true, opacity: 1, parentId: "p" },
+      ],
+    });
+    renderLayerPanel();
+    const order = () =>
+      [...document.querySelectorAll<HTMLElement>("[data-layer-list] > [data-drag-key]")].map(
+        (el) => `${el.getAttribute("aria-level")}:${el.dataset.layerName ?? el.dataset.groupName}`,
+      );
+    const slot = (name: string) =>
+      order().findIndex((entry) => entry.endsWith(`:${name}`));
+    assert.deepEqual(order(), ["1:G", "2:X", "1:A", "1:B", "1:P", "2:S", "3:H", "2:PP", "2:Q"]);
+    const { drag } = pointerDrag(t);
+    const groupRow = (name: string) =>
+      screen.getAllByTestId("layer-group-header").find((el) => el.dataset.groupName === name)!;
+    const dragGroup = (name: string, y: number) => {
+      const el = groupRow(name);
+      const start = rowTop(slot(name)) + ROW_HEIGHT / 2;
+      const grip = el.querySelector("[data-drag-grip] [data-drag-ok]")!;
+      for (const [type, at] of [["pointerdown", start], ["pointermove", y], ["pointerup", y]] as const) {
+        fireEvent(
+          type === "pointerdown" ? grip : window,
+          new PointerEvent(type, { bubbles: true, pointerId: 1, isPrimary: true, button: 0, pointerType: "mouse", clientX: 40, clientY: at }),
+        );
+      }
+    };
+    // Top level: B above G (the top of G's row).
+    drag("B", [rowTop(slot("G")) + 4]);
+    assert.deepEqual(order().slice(0, 4), ["1:B", "1:G", "2:X", "1:A"]);
+    // Top level: G below A (the lower half of A).
+    dragGroup("G", rowTop(slot("A")) + 26);
+    assert.deepEqual(order().slice(0, 4), ["1:B", "1:A", "1:G", "2:X"]);
+    // Inside P: S below P's own layers (the lower half of Q).
+    dragGroup("S", rowTop(slot("Q")) + 26);
+    assert.deepEqual(order().slice(-5), ["1:P", "2:PP", "2:Q", "2:S", "3:H"]);
+    // Inside P: S back above them (the upper half of PP).
+    dragGroup("S", rowTop(slot("PP")) + 4);
+    assert.deepEqual(order().slice(-5), ["1:P", "2:S", "3:H", "2:PP", "2:Q"]);
+  });
+
+  it("does not drag while searching", (t) => {
+    useAppStore.setState({
+      layers: [
+        geojsonLayer({ id: "rivers", name: "River one" }),
+        geojsonLayer({ id: "parks", name: "River two" }),
+      ],
+      layerGroups: [],
+    });
+    renderLayerPanel();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search layers" }), {
+      target: { value: "river" },
+    });
+    const { drag } = pointerDrag(t);
+    drag("River one", [rowTop(0) + 6]);
+    assert.deepEqual(rowNames(), ["River two", "River one"]);
+  });
+
+  it("removes an empty group at once and asks first for a group with layers", () => {
+    useAppStore.setState({
+      layers: [geojsonLayer({ id: "parks", name: "Parks", groupId: "full" })],
+      layerGroups: [
+        { id: "empty", name: "Empty folder", collapsed: false, visible: true, opacity: 1 },
+        { id: "full", name: "Full folder", collapsed: false, visible: true, opacity: 1 },
+      ],
+    });
+    renderLayerPanel();
+    const header = (name: string) =>
+      screen.getAllByTestId("layer-group-header").find((el) => el.dataset.groupName === name);
+    assert.match(header("Empty folder")?.textContent ?? "", /Empty\. Drag layers here\./);
+
+    // Delete on a group's row removes it, as the menu's "Remove group" does.
+    fireEvent.keyDown(within(header("Empty folder")!).getByRole("button", { name: "Collapse group" }), {
+      key: "Delete",
+    });
+    assert.equal(header("Empty folder"), undefined);
+
+    fireEvent.keyDown(within(header("Full folder")!).getByRole("button", { name: "Collapse group" }), {
+      key: "Delete",
+    });
+    const dialog = screen.getByRole("dialog", { name: "Remove group?" });
+    assert.match(dialog.textContent ?? "", /Full folder and the layer in it/);
+    assert.equal(layer("parks")?.name, "Parks");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    assert.equal(layer("parks"), undefined);
+    assert.equal(useAppStore.getState().layerGroups.length, 0);
   });
 
   it("follows the store when a layer is added after the first render", () => {
