@@ -15,18 +15,8 @@ import {
   PRECIPITATION_PLUGIN_ID,
   REVERSE_GEOCODE_PLUGIN_ID,
 } from "@geolibre/plugins";
-import { Button, cn } from "@geolibre/ui";
-import {
-  Database,
-  Eye,
-  Moon,
-  Settings as SettingsIcon,
-  Share,
-  Sun,
-  User,
-  UserPlus,
-  Wrench,
-} from "lucide-react";
+import { cn } from "@geolibre/ui";
+import { Database, Settings as SettingsIcon, User, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -92,8 +82,7 @@ import {
   resetRuntimeControlsForNewProject,
 } from "./toolbar/toolbar-actions";
 import { ViewMenu } from "./toolbar/ViewMenu";
-import { EditHistoryButtons } from "./header/EditHistoryButtons";
-import { HeaderIconButton } from "./header/HeaderIconButton";
+import { HeaderActions } from "./header/HeaderActions";
 import { MenuBarOverflow } from "./header/MenuBarOverflow";
 import { RailButton, railLucideProps } from "./rail/RailButton";
 import { SwiftmapRail } from "./rail/SwiftmapRail";
@@ -411,47 +400,12 @@ export function TopToolbar({
           />
         ) : null}
       </div>
-      {!viewer ? (
-        <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-          <EditHistoryButtons onSave={() => void projectFiles.handleSave()} />
-          {/* Preview and Publish arrive with branch 8 (Stage 1). */}
-          <Button
-            type="button"
-            variant="outline"
-            disabled
-            className="hidden h-8 gap-1.5 rounded-lg border-input bg-transparent px-3 text-[13px] disabled:opacity-100 disabled:text-muted-foreground sm:inline-flex [&_svg]:size-[15px]"
-          >
-            <Eye aria-hidden />
-            {t("header.preview")}
-          </Button>
-          <Button
-            type="button"
-            disabled
-            className="hidden h-8 gap-1.5 rounded-lg px-3 text-[13px] disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 sm:inline-flex [&_svg]:size-[15px]"
-          >
-            <Share aria-hidden />
-            {t("header.publish")}
-          </Button>
-        </div>
-      ) : null}
-      <div className={cn("flex shrink-0 items-center gap-1.5 sm:gap-2.5", viewer && "ms-auto")}>
-        {!viewer ? (
-          // Swiftmap's Share dialog arrives with branch 8.
-          <HeaderIconButton label={t("header.share")} unavailable>
-            <UserPlus aria-hidden />
-          </HeaderIconButton>
-        ) : null}
-        <HeaderIconButton
-          label={
-            themeMode === "dark"
-              ? t("toolbar.command.switchToLight")
-              : t("toolbar.command.switchToDark")
-          }
-          onClick={onToggleThemeMode}
-        >
-          {themeMode === "dark" ? <Sun aria-hidden /> : <Moon aria-hidden />}
-        </HeaderIconButton>
-      </div>
+      <HeaderActions
+        readOnly={viewer}
+        themeMode={themeMode}
+        onToggleThemeMode={onToggleThemeMode}
+        onSave={() => void projectFiles.handleSave()}
+      />
       <MenuBarOverflow>
           {!viewer && isMenuVisible(uiProfile, "project") && (
             <ProjectMenu
