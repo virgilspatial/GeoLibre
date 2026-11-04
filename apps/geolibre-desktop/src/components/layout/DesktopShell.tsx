@@ -402,7 +402,7 @@ export function DesktopShell({
     editFeatureGeometry: handleEditFeatureGeometry,
     viewer: layoutOptions.viewer,
   });
-  useLiveMapUrl();
+  useLiveMapUrl(mapControllerRef);
   useTileProtocols();
   useRasterFileHandlers(mapControllerRef, t);
   // Fetching the registry also tells the credential redaction which external
