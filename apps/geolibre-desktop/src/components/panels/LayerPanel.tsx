@@ -67,6 +67,7 @@ import {
   insertNode,
   layersInGroup,
   MAX_GROUP_LEVELS,
+  stepLayer,
   withinDepthLimit,
   writeLayerTree,
 } from "./layer-panel/layer-tree";
@@ -199,7 +200,6 @@ export function LayerPanel({
       ? (s.preferences.map.mapboxStyleUrl ?? s.basemapStyleUrl)
       : s.basemapStyleUrl,
   );
-  const reorderLayer = useAppStore((s) => s.reorderLayer);
   const addLayerGroup = useAppStore((s) => s.addLayerGroup);
   const removeLayerGroup = useAppStore((s) => s.removeLayerGroup);
   const moveLayerGroupToGroup = useAppStore((s) => s.moveLayerGroupToGroup);
@@ -290,7 +290,6 @@ export function LayerPanel({
     }
   }, [autoCollapse, internalCollapsed, isControlled]);
 
-  const visibleLayers = useMemo(() => [...layers].reverse(), [layers]);
   // Single selection, as in the mockup (Shift/Ctrl multi-select was dropped,
   // item 24): the store's selected layer is the only one.
   const toggleSelect = useCallback(
@@ -384,6 +383,27 @@ export function LayerPanel({
   );
   // SWIFTMAP: the panel as a tree, for empty groups and the group menu (Change 18).
   const tree = useMemo(() => buildLayerTree(layers, layerGroups), [layers, layerGroups]);
+  // SWIFTMAP: where each layer's Move up and Move down can go (Change 22).
+  const layerMoveability = useMemo(
+    () =>
+      new Map(
+        layers.map((layer) => [
+          layer.id,
+          {
+            up: stepLayer(tree, layers, layerGroups, layer.id, "up") !== null,
+            down: stepLayer(tree, layers, layerGroups, layer.id, "down") !== null,
+          },
+        ]),
+      ),
+    [tree, layers, layerGroups],
+  );
+  const moveLayerStep = (id: string, direction: "up" | "down") => {
+    const state = useAppStore.getState();
+    const current = buildLayerTree(state.layers, state.layerGroups);
+    const next = stepLayer(current, state.layers, state.layerGroups, id, direction);
+    if (!next) return;
+    useAppStore.setState({ ...writeLayerTree(next, state.layers, state.layerGroups), isDirty: true });
+  };
   const allGroupsById = useMemo(
     () => new Map(layerGroups.map((g) => [g.id, g] as const)),
     [layerGroups],
@@ -508,7 +528,6 @@ export function LayerPanel({
       <LayerGroupHeader
         group={group}
         depth={groupDepth(group)}
-        empty={!searching && findGroupNode(tree, group.id)?.children.length === 0}
         hiddenByParent={hiddenByParent(group)}
         moveability={groupMoveability.get(group.id)}
         moveTargets={groupMoveTargets(group)}
@@ -588,11 +607,13 @@ export function LayerPanel({
       case "duplicate":
         if (editable && canDuplicateLayer(layer)) duplicateLayer(layer);
         return;
+      // SWIFTMAP (Change 22): one place among its siblings, never past the
+      // top or bottom of its group (GeoLibre's reorderLayer moved the group).
       case "moveUp":
-        if (editable) reorderLayer(layer.id, "up");
+        if (editable) moveLayerStep(layer.id, "up");
         return;
       case "moveDown":
-        if (editable) reorderLayer(layer.id, "down");
+        if (editable) moveLayerStep(layer.id, "down");
         return;
       case "addToNewGroup":
         if (editable) addLayerGroup(undefined, [layer.id]);
@@ -758,7 +779,6 @@ export function LayerPanel({
             const group = layer.groupId ? groupById.get(layer.groupId) : undefined;
             const groupCollapsed = group?.collapsed ?? false;
             const groupAncestorCollapsed = group ? hasCollapsedAncestor(group) : false;
-            const panelIndex = visibleLayers.indexOf(layer);
             const selected = selectedLayerId === layer.id;
             return (
               <Fragment key={layer.id}>
@@ -768,8 +788,7 @@ export function LayerPanel({
                 {!groupCollapsed && !groupAncestorCollapsed && (
                   <LayerRow
                     layer={layer}
-                    displayIndex={panelIndex}
-                    displayCount={visibleLayers.length}
+                    moveability={layerMoveability.get(layer.id)}
                     group={group}
                     groupById={groupById}
                     groupDepth={groupDepth}

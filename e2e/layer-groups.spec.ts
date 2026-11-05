@@ -43,6 +43,9 @@ async function dropGeoJson(page: Page, name: string, text: string): Promise<void
  * serialized into the `.geolibre.json` project).
  */
 test("groups a layer and persists the folder across save and reopen", async ({ page }) => {
+  // SWIFTMAP: two app loads plus a save on a software-rendered CI runner took
+  // about 62s on PR #10, mostly waiting for menus to settle; nothing hung.
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
     delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
@@ -130,6 +133,8 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
  * a group moves with what it holds; and groups stop at three levels.
  */
 test("drags layers and groups and stops nesting at three levels", async ({ page }) => {
+  // Took about 51s of the default 60s on a CI runner (PR #10).
+  test.setTimeout(120_000);
   await waitForMap(page);
   for (const name of ["aaa", "bbb", "ccc"]) await dropLayer(page, name, FIXTURE_TEXT);
   await page.keyboard.press("Escape"); // new layers arrive selected
@@ -138,7 +143,9 @@ test("drags layers and groups and stops nesting at three levels", async ({ page 
   await page.getByRole("button", { name: "New group" }).click();
   await page.keyboard.press("Enter");
   const header = page.locator('[data-testid="layer-group-header"][data-group-name="New group"]');
-  await expect(header).toContainText("Empty. Drag layers here.");
+  // No placeholder under an empty group (Change 22): its "0" count says so.
+  await expect(header).toContainText("0");
+  await expect(header).not.toContainText("Drag layers here");
 
   const rows = () =>
     page
@@ -147,6 +154,12 @@ test("drags layers and groups and stops nesting at three levels", async ({ page 
         els.map((r) => `${r.getAttribute("aria-level")}:${r.getAttribute("data-layer-name") ?? "group"}`),
       );
   const grab = async (locator: ReturnType<typeof page.locator>) => {
+    // Rows slide into place for about 180ms after a drop; measure once they stop.
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll<HTMLElement>("[data-layer-list] > *")].every(
+        (el) => getComputedStyle(el).transform === "none",
+      ),
+    );
     const box = await locator.boundingBox();
     if (!box) throw new Error("not visible");
     return { x: box.x + 30, y: box.y + box.height / 2, height: box.height };
@@ -168,7 +181,7 @@ test("drags layers and groups and stops nesting at three levels", async ({ page 
   // A layer dropped on the middle of a group's row goes inside it.
   await dragTo(await grab(nameOf("aaa")), await grab(header.locator("[data-drag-grip]")));
   await expect.poll(rows).toEqual(["1:group", "2:aaa", "1:ccc", "1:bbb"]);
-  await expect(header).not.toContainText("Empty. Drag layers here.");
+  await expect(header).toContainText("1");
 
   // A layer dropped on the lower half of another goes below it.
   await dragTo(await grab(nameOf("ccc")), await below("bbb"));

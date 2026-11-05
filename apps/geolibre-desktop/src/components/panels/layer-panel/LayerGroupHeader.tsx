@@ -30,8 +30,6 @@ interface LayerGroupHeaderProps {
   group: LayerGroup;
   /** Nesting depth of the group (0 at the top level). */
   depth: number;
-  /** Whether the group holds nothing at all (no layers, no subgroups). */
-  empty: boolean;
   /** Whether a group above this one is hidden, which hides this one too. */
   hiddenByParent: boolean;
   moveability: { up: boolean; down: boolean } | undefined;
@@ -69,12 +67,11 @@ const NAME_TOOLTIP_DELAY = 450;
  * showing). The ⋯ menu is the mockup's (Rename, Add subgroup, Zoom to group,
  * Ungroup, Remove group) plus Opacity, and GeoLibre's Move items, kept as the
  * way to do without dragging what a drag does (Change 18, G2 and G3). An empty
- * group shows "Empty. Drag layers here.", which is also a drop target.
+ * group shows no placeholder; its "0" count says so (Change 22).
  */
 export function LayerGroupHeader({
   group,
   depth,
-  empty,
   hiddenByParent,
   moveability,
   moveTargets,
@@ -344,15 +341,6 @@ export function LayerGroupHeader({
             opacity={group.opacity}
             onChange={(v) => setLayerGroupOpacity(group.id, v)}
           />
-        </div>
-      ) : null}
-      {empty && !group.collapsed ? (
-        // Lines up with the names of the layers a group holds.
-        <div
-          data-drop-into={group.id}
-          className="mb-0.5 ms-[26px] mt-px rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground"
-        >
-          {t("layerPanel.emptyGroup")}
         </div>
       ) : null}
     </div>

@@ -9,6 +9,7 @@ import {
   groupLevel,
   insertNode,
   serializeTree,
+  stepLayer,
   withinDepthLimit,
   writeLayerTree,
 } from "../apps/geolibre-desktop/src/components/panels/layer-panel/layer-tree";
@@ -105,6 +106,70 @@ describe("moving a node", () => {
     assert.equal(move(layers, groups, "group:empty", null, 0).kept, false);
     // Directly below the other group is.
     assert.equal(move(layers, groups, "group:empty", null, 2).kept, true);
+  });
+
+  // Change 22: the last layer out of a group left the group empty, which the
+  // engine moves to the top, so every spot was refused and the layer stuck.
+  it("lets the last layer leave a group that isn't at the top", () => {
+    const groups = [group("g")];
+    const layers = layersTopFirst("a", "only@g", "b");
+    const tree = buildLayerTree(layers, groups);
+    const { tree: detached, node } = detachNode(tree, "layer:only");
+    assert.ok(node);
+    const next = insertNode(detached, node, { parentId: null, index: 3 });
+    assert.ok(next);
+    assert.equal(engineKeepsTree(next, layers, groups), false);
+    assert.equal(engineKeepsTree(next, layers, groups, { looseEmptyGroups: true }), true);
+    const written = writeLayerTree(next, layers, groups);
+    assert.equal(
+      serializeTree(buildLayerTree(written.layers, written.layerGroups)),
+      "g(),a,b,only",
+    );
+  });
+
+  it("still places a dragged empty group strictly", () => {
+    const groups = [group("empty"), group("g")];
+    const layers = layersTopFirst("a", "b@g");
+    const { next } = move(layers, groups, "group:empty", null, 0);
+    assert.equal(
+      engineKeepsTree(next, layers, groups, { looseEmptyGroups: true, keep: "group:empty" }),
+      false,
+    );
+  });
+});
+
+// Change 22: a layer's Move up/down stays within its group.
+describe("stepLayer", () => {
+  const groups = [group("g"), group("empty")];
+  const layers = layersTopFirst("top", "first@g", "second@g", "bottom");
+  const tree = buildLayerTree(layers, groups);
+  const step = (id: string, direction: "up" | "down") => {
+    const next = stepLayer(tree, layers, groups, id, direction);
+    return next && serializeTree(next);
+  };
+
+  it("does nothing for the first or last layer of a group", () => {
+    assert.equal(step("first", "up"), null);
+    assert.equal(step("second", "down"), null);
+  });
+
+  it("swaps layers inside a group", () => {
+    assert.equal(step("first", "down"), serializeTree(buildLayerTree(
+      layersTopFirst("top", "second@g", "first@g", "bottom"),
+      groups,
+    )));
+  });
+
+  it("moves a top-level layer past a whole group, never into it", () => {
+    // The empty group goes wherever the engine puts it; leave it out.
+    const withoutEmpty = (s: string | null) =>
+      s?.split(",").filter((part) => part !== "empty()").join(",");
+    assert.equal(withoutEmpty(step("bottom", "up")), "top,bottom,g(first,second)");
+    assert.equal(withoutEmpty(step("top", "down")), "g(first,second),top,bottom");
+  });
+
+  it("does nothing at the ends of the panel", () => {
+    assert.equal(step("bottom", "down"), null);
   });
 });
 

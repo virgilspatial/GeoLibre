@@ -118,17 +118,94 @@ export function writeLayerTree(
 }
 
 /**
+ * The tree without groups that hold no layer anywhere below them, except the
+ * one keyed `keep` (and the groups around it).
+ */
+function withoutEmptyGroups(tree: LayerTreeNode[], keep?: string): LayerTreeNode[] {
+  const result: LayerTreeNode[] = [];
+  for (const node of tree) {
+    if (node.kind === "layer") {
+      result.push(node);
+      continue;
+    }
+    const children = withoutEmptyGroups(node.children, keep);
+    if (children.length > 0 || nodeKey(node) === keep) result.push({ ...node, children });
+  }
+  return result;
+}
+
+/**
  * Whether the engine keeps the tree as it is: writing it and reading it back
  * gives the same tree. It doesn't when a subgroup would split a group's own
  * layers, or an empty group would sit between two layers (Change 18).
+ *
+ * `looseEmptyGroups`: only where the layers and the groups holding them land
+ * counts. A group left empty (its last layer moved out) goes wherever the
+ * engine puts empty groups, at the top of its level, and that doesn't stop the
+ * move (Change 22). `keep` names an empty group whose place still counts: the
+ * one being dragged.
  */
 export function engineKeepsTree(
   tree: LayerTreeNode[],
   layers: GeoLibreLayer[],
   groups: LayerGroup[],
+  options: { looseEmptyGroups?: boolean; keep?: string } = {},
 ): boolean {
   const written = writeLayerTree(tree, layers, groups);
-  return serializeTree(buildLayerTree(written.layers, written.layerGroups)) === serializeTree(tree);
+  const readBack = buildLayerTree(written.layers, written.layerGroups);
+  if (!options.looseEmptyGroups) return serializeTree(readBack) === serializeTree(tree);
+  return (
+    serializeTree(withoutEmptyGroups(readBack, options.keep)) ===
+    serializeTree(withoutEmptyGroups(tree, options.keep))
+  );
+}
+
+/**
+ * The tree with a node moved one place up or down among its siblings, past the
+ * next sibling that holds a layer (an empty group has no place of its own), or
+ * null when it is already first or last there. A layer never leaves its group
+ * this way (Change 22); the engine may still refuse the result.
+ */
+export function stepNode(
+  tree: LayerTreeNode[],
+  key: string,
+  direction: "up" | "down",
+): LayerTreeNode[] | null {
+  const { tree: detached, node, from } = detachNode(tree, key);
+  if (!node || !from) return null;
+  const siblings = childrenAt(detached, from.parentId) ?? [];
+  const holdsLayer = (candidate: LayerTreeNode) =>
+    withoutEmptyGroups([candidate]).length > 0;
+  let index: number | null = null;
+  if (direction === "up") {
+    for (let i = from.index - 1; index === null && i >= 0; i--) {
+      if (holdsLayer(siblings[i])) index = i;
+    }
+  } else {
+    for (let i = from.index; index === null && i < siblings.length; i++) {
+      if (holdsLayer(siblings[i])) index = i + 1;
+    }
+  }
+  return index === null ? null : insertNode(detached, node, { parentId: from.parentId, index });
+}
+
+/**
+ * A layer's Move up or Move down (Change 22): the tree with the layer one place
+ * along among its siblings, or null when it can't move (first or last in its
+ * group, or a spot the engine doesn't keep). GeoLibre's `reorderLayer` swaps it
+ * with the next layer in draw order instead, which moves a group's top layer's
+ * whole group past its neighbour.
+ */
+export function stepLayer(
+  tree: LayerTreeNode[],
+  layers: GeoLibreLayer[],
+  groups: LayerGroup[],
+  id: string,
+  direction: "up" | "down",
+): LayerTreeNode[] | null {
+  const next = stepNode(tree, `layer:${id}`, direction);
+  if (!next || !engineKeepsTree(next, layers, groups, { looseEmptyGroups: true })) return null;
+  return next;
 }
 
 function cloneTree(tree: LayerTreeNode[]): LayerTreeNode[] {
