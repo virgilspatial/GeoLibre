@@ -78,7 +78,6 @@ interface ActiveDrag {
   groups: LayerGroup[];
   rows: RowGeometry[];
   rowByKey: Map<string, RowGeometry>;
-  emptyBoxes: { groupId: string; top: number; bottom: number }[];
   /** Every direct child of the list, with its top, for the sliding gap. */
   slides: { el: HTMLElement; top: number }[];
   gap: number;
@@ -205,12 +204,6 @@ export function useRowDrag({ listRef, enabled, canDrag, onDepthLimit }: UseRowDr
       if (dragged.has(rowKey)) el.style.opacity = "0.45";
       rows.push(row);
     }
-    const emptyBoxes = [...list.querySelectorAll<HTMLElement>("[data-drop-into]")]
-      .filter((el) => !dragged.has(`group:${el.dataset.dropInto}`))
-      .map((el) => {
-        const r = el.getBoundingClientRect();
-        return { groupId: el.dataset.dropInto ?? "", top: r.top - listTop, bottom: r.bottom - listTop };
-      });
     const slides = [...list.children]
       .filter((el): el is HTMLElement => el instanceof HTMLElement && !el.hasAttribute("data-drag-overlay"))
       .map((el) => ({ el, top: el.getBoundingClientRect().top - listTop }));
@@ -227,7 +220,6 @@ export function useRowDrag({ listRef, enabled, canDrag, onDepthLimit }: UseRowDr
       groups,
       rows: rows.filter((row) => !dragged.has(row.key)),
       rowByKey,
-      emptyBoxes,
       slides,
       gap: GAP,
       lineSpots: [],
@@ -270,7 +262,10 @@ export function useRowDrag({ listRef, enabled, canDrag, onDepthLimit }: UseRowDr
     const ok =
       next !== null &&
       withinDepthLimit(drag.groups, drag.node, spot.parentId) &&
-      engineKeepsTree(next, drag.layers, drag.groups);
+      engineKeepsTree(next, drag.layers, drag.groups, {
+        looseEmptyGroups: true,
+        keep: nodeKey(drag.node),
+      });
     drag.valid.set(id, ok);
     return ok;
   };
@@ -340,9 +335,6 @@ export function useRowDrag({ listRef, enabled, canDrag, onDepthLimit }: UseRowDr
   };
 
   const targetAt = (drag: ActiveDrag, y: number): Target | "depth" | null => {
-    for (const box of drag.emptyBoxes) {
-      if (y >= box.top && y < box.bottom) return intoTarget(drag, box.groupId);
-    }
     const rows = drag.rows;
     if (rows.length === 0) return lineTarget(drag, { parentId: null, index: drag.detached.length }, y);
     let row = rows.find((candidate) => y >= candidate.hitTop && y < candidate.hitBottom);

@@ -318,7 +318,9 @@ describe("LayerPanel", () => {
     renderLayerPanel();
     const header = (name: string) =>
       screen.getAllByTestId("layer-group-header").find((el) => el.dataset.groupName === name);
-    assert.match(header("Empty folder")?.textContent ?? "", /Empty\. Drag layers here\./);
+    // No placeholder under an empty group (Change 22): its "0" count says so.
+    assert.equal(header("Empty folder")?.textContent?.trim().endsWith("0"), true);
+    assert.doesNotMatch(header("Empty folder")?.textContent ?? "", /Drag layers here/);
 
     // Delete on a group's row removes it, as the menu's "Remove group" does.
     fireEvent.keyDown(within(header("Empty folder")!).getByRole("button", { name: "Collapse group" }), {

@@ -53,10 +53,8 @@ import { LayerOpacityCard, LayerPropertiesCard } from "./LayerRowCards";
 
 interface LayerRowProps {
   layer: GeoLibreLayer;
-  /** The row's index in panel (top-to-bottom) order. */
-  displayIndex: number;
-  /** How many layer rows the panel lists, for Move up/down at the ends. */
-  displayCount: number;
+  /** Whether Move up and Move down can move the layer within its group (Change 22). */
+  moveability: { up: boolean; down: boolean } | undefined;
   /** The group the layer belongs to, if any. */
   group: LayerGroup | undefined;
   /** Every group by id, for folding ancestor visibility into the row. */
@@ -145,8 +143,7 @@ function ToolButton({
  */
 export function LayerRow({
   layer,
-  displayIndex,
-  displayCount,
+  moveability,
   group,
   groupById,
   groupDepth,
@@ -475,8 +472,8 @@ export function LayerRow({
                     isRefreshing={isRefreshing}
                     opacityAvailable={opacityAvailable}
                     canDuplicate={canDuplicate}
-                    canMoveUp={displayIndex > 0}
-                    canMoveDown={displayIndex < displayCount - 1}
+                    canMoveUp={moveability?.up ?? false}
+                    canMoveDown={moveability?.down ?? false}
                     exportOpen={exportOpen}
                     setExportOpen={setExportOpen}
                   />

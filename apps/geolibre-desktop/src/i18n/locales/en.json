@@ -3532,7 +3532,6 @@
     "removeGroupConfirmTitle": "Remove group?",
     "removeGroupConfirmBody_one": "This removes {{name}} and the layer in it from the project.",
     "removeGroupConfirmBody_other": "This removes {{name}} and the {{count}} layers in it from the project.",
-    "emptyGroup": "Empty. Drag layers here.",
     "groupDepthLimit": "Groups can be nested up to {{max}} levels"
   },
   "rail": {
