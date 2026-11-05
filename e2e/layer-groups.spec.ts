@@ -43,6 +43,9 @@ async function dropGeoJson(page: Page, name: string, text: string): Promise<void
  * serialized into the `.geolibre.json` project).
  */
 test("groups a layer and persists the folder across save and reopen", async ({ page }) => {
+  // SWIFTMAP: two app loads plus a save on a software-rendered CI runner took
+  // about 62s on PR #10, mostly waiting for menus to settle; nothing hung.
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     delete (window as unknown as Record<string, unknown>).showSaveFilePicker;
     delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
@@ -130,6 +133,8 @@ test("groups a layer and persists the folder across save and reopen", async ({ p
  * a group moves with what it holds; and groups stop at three levels.
  */
 test("drags layers and groups and stops nesting at three levels", async ({ page }) => {
+  // Took about 51s of the default 60s on a CI runner (PR #10).
+  test.setTimeout(120_000);
   await waitForMap(page);
   for (const name of ["aaa", "bbb", "ccc"]) await dropLayer(page, name, FIXTURE_TEXT);
   await page.keyboard.press("Escape"); // new layers arrive selected
