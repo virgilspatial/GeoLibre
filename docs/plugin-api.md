@@ -258,6 +258,18 @@ export interface GeoLibreAppAPI {
   fetchArrayBuffer?: (url: string) => Promise<ArrayBuffer>;
   // Presign private S3 objects through a configured connection (see "Reading S3 objects").
   resolveReadableUrl?: (url: string, signal?: AbortSignal) => Promise<string>;
+  // Save plugin output through the host's browser or native file dialog.
+  exportTextFile?: (
+    filename: string,
+    content: string,
+    options?: GeoLibreFileDialogOptions
+  ) => void;
+  // Convert WGS84 GeoJSON to GeoParquet with the host's established writer.
+  // The filename is a base name without an extension.
+  exportGeoParquetFile?: (
+    filename: string,
+    data: FeatureCollection
+  ) => Promise<string | null>;
   // Desktop only: fetch through the native client (see "Signing in with a session cookie").
   nativeFetch?: typeof globalThis.fetch;
   fitBounds?: (bounds: [number, number, number, number]) => void;
@@ -372,6 +384,9 @@ export interface GeoLibreAppAPI {
     contribution: GeoLibreMenuContribution
   ) => () => void;
   unregisterMenuContribution?: (id: string) => void;
+  // Files dropped on the map (see "Receiving dropped files" below).
+  registerFileHandler?: (handler: GeoLibreFileHandler) => () => void;
+  unregisterFileHandler?: (id: string) => void;
   // Floating panels (see "Floating panels" below).
   registerFloatingPanel?: (
     panel: GeoLibreFloatingPanelRegistration
@@ -413,6 +428,28 @@ export type GeoLibreToolbarMenuItem =
       items: GeoLibreToolbarMenuItem[];
     }
   | { type: "separator"; id?: string };
+
+export interface GeoLibreDroppedFileInfo {
+  name: string;
+  path?: string; // relative path, only for a file inside a dropped folder
+  size: number;
+  entries?: string[]; // paths inside the archive, only for a readable .zip
+}
+
+export interface GeoLibreDroppedFile extends GeoLibreDroppedFileInfo {
+  arrayBuffer: () => Promise<ArrayBuffer>;
+  text: () => Promise<string>;
+}
+
+export interface GeoLibreFileHandler {
+  id: string;
+  name: string; // shown in the drop status message
+  extensions: string[]; // cheap pre-filter, e.g. [".zip", ".xml"]
+  claim: (
+    files: GeoLibreDroppedFileInfo[]
+  ) => GeoLibreDroppedFileInfo[] | Promise<GeoLibreDroppedFileInfo[]>;
+  open: (files: GeoLibreDroppedFile[]) => void | Promise<void>;
+}
 
 export interface GeoLibreMenuContribution {
   id: string;
@@ -1536,6 +1573,38 @@ The host always nests the items under a submenu named after your plugin, placed 
 
 Items use the same shape as [toolbar menus](#toolbar-menus): actions, submenus and separators, with optional icons and label getters that follow the app language. Register in `activate` and call the returned function (or `app.unregisterMenuContribution?.(id)`) in `deactivate`; re-registering the same `id` replaces the contribution. Ids are global, like toolbar menu ids, so prefix them with your plugin id; the host warns when one plugin's id replaces another's, and `unregisterMenuContribution` only removes contributions your own plugin registered. The host also drops a plugin's contributions when it is deactivated or its activation fails, so a missed disposer cannot leave stale items behind. A `menu` the host does not recognize (for example, one added in a newer GeoLibre) logs a warning and is ignored rather than failing your activation. Like toolbar menus, contributions are hidden in the read-only viewer and when a deployment does not grant `plugins:install`.
 
+## Receiving dropped files
+
+A plugin that reads a format the core does not know can receive that format when a user drops it on the map, on web and desktop alike. Project files are still opened first; every other file is offered to the registered handlers before the built-in groups (rasters, point clouds, vector files and so on) see it:
+
+```typescript
+const unregister = app.registerFileHandler?.({
+  id: "my-plugin-taskdata",
+  name: "ISOXML TaskData",
+  extensions: [".zip", ".xml", ".bin"],
+  // Only claim what you recognize. A shapefile zip is not yours, so return [].
+  claim: (files) =>
+    files.filter(
+      (file) =>
+        file.entries?.some((entry) => /(^|\/)TASKDATA\.XML$/i.test(entry)) ||
+        /^TASKDATA\//i.test(file.path ?? ""),
+    ),
+  open: async (files) => {
+    for (const file of files) parseAndAddLayers(file.name, await file.arrayBuffer());
+  },
+});
+```
+
+- `extensions` is a cheap, case-insensitive pre-filter: only files that match are offered, so `claim` never runs for a file you could never take. It must list at least one extension.
+- `claim` gets every matching file in the drop, so it can take a multi-file set, and returns the files it takes. An empty list means "not mine". Each file has a `name` and `size`; a readable `.zip` also has `entries`, the paths inside the archive, read from its central directory without loading the archive. Decide by these, since `.zip` is shared with the core. A `claim` that throws counts as "not mine".
+- `open` gets the claimed files, which add `arrayBuffer()` and `text()`. The drop status then says "Opened by" and your `name`. If `open` rejects, the error is shown under your `name` and the files stay claimed.
+
+Handlers run in registration order, and a file one handler claims is not offered to the next. Everything nobody claims loads as it would without any handlers, so a shapefile zip still loads as a shapefile.
+
+Files inside a dropped folder also have a `path` relative to the drop, such as `TASKDATA/TLG00001.BIN`. Hidden entries and `__MACOSX` are skipped, and very deep or very large folders are cut off, so do not rely on seeing every file of a huge tree. When a handler claims any file of a folder, the whole folder counts as handled and its other files are not loaded. When no handler claims any, the folder goes to the built-in groups as usual.
+
+Register in `activate` and call the returned function (or `app.unregisterFileHandler?.(id)`) in `deactivate`; re-registering the same `id` replaces the handler. Ids are global, so prefix them with your plugin id; `unregisterFileHandler` only removes handlers your own plugin registered. The host also drops a plugin's handlers when it is deactivated or its activation fails. Drops are still blocked before any handler runs in the read-only viewer and when a deployment does not grant `data:add`.
+
 ## Following the app language
 
 The GeoLibre UI is translated with react-i18next, but a plugin renders its panels as plain DOM and cannot use the host's React hooks. Four methods bridge that gap:
@@ -2091,6 +2160,18 @@ const stop = app.onMapCrsChange?.((crs) => (status.textContent = describe(crs)))
 // in deactivate: stop?.();
 ```
 
+`app.setMapCrs(id)` switches the map, for a layer the user picked that only
+lines up in its own CRS. `id` is a preset id or `"EPSG:<code>"`, and `null` goes
+back to the default map. It does what choosing the CRS in Settings does,
+including marking the project unsaved, so call it on a user action rather than
+on activation. It resolves to `false`, leaving the map alone, when the value
+cannot be drawn or the renderer is not MapLibre:
+
+```ts
+const switched = await app.setMapCrs?.("EPSG:32632");
+if (switched) app.addWmsLayer?.(/* ... */);
+```
+
 ### Reading the viewport
 
 A catalog or service browser that narrows its search to what the user can see
@@ -2303,7 +2384,9 @@ with it. A plugin whose control needs those methods should keep the default
 
 The web host keeps `lat`, `lon`, and `zoom` synchronized with the primary map
 view, debounced with `history.replaceState` so movement does not add Back
-history entries. When a project URL also carries coordinates, that view overrides
+history entries, and `crs` with the CRS the map enters or leaves (a link's `crs`
+that does not resolve stays as written). When a project URL
+also carries coordinates, that view overrides
 the project's saved center and zoom. Plugins can publish their current search state through the
 optional, plugin-scoped API:
 
@@ -2314,7 +2397,7 @@ app.setUrlParameters?.(new URLSearchParams({ ingvTime: "30d", ingvMag: "3,8" }))
 Declare each writable name in `urlParameterNames`. Each call replaces all of
 that plugin's declared parameters: omitted names are removed, and repeated
 values are preserved. Other query parameters, the fragment, and history state
-are retained. Host parameters such as `url`, `plugin`, `lat`, `lon`, and `zoom`
+are retained. Host parameters such as `url`, `plugin`, `lat`, `lon`, `zoom`, and `crs`
 are reserved, even if declared by a plugin. Use plugin-specific names to avoid
 collisions with other plugins. A query name belongs to the first plugin that
 registers it for writes; later plugins can still read it through URL dispatch,
