@@ -30,6 +30,7 @@ import { useUiProfileBootstrap } from "./hooks/useUiProfileBootstrap";
 import { useUndoRedoShortcuts } from "./hooks/useUndoRedoShortcuts";
 import { useWhiteboxToolUrl } from "./hooks/useWhiteboxToolUrl";
 import { createAppAPI } from "./hooks/usePlugins";
+import { useSwiftmapDefaultBasemap } from "./components/map/useSwiftmapDefaultBasemap";
 import { languageDirection } from "./i18n/languages";
 
 export default function App() {
@@ -64,6 +65,8 @@ export default function App() {
   useLayerLibraryPersistence();
   useTemplateLibraryPersistence();
   useRuntimeEnvironmentVariables();
+  // SWIFTMAP (Change 23): after the runtime env is set, so a Settings key counts.
+  useSwiftmapDefaultBasemap();
   useUndoRedoShortcuts();
   useBeforeUnloadGuard();
   useWhiteboxToolUrl();

@@ -72,6 +72,7 @@ import { isNewBuildDeployed, offerAppUpdate, watchForAppUpdates } from "./lib/ap
 import { resolveAuthGate, type AuthGateConfig } from "./lib/auth-gate";
 import { getInitialThemeMode } from "./hooks/useThemeMode";
 import { KeychainWaitScreen } from "./components/common/KeychainWaitScreen";
+import { applySwiftmapDefaultBasemap } from "./components/map/swiftmap-basemap";
 import { applyTemporaryDesktopSettings } from "./hooks/useDesktopSettings";
 import {
   desktopSettingsUrl,
@@ -92,6 +93,9 @@ import { configureShareOAuthReadiness, markColdShareCallback } from "./lib/share
 // layers). Before Diagnostics wraps `fetch`, so its restore keeps this wrapper.
 installEarthdataFetchAuth();
 installGeocodingTokenProvider();
+// SWIFTMAP (Change 23): Protomaps Light for the first map when a build-time key
+// is set, before React renders, so Liberty never flashes up first.
+applySwiftmapDefaultBasemap();
 
 installDiagnosticsCapture();
 

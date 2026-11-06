@@ -26,6 +26,7 @@ import {
   withStartupLayers,
 } from "../../lib/startup-layers";
 import { CollapsibleSection } from "../CollapsibleSection";
+import { swiftmapDefaultBasemapId } from "../map/swiftmap-basemap";
 import { RegionalBasemapSection } from "../panels/RegionalBasemapSection";
 import { StarterProjectsSection } from "./StarterProjectsSection";
 import {
@@ -159,6 +160,11 @@ export function NewProjectDialog({
     if (!open) return;
     const refresh = () => setProtomapsPresets(resolveProtomapsPresets());
     refresh();
+    // SWIFTMAP (Change 23): preselect Protomaps Light when a key makes it
+    // available, else Liberty. On open, since the key can arrive after mount.
+    setSelectedBasemapId(
+      swiftmapDefaultBasemapId(resolveProtomapsPresets().map((basemap) => basemap.id)),
+    );
     window.addEventListener("geolibre:runtime-env-change", refresh);
     return () => window.removeEventListener("geolibre:runtime-env-change", refresh);
   }, [open]);
