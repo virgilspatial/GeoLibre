@@ -111,6 +111,7 @@ import { PluginRightPanel } from "../panels/PluginRightPanel";
 import { StylePanel } from "../panels/StylePanel";
 import { SharedSidebar } from "../panels/SharedSidebar";
 import { SidePanel } from "./rail/SidePanel";
+import { LegendPanel } from "./legend-panel/LegendPanel";
 import { useSidePanelStore } from "./rail/sidePanelStore";
 import { Layers, SlidersHorizontal } from "lucide-react";
 import { StoryMapComposeBar } from "../storymap/StoryMapComposeBar";
@@ -231,6 +232,8 @@ export function DesktopShell({
   useTranslatedPluginLabels(t);
   useMapFullscreenAttribute(shellRef);
   const mapControllerRef = useRef<MapEngine | null>(null);
+  // SWIFTMAP (Change 25): the Legend panel asks the live map what it draws.
+  const getLegendMap = useCallback(() => mapControllerRef.current?.getMap() ?? null, []);
 
   useDataUrlFit(dataUrlLoadState, mapControllerRef);
 
@@ -717,6 +720,9 @@ export function DesktopShell({
             ) : (
               <SectionErrorBoundary label="Layer panel" displayName={t("shell.section.layerPanel")}>
                 <SidePanel
+                  legend={
+                    <LegendPanel getMap={getLegendMap} mapReadyGeneration={mapReadyGeneration} />
+                  }
                   startClosed={layoutOptions.panelsCollapsed}
                   autoClose={storymapPresenting || autoCollapsedPanel === "layers"}
                   layers={

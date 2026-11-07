@@ -25,6 +25,8 @@ interface SidePanelProps {
    * it keeps its own state; it hides itself when told it is collapsed.
    */
   layers: ReactNode;
+  /** The Legend panel (Change 25), shown while Legend is the active panel. */
+  legend?: ReactNode;
   /** Start closed (GeoLibre's "panels collapsed" layouts). */
   startClosed?: boolean;
   /**
@@ -43,7 +45,12 @@ interface SidePanelProps {
  * GeoLibre's `LayerPanel` already sizes itself by. On a phone the Layers panel
  * overlays the map from just below the rail row, anchored to this container.
  */
-export function SidePanel({ layers, startClosed = false, autoClose = false }: SidePanelProps) {
+export function SidePanel({
+  layers,
+  legend = null,
+  startClosed = false,
+  autoClose = false,
+}: SidePanelProps) {
   const { t } = useTranslation();
   const active = useSidePanelStore((state) => state.active);
   const [width, setWidth] = useState(SIDE_PANEL_DEFAULT_WIDTH);
@@ -75,13 +82,14 @@ export function SidePanel({ layers, startClosed = false, autoClose = false }: Si
       className="relative z-20 flex min-h-0 shrink-0 flex-col md:flex-row [&[hidden]]:hidden"
     >
       {layers}
-      {active === "legend" || active === "analysis" ? (
+      {active === "legend" ? legend : null}
+      {active === "analysis" ? (
         <section
           aria-labelledby="side-panel-title"
           className="flex w-full flex-col border-b bg-background px-3 py-3.5 md:h-full md:w-[var(--layer-panel-width)] md:border-e md:border-b-0"
         >
           <h2 id="side-panel-title" className="ps-1.5 pb-2 text-sm font-semibold">
-            {active === "legend" ? t("rail.legend") : t("rail.analysis")}
+            {t("rail.analysis")}
           </h2>
           <p className="ps-1.5 text-sm text-muted-foreground">{t("rail.comingLater")}</p>
         </section>

@@ -11,8 +11,6 @@ const railButtonClass =
   "aria-pressed:bg-muted aria-pressed:shadow-[inset_0_0_0_1px_hsl(var(--border))] aria-pressed:hover:bg-muted " +
   "aria-expanded:bg-muted aria-expanded:shadow-[inset_0_0_0_1px_hsl(var(--border))] aria-expanded:hover:bg-muted";
 
-/** The mockup's rail tooltip: 14px medium text, roomier than the app default. */
-const railTooltipClass = "rounded-[10px] px-3.5 py-2 text-sm font-medium";
 
 interface RailButtonProps extends Omit<ComponentPropsWithoutRef<typeof Button>, "title"> {
   /** Accessible name and tooltip text. */
@@ -38,7 +36,8 @@ export const RailButton = forwardRef<HTMLButtonElement, RailButtonProps>(
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={12} className={railTooltipClass}>
+      {/* The header's stock 12px tooltip (Change 25), 8px from the button. */}
+      <TooltipContent side="right" sideOffset={8}>
         {label}
       </TooltipContent>
     </Tooltip>
