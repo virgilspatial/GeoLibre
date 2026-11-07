@@ -62,9 +62,24 @@ export function railButton(page: Page, name: string) {
   return page.getByTestId("swiftmap-rail").getByRole("button", { name, exact: true });
 }
 
-/** Opens a rail menu: "Add Data", "Tools" (GeoLibre's Plugins menu) or "Settings". */
+/**
+ * Opens a rail menu: "Tools" (GeoLibre's Plugins menu) or "Settings". "Add Data"
+ * opens the Add Data dialog instead (Change 24); see {@link openAddDataSource}.
+ */
 export async function openRailMenu(page: Page, name: "Add Data" | "Tools" | "Settings"): Promise<void> {
   await railButton(page, name).click();
+}
+
+/**
+ * SWIFTMAP (Change 24): opens the Add Data dialog from the rail and picks a More
+ * sources entry, such as "LiDAR layer". The dialog closes and GeoLibre's own
+ * loader for that source opens.
+ */
+export async function openAddDataSource(page: Page, name: string): Promise<void> {
+  await railButton(page, "Add Data").click();
+  const dialog = page.getByRole("dialog", { name: "Add Data" });
+  await dialog.getByRole("tab", { name: "More sources" }).click();
+  await dialog.getByRole("button", { name, exact: true }).click();
 }
 
 /** Waits for MapLibre to mount its WebGL canvas — the app's "map ready" signal. */

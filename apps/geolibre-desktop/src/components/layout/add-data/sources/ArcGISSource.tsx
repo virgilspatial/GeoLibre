@@ -72,10 +72,25 @@ function simpleRenderingRuleFunctionName(renderingRule: string): string | null {
   }
 }
 
+/**
+ * SWIFTMAP (Change 24): the layer type a prefilled service URL names, so a
+ * MapServer link from Add Data's From a link tab opens on Map service rather
+ * than Feature layer.
+ */
+function layerTypeForUrl(url: string): ArcGISLayerType {
+  const path = url.toLowerCase().split("?")[0] ?? "";
+  if (/\/vectortileserver(\/|$)/.test(path)) return "vector-tile";
+  if (/\/imageserver(\/|$)/.test(path)) return "image-service";
+  if (/\/mapserver\/?$/.test(path)) return "map-service";
+  return "feature";
+}
+
 export function ArcGISSource({ initialUrl = "" }: { initialUrl?: string }) {
   const { t } = useTranslation();
   const source = useAddDataSource(t("addData.arcgis.defaultName"));
-  const [arcgisLayerType, setArcgisLayerType] = useState<ArcGISLayerType>("feature");
+  const [arcgisLayerType, setArcgisLayerType] = useState<ArcGISLayerType>(() =>
+    layerTypeForUrl(initialUrl),
+  );
   const [arcgisSourceType, setArcgisSourceType] = useState<ArcGISSourceType>("url");
   const [arcgisUrl, setArcgisUrl] = useState(initialUrl);
   const [arcgisItemId, setArcgisItemId] = useState("");

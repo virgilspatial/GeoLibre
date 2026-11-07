@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { openMenuBarMenu, openRailMenu } from "./helpers";
+import { openMenuBarMenu, openAddDataSource } from "./helpers";
 
 /**
  * Exercises the glTF 3D model layer (#306): the "3D Model (glTF)" Add Data
@@ -23,8 +23,7 @@ test("adds a glTF 3D model layer placed at a single coordinate", async ({ page }
   await waitForMap(page);
 
   // Open Add Data -> 3D Model (glTF).
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name: "3D model (glTF)" }).click();
+  await openAddDataSource(page, "3D model (glTF)");
 
   // The dialog opens pre-selected on the scenegraph layer type, pre-filled from
   // the bundled example: model URL plus a default single-location coordinate so
@@ -46,8 +45,7 @@ test("adds a glTF 3D model layer placed at a single coordinate", async ({ page }
 test("blocks single-location placement without a valid coordinate", async ({ page }) => {
   await waitForMap(page);
 
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name: "3D model (glTF)" }).click();
+  await openAddDataSource(page, "3D model (glTF)");
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -63,8 +61,7 @@ test("blocks single-location placement without a valid coordinate", async ({ pag
 
 test("imports an embedded local glTF and rejects missing companion files", async ({ page }) => {
   await waitForMap(page);
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name: "3D model (glTF)" }).click();
+  await openAddDataSource(page, "3D model (glTF)");
   const dialog = page.getByRole("dialog");
   const choose = async (name: string, model: object) => {
     const picker = page.waitForEvent("filechooser");
@@ -86,8 +83,7 @@ test("imports an embedded local glTF and rejects missing companion files", async
 
 test("Shanghai sample fills the geographic origin and meter-scale placement", async ({ page }) => {
   await waitForMap(page);
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name: "3D model (glTF)" }).click();
+  await openAddDataSource(page, "3D model (glTF)");
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Sample dataset").selectOption("shanghai");
   await expect(dialog.getByLabel("glTF / GLB model URL")).toHaveValue(
@@ -118,8 +114,7 @@ test("preserves scale edits made while a local model is being embedded", async (
     };
   });
   await waitForMap(page);
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name: "3D model (glTF)" }).click();
+  await openAddDataSource(page, "3D model (glTF)");
   const dialog = page.getByRole("dialog");
   const picker = page.waitForEvent("filechooser");
   await dialog.getByRole("button", { name: "Choose local model" }).click();

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { layerRow, openMenuBarMenu, openRailMenu } from "./helpers";
+import { layerRow, openMenuBarMenu, openAddDataSource, openRailMenu } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 // Opt-in: these integration tests use real Mapbox services and public datasets.
@@ -8,8 +8,7 @@ test.skip(!process.env.MAPBOX_TOKEN, "Set MAPBOX_TOKEN to test the Mapbox render
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await openAddDataSource(page, name);
 }
 
 for (const theme of ["light", "dark"] as const) {

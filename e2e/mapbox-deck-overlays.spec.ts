@@ -2,6 +2,7 @@ import { expect, test, type Page } from "./test";
 import {
   layerRow,
   openMenuBarMenu,
+  openAddDataSource,
   openRailMenu,
   railButton,
   RENDERER_SWAP_TIMEOUT,
@@ -37,8 +38,7 @@ const DUCKDB_ROWS = 200;
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await openAddDataSource(page, name);
 }
 
 type EngineKind = "mapbox" | "maplibre";

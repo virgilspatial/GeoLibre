@@ -154,6 +154,7 @@ import { useDropStatus } from "../../hooks/desktop-shell/useDropStatus";
 import { useUrlLoadErrorNotices } from "../../hooks/desktop-shell/useUrlLoadErrorNotices";
 import { useWebglContextLossNotice } from "../../hooks/desktop-shell/useWebglContextLossNotice";
 import { useFileDrop } from "../../hooks/desktop-shell/useFileDrop";
+import { fileDropEvent, registerFileImporter } from "./add-data-dialog/file-import-bridge";
 import { useKnowledgeCard } from "../../hooks/desktop-shell/useKnowledgeCard";
 import { useLayerEditActions } from "../../hooks/desktop-shell/useLayerEditActions";
 import { useIdentifyEditActions } from "../../hooks/desktop-shell/useIdentifyEditActions";
@@ -557,6 +558,15 @@ export function DesktopShell({
       addDroppedPhotos,
       t,
     });
+  // SWIFTMAP (Change 24): the Add Data dialog's Upload tab imports through the
+  // same drop pipeline as a file dropped on the map.
+  useEffect(
+    () =>
+      registerFileImporter((files) =>
+        handleDrop(fileDropEvent<Parameters<typeof handleDrop>[0]>(files)),
+      ),
+    [handleDrop],
+  );
 
   const bottomPanels = (
     <BottomPanels

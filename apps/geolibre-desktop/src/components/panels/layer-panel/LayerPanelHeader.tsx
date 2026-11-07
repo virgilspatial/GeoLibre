@@ -44,13 +44,13 @@ function HeaderButton({
 
 /**
  * SWIFTMAP: the Layers panel title bar (Change 17): "Layers", then New group
- * and a + that opens the rail's Add Data menu. GeoLibre's eight header icons
+ * and a + that opens the Add Data dialog (Change 24). GeoLibre's eight header icons
  * (planet switcher, Basemaps, GeoEditor, Compact view, Show/hide all, Identify
  * visible layers, Collapse) were dropped by the user; their engine code stays.
  */
 export function LayerPanelHeader({ onCreateGroup, canAddData }: LayerPanelHeaderProps) {
   const { t } = useTranslation();
-  const setAddDataMenuOpen = useSidePanelStore((s) => s.setAddDataMenuOpen);
+  const setAddDataOpen = useSidePanelStore((s) => s.setAddDataOpen);
   return (
     <div className="flex items-center justify-between pb-2 ps-1.5">
       <h2 className="text-sm font-semibold">{t("layerPanel.title")}</h2>
@@ -59,7 +59,7 @@ export function LayerPanelHeader({ onCreateGroup, canAddData }: LayerPanelHeader
           <FolderPlus className="h-4 w-4" strokeWidth={1.75} />
         </HeaderButton>
         {canAddData ? (
-          <HeaderButton label={t("layerPanel.addData")} onClick={() => setAddDataMenuOpen(true)}>
+          <HeaderButton label={t("layerPanel.addData")} onClick={() => setAddDataOpen(true)}>
             <Plus className="h-4 w-4" strokeWidth={2} />
           </HeaderButton>
         ) : null}

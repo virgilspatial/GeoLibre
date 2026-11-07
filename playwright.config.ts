@@ -41,6 +41,8 @@ const CORE_SPECS = [
   // plugin fails its own PR instead of the next night's run (#2858). Its
   // registry install flows are in plugin-deep-link-registry.spec.ts, nightly.
   "plugin-deep-link.spec.ts",
+  // SWIFTMAP (Change 24): the Add Data dialog that replaced the Add Data menu.
+  "add-data-dialog.spec.ts",
   // Moved to `features` once core reached ~11 min wall-clock (~25 min of test
   // time): set-view, paste-style, style-manager and identify-restore. Each
   // covers one dialog or interaction, not something every user hits, and
