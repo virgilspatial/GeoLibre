@@ -82,11 +82,12 @@ export const MAP_CONTROL_ITEMS: Array<{
  */
 export const LOGO_CONTROL_IDS = new Set<ToolbarMapControl>(["logo", "maptoolkit-logo"]);
 
+// SWIFTMAP: the map button stack's defaults (Change 26): Zoom, Compass and Full
+// screen; the Globe and Layer Control buttons stay off until chosen in Controls.
 export const NEW_PROJECT_VISIBLE_BUILT_IN_CONTROLS = new Set<BuiltInMapControl>([
+  "navigation",
   "fullscreen",
   "compass",
-  "globe",
-  "layer-control",
 ]);
 
 export const ALL_BUILT_IN_CONTROL_IDS: BuiltInMapControl[] = [

@@ -6125,3 +6125,33 @@ html.dark .maplibregl-popup-anchor-right:has(.vector-control-popup) .maplibregl-
   ) {
   filter: url(#geolibre-cvd-achromatopsia);
 }
+
+/* SWIFTMAP (Change 26): the map button stack (components/map-buttons) replaces
+   GeoLibre's own Zoom, Compass, My location and Full screen buttons on the
+   primary map. They stay mounted, so the Controls menu still switches them and
+   My location keeps MapLibre's location dot, but they are not drawn. The map's
+   top-right corner (Globe and Layer Control when switched on, Terrain, plugin
+   buttons) starts one 8px gap below the stack, lined up with its 16px edge. */
+[data-swiftmap-map-buttons]
+  :is(.maplibregl-ctrl, .mapboxgl-ctrl):is(
+    .geolibre-reset-bearing-ctrl,
+    :has(
+        > :is(
+            .maplibregl-ctrl-zoom-in,
+            .mapboxgl-ctrl-zoom-in,
+            .maplibregl-ctrl-fullscreen,
+            .maplibregl-ctrl-shrink,
+            .mapboxgl-ctrl-fullscreen,
+            .mapboxgl-ctrl-shrink,
+            .maplibregl-ctrl-geolocate,
+            .mapboxgl-ctrl-geolocate
+          )
+      )
+  ) {
+  display: none !important;
+}
+
+[data-swiftmap-map-buttons] :is(.maplibregl-ctrl-top-right, .mapboxgl-ctrl-top-right) {
+  top: var(--swiftmap-map-corner-top, 6px);
+  right: 6px; /* MapLibre corners are physical, not logical */
+}

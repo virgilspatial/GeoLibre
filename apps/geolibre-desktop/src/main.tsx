@@ -4,6 +4,7 @@ import "./lib/crypto-random-uuid-polyfill";
 import "./lib/maplibre-worker";
 import { installEarthdataFetchAuth } from "./lib/earthdata-fetch-auth";
 import { installGeocodingTokenProvider } from "./lib/geocoding-auth";
+import { seedSwiftmapControlDefaults } from "./components/map-buttons/control-defaults";
 import React from "react";
 import ReactDOM from "react-dom/client";
 /* App typeface — see the --font-sans/--font-mono note in index.css.
@@ -93,6 +94,8 @@ import { configureShareOAuthReadiness, markColdShareCallback } from "./lib/share
 // layers). Before Diagnostics wraps `fetch`, so its restore keeps this wrapper.
 installEarthdataFetchAuth();
 installGeocodingTokenProvider();
+// SWIFTMAP: Swiftmap's first-run map buttons, before the toolbar reads them (Change 26).
+seedSwiftmapControlDefaults();
 // SWIFTMAP (Change 23): Protomaps Light for the first map when a build-time key
 // is set, before React renders, so Liberty never flashes up first.
 applySwiftmapDefaultBasemap();

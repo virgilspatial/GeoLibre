@@ -3560,6 +3560,16 @@
       "nothingHere": "Nothing in this area."
     }
   },
+  "swiftmapMapButtons": {
+    "group": "Map buttons",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetNorth": "Reset north",
+    "myLocation": "Show my location",
+    "fullScreen": "Full screen",
+    "exitFullScreen": "Exit full screen",
+    "mapControls": "Map controls"
+  },
   "addDataDialog": {
     "title": "Add Data",
     "subtitle": "Upload files or connect a service. New layers go to the top of Layers.",

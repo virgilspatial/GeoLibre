@@ -72,6 +72,11 @@ interface Engine {
   popup: string;
   /** Engine-specific setup before the swap. */
   prepare?: (page: Page) => Promise<void>;
+  /**
+   * SWIFTMAP (Change 26): new maps open flat, so a globe engine starts from the
+   * globe, as GeoLibre's default did, through the Startup setting.
+   */
+  globeStart?: boolean;
   /** Waits for the engine to finish mounting after the swap. */
   ready: (page: Page) => Promise<void>;
 }
@@ -82,6 +87,7 @@ const ENGINES: Engine[] = [
     container: "primary-cesium",
     surface: "canvas",
     popup: ".geolibre-identify-popup",
+    globeStart: true,
     ready: async (page) => {
       await expect(page.getByTestId("primary-cesium").locator("canvas").first()).toBeVisible({
         timeout: 60_000,
@@ -125,6 +131,14 @@ for (const engine of ENGINES) {
     const layerName = `${engine.label.toLowerCase()}-smoke`;
     const featureName = `${engine.label} smoke area`;
 
+    if (engine.globeStart) {
+      await page.addInitScript(() => {
+        localStorage.setItem(
+          "geolibre.desktopSettings",
+          JSON.stringify({ startup: { globeByDefault: true } }),
+        );
+      });
+    }
     await page.goto("/");
     await expect(page.locator(".maplibregl-canvas")).toBeVisible({ timeout: 30_000 });
     await engine.prepare?.(page);

@@ -18,7 +18,7 @@ describe("startup project settings", () => {
       mode: "default",
       projectPath: null,
       projectName: null,
-      globeByDefault: true,
+      globeByDefault: false, // SWIFTMAP: new maps open flat (Change 26)
       center: [-100, 40],
       zoom: 2,
       layerStyles: null,
@@ -53,11 +53,12 @@ describe("startup project settings", () => {
     );
   });
 
-  it("defaults invalid or missing empty-workspace projection settings to globe", () => {
-    assert.equal(normalizeDesktopSettings({ startup: {} }).startup.globeByDefault, true);
+  // SWIFTMAP: flat, not globe (Change 26).
+  it("defaults invalid or missing empty-workspace projection settings to flat", () => {
+    assert.equal(normalizeDesktopSettings({ startup: {} }).startup.globeByDefault, false);
     assert.equal(
       normalizeDesktopSettings({ startup: { globeByDefault: "no" } }).startup.globeByDefault,
-      true,
+      false,
     );
   });
 
@@ -99,10 +100,11 @@ describe("startup project settings", () => {
 
 describe("startupDefaultProjection", () => {
   it("uses the empty-workspace globe preference", () => {
-    assert.equal(startupDefaultProjection(DEFAULT_STARTUP_SETTINGS), "globe");
+    // SWIFTMAP: the default is flat (Change 26).
+    assert.equal(startupDefaultProjection(DEFAULT_STARTUP_SETTINGS), "mercator");
     assert.equal(
-      startupDefaultProjection({ ...DEFAULT_STARTUP_SETTINGS, globeByDefault: false }),
-      "mercator",
+      startupDefaultProjection({ ...DEFAULT_STARTUP_SETTINGS, globeByDefault: true }),
+      "globe",
     );
   });
 });
@@ -198,7 +200,8 @@ describe("planStartup", () => {
         settings: { ...DEFAULT_STARTUP_SETTINGS, mode: "last" },
         recentProjects: [],
       }),
-      { kind: "default", projection: "globe", center: [-100, 40], zoom: 2 },
+      // SWIFTMAP: the default is flat (Change 26).
+      { kind: "default", projection: "mercator", center: [-100, 40], zoom: 2 },
     );
     assert.deepEqual(
       planStartup({

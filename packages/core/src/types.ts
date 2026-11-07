@@ -1886,7 +1886,7 @@ export const DEFAULT_PROJECT_PREFERENCES: ProjectPreferences = {
     maxZoom: 24,
     maxPitch: 85,
     renderWorldCopies: true,
-    projection: "globe",
+    projection: "mercator", /* SWIFTMAP: new maps open flat (Change 26) */
     ellipsoidId: "earth",
     scaleUnit: "metric",
     // Off by default: turning it on can send pointer coordinates to a public
