@@ -63,9 +63,9 @@ export function LegendIcon() {
   return (
     <svg {...iconProps}>
       <rect x="3" y="4" width="6" height="6" rx="1.5" />
-      <path d="M13 5h8M13 9h8" />
+      <path d="M13 4.3h8M13 9.7h8" />
       <rect x="3" y="14" width="6" height="6" rx="1.5" />
-      <path d="M13 15h8M13 19h8" />
+      <path d="M13 14.3h8M13 19.7h8" />
     </svg>
   );
 }

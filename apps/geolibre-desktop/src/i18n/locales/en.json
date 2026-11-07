@@ -3546,6 +3546,135 @@
     "resizePanel": "Resize panel. Double-click to reset.",
     "resizeHint": "Drag to resize · Double-click to reset"
   },
+  "addDataDialog": {
+    "title": "Add Data",
+    "subtitle": "Upload files or connect a service. New layers go to the top of Layers.",
+    "subtitleViewer": "Upload a file or add a service. Only you will see layers you add, and they are removed when you close the map.",
+    "tab": {
+      "upload": "Upload",
+      "link": "From a link",
+      "more": "More sources"
+    },
+    "dropTip": "Tip: you can also drop files straight onto the map",
+    "done": "Done",
+    "addLayer": "Add layer",
+    "adding": "Adding…",
+    "addedToTop": "{{name}} added to the top of Layers",
+    "upload": {
+      "dropPrefix": "Drop files here or",
+      "browse": "browse",
+      "detected": "Vector or raster is detected automatically",
+      "formats": "GeoJSON, Shapefile (.zip), GeoPackage, KML/KMZ, CSV, GPX, GeoTIFF and more.",
+      "viewerFormats": "GeoJSON, Shapefile (.zip), KML/KMZ, GPX and CSV with coordinates, up to 50 MB. Files stay in your browser and are never uploaded to a server.",
+      "seeAllTypes": "See all file types",
+      "hideAllTypes": "Show fewer",
+      "allTypes": "All file types: {{types}}.",
+      "gdb": "File Geodatabase (.gdb)",
+      "gdbNote": "Available once your Vault is set up.",
+      "filesLabel": "Files to add",
+      "features_one": "{{count}} feature",
+      "features_other": "{{count}} features",
+      "unsupported": "This file type can't be added here.",
+      "tooLarge": "Larger than 50 MB.",
+      "nothingAdded": "Nothing was added. See the message on the map.",
+      "family": {
+        "vector": "Vector",
+        "raster": "Raster",
+        "pointCloud": "Point cloud"
+      },
+      "geometry": {
+        "point": "Point",
+        "line": "Line",
+        "polygon": "Polygon",
+        "mixed": "Mixed"
+      }
+    },
+    "link": {
+      "fieldLabel": "Service or file URL",
+      "placeholder": "Paste a service or file URL",
+      "clear": "Clear URL",
+      "worksWith": "Works with WMS, WMTS, WFS, OGC API, ArcGIS REST, XYZ tiles, STAC, PMTiles, COG, GeoParquet and FlatGeobuf.",
+      "detected": "{{description}}, detected from the URL",
+      "unknown": "Couldn't work out the service type.",
+      "chooseManually": "Choose it manually",
+      "failed": "Couldn't add this link: {{message}}",
+      "couldNotLoad": "The file couldn't be read.",
+      "examples": "Examples",
+      "example": {
+        "nswCadastre": "NSW Cadastre (ArcGIS REST)",
+        "gaBaseMap": "Australian base map, Geoscience Australia (XYZ)",
+        "dea": "Digital Earth Australia (STAC)",
+        "cog": "Water Observations 2020, Sydney (COG)"
+      },
+      "kind": {
+        "xyz": {
+          "label": "XYZ tiles",
+          "description": "Raster tiles"
+        },
+        "arcgis": {
+          "label": "ArcGIS REST",
+          "description": "Map or feature service"
+        },
+        "wmts": {
+          "label": "WMTS",
+          "description": "Tiled imagery"
+        },
+        "wfs": {
+          "label": "WFS",
+          "description": "Vector features"
+        },
+        "wms": {
+          "label": "WMS",
+          "description": "Map images"
+        },
+        "stac": {
+          "label": "STAC",
+          "description": "Imagery catalogue"
+        },
+        "ogc-features": {
+          "label": "OGC API - Features",
+          "description": "Vector features"
+        },
+        "pmtiles": {
+          "label": "PMTiles",
+          "description": "Vector or raster tiles"
+        },
+        "cog": {
+          "label": "Cloud Optimised GeoTIFF",
+          "description": "Raster"
+        },
+        "geoparquet": {
+          "label": "GeoParquet",
+          "description": "Vector features"
+        },
+        "flatgeobuf": {
+          "label": "FlatGeobuf",
+          "description": "Vector features"
+        },
+        "geojson": {
+          "label": "GeoJSON",
+          "description": "Vector features"
+        },
+        "kml": {
+          "label": "KML / KMZ",
+          "description": "Vector features"
+        }
+      }
+    },
+    "more": {
+      "empty": "No other sources are available here.",
+      "section": {
+        "cloud": "Cloud formats",
+        "threeD": "3D layers",
+        "cad": "CAD",
+        "databases": "Databases",
+        "reference": "Reference"
+      },
+      "cadDrawing": "CAD drawing (DXF)",
+      "historicalImagery": "Historical imagery",
+      "overture": "Overture Maps"
+    }
+  },
   "toolbar": {
     "menu": {
       "project": "Project",

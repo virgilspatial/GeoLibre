@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { readFile } from "node:fs/promises";
-import { layerRow, openMenuBarMenu, openRailMenu, railButton, selectLayerRow } from "./helpers";
+import { layerRow, openMenuBarMenu, openAddDataSource, railButton, selectLayerRow } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
 const PMTILES = "https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.pmtiles";
@@ -12,8 +12,7 @@ test.skip(!process.env.MAPBOX_TOKEN, "Set MAPBOX_TOKEN to exercise real Mapbox d
 test.use({ actionTimeout: 30_000 });
 
 async function openSource(page: Page, name: string) {
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await openAddDataSource(page, name);
 }
 
 // Inspect the real engine held by the React shell without adding a production

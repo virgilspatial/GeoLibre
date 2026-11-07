@@ -24,6 +24,8 @@ import { DEFAULT_ARCGIS_URLS } from "../constants";
 import { ServiceLibrarySection } from "../ServiceLibrarySection";
 import { serviceFieldBoolean, serviceFieldString, type ServiceFields } from "../service-library";
 import { ArcGISSignInSection } from "./ArcGISSignInSection";
+// SWIFTMAP (Change 24): a prefilled URL picks its own layer type.
+import { layerTypeForUrl } from "../../add-data-dialog/arcgis-layer-type";
 import { AddDataSourceForm, SampleDataSelect, useAddDataSource } from "../shared";
 
 /**
@@ -75,7 +77,9 @@ function simpleRenderingRuleFunctionName(renderingRule: string): string | null {
 export function ArcGISSource({ initialUrl = "" }: { initialUrl?: string }) {
   const { t } = useTranslation();
   const source = useAddDataSource(t("addData.arcgis.defaultName"));
-  const [arcgisLayerType, setArcgisLayerType] = useState<ArcGISLayerType>("feature");
+  const [arcgisLayerType, setArcgisLayerType] = useState<ArcGISLayerType>(() =>
+    layerTypeForUrl(initialUrl),
+  );
   const [arcgisSourceType, setArcgisSourceType] = useState<ArcGISSourceType>("url");
   const [arcgisUrl, setArcgisUrl] = useState(initialUrl);
   const [arcgisItemId, setArcgisItemId] = useState("");

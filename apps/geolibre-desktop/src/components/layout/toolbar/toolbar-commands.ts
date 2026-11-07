@@ -174,9 +174,22 @@ export interface ToolbarCommandContext {
  * SWIFTMAP: commands Swiftmap removes from the palette and shortcuts (Change 16);
  * their code stays. Share and Collaborate send the project to GeoLibre's public
  * servers, which Swiftmap must never do. "Add comment" went with the Comments
- * panel, which Swiftmap removed.
+ * panel, which Swiftmap removed. The `add.*` sources below were dropped from
+ * Add Data in Change 24; files dropped on the map still load.
  */
-const SWIFTMAP_REMOVED_COMMANDS = new Set(["project.share", "project.collaborate", "add.comment"]);
+const SWIFTMAP_REMOVED_COMMANDS = new Set([
+  "project.share",
+  "project.collaborate",
+  "add.comment",
+  // Sources Swiftmap dropped from Add Data (Change 24).
+  "add.osm-pbf",
+  "add.vtpk",
+  "add.mbtiles",
+  "add.video",
+  "add.deckgl-viz",
+  "add.spaceborne-lidar",
+  "add.splatting",
+]);
 
 export function buildToolbarCommands(context: ToolbarCommandContext): Command[] {
   const {

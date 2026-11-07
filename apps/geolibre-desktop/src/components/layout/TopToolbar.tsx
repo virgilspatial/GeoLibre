@@ -45,7 +45,8 @@ import { MENU_MANAGED_PLUGIN_IDS, isMenuVisible, isPluginVisible } from "../../l
 import { FieldCollectionDialog } from "./FieldCollectionDialog";
 import { PrintLayoutDialog } from "./PrintLayoutDialog";
 import { SettingsDialog } from "./SettingsDialog";
-import { AddDataMenu } from "./toolbar/AddDataMenu";
+import { SwiftmapAddDataDialog } from "./add-data-dialog/AddDataDialog";
+import { useAddDataSources } from "./add-data-dialog/useAddDataSources";
 import { ConsentNoticeDialogs } from "./toolbar/ConsentNoticeDialogs";
 import { openExternalLink, type ToolbarChrome } from "./toolbar/constants";
 import { ControlsMenu } from "./toolbar/ControlsMenu";
@@ -140,8 +141,8 @@ export function TopToolbar({
   railHost = null,
 }: TopToolbarProps) {
   const { t } = useTranslation();
-  const addDataMenuOpen = useSidePanelStore((s) => s.addDataMenuOpen);
-  const setAddDataMenuOpen = useSidePanelStore((s) => s.setAddDataMenuOpen);
+  const addDataOpen = useSidePanelStore((s) => s.addDataOpen);
+  const setAddDataOpen = useSidePanelStore((s) => s.setAddDataOpen);
   const deploymentCapabilities = useAppStore((state) => state.deploymentCapabilities);
   usePluginLabelSync();
 
@@ -302,32 +303,33 @@ export function TopToolbar({
     renderLabel: renderToolbarLabel,
   };
 
-  // SWIFTMAP: the rail's Add Data, Tools and Settings items (Change 16) are
-  // GeoLibre's menus with rail buttons, opening to the right, until branches 5
-  // and 6 replace them. Same gates as when they sat in the menu bar.
+  // SWIFTMAP: the rail's Tools and Settings items (Change 16) are GeoLibre's
+  // menus with rail buttons, opening to the right, until branch 6 replaces
+  // them. Add Data opens Swiftmap's Add Data dialog (Change 24). Same gates as
+  // when they sat in the menu bar.
+  const addDataSources = useAddDataSources({
+    appApi,
+    mapControllerRef,
+    addLayer,
+    openAddDataKind,
+    onAddGltfModel: () => {
+      addData.setAddDataDeckVizKind("scenegraph");
+      openAddDataKind("deckgl-viz");
+    },
+    isActive,
+    toggle,
+  });
   const railAddData =
     !viewer && isMenuVisible(uiProfile, "addData") && deploymentCapabilities.has("data:add") ? (
-      <AddDataMenu
-        trigger={
-          <RailButton label={t("rail.addData")}>
-            <Database {...railLucideProps} />
-          </RailButton>
-        }
-        open={addDataMenuOpen}
-        onOpenChange={setAddDataMenuOpen}
+      <RailButton
+        label={t("rail.addData")}
+        aria-haspopup="dialog"
+        aria-expanded={addDataOpen}
         disabled={!addDataReady}
-        chrome={chrome}
-        addLayer={addLayer}
-        osmPbfBusy={osmPbf.busy}
-        tilePackageBusy={tilePackage.busy}
-        onSetAddDataKind={openAddDataKind}
-        onAddGltfModel={() => {
-          addData.setAddDataDeckVizKind("scenegraph");
-          openAddDataKind("deckgl-viz");
-        }}
-        onOpenOsmPbfDialog={() => osmPbf.setDialogOpen(true)}
-        onOpenTilePackageDialog={() => tilePackage.setDialogOpen(true)}
-      />
+        onClick={() => setAddDataOpen(true)}
+      >
+        <Database {...railLucideProps} />
+      </RailButton>
     ) : null;
   const railAddDataShown = railAddData !== null;
   const setAddDataAvailable = useSidePanelStore((s) => s.setAddDataAvailable);
@@ -719,6 +721,14 @@ export function TopToolbar({
           }
         />
       </MountWhenOpened>
+      {railAddData ? (
+        <SwiftmapAddDataDialog
+          open={addDataOpen}
+          onOpenChange={setAddDataOpen}
+          moreSources={addDataSources.moreSources}
+          onAddLink={addDataSources.addLink}
+        />
+      ) : null}
       <MountWhenOpened open={addData.dialogProps.kind !== null}>
         <AddDataDialog {...addData.dialogProps} mapControllerRef={mapControllerRef} />
       </MountWhenOpened>

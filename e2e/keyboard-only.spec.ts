@@ -67,23 +67,34 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   );
   await waitForMap(page);
 
-  // Add Data → OGC API - Features, reached by Tab and menu type-ahead. Add Data
-  // is on the rail (Swiftmap, Change 16).
+  // Add Data → From a link, by Tab and arrow keys. Add Data is on the rail
+  // (Swiftmap, Change 16) and opens the Add Data dialog (Change 24). A
+  // collection URL is detected as OGC API - Features, and Enter hands it to
+  // GeoLibre's form for that type, prefilled.
   await tabTo(page, railButton(page, "Add Data"));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("menu", { name: "Add Data" })).toBeVisible();
-  await page.keyboard.type("OGC A");
-  await expect(page.getByRole("menuitem", { name: "OGC API - Features" })).toBeFocused();
+  const addData = page.getByRole("dialog", { name: "Add Data" });
+  await expect(addData).toBeVisible();
+  await tabTo(page, addData.getByRole("tab", { name: "Upload" }));
+  await page.keyboard.press("ArrowRight");
+  await expect(addData.getByRole("tab", { name: "From a link" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await tabTo(page, addData.getByRole("textbox", { name: "Service or file URL" }));
+  await page.keyboard.type(`${SERVICE}/collections/cities`);
+  await expect(addData.getByText("OGC API - Features", { exact: true })).toBeVisible();
   await page.keyboard.press("Enter");
 
   const dialog = page.getByRole("dialog", { name: "Add OGC API - Features layer" });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Service URL" })).toHaveValue(
+    `${SERVICE}/collections/cities`,
+  );
+  // The collection URL names the collection itself; Enter submits the form.
   await tabTo(page, dialog.getByRole("textbox", { name: "Layer name" }));
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.type("cities");
-  // A collection URL names the collection itself; Enter submits the form.
-  await tabTo(page, dialog.getByRole("textbox", { name: "Service URL" }));
-  await page.keyboard.type(`${SERVICE}/collections/cities`);
   await page.keyboard.press("Enter");
   await expect(dialog).toHaveCount(0);
   const row = layerRow(page, "cities");

@@ -11,9 +11,9 @@ interface SidePanelState {
   toggle: (id: SidePanelId) => void;
   open: (id: SidePanelId) => void;
   close: () => void;
-  /** Whether the rail's Add Data menu is open; the Layers panel's + opens it too (Change 17). */
-  addDataMenuOpen: boolean;
-  setAddDataMenuOpen: (open: boolean) => void;
+  /** Whether the Add Data dialog is open; the rail and the Layers panel's + open it (Changes 17, 24). */
+  addDataOpen: boolean;
+  setAddDataOpen: (open: boolean) => void;
   /** Whether the rail offers Add Data (editors, with the capability). */
   addDataAvailable: boolean;
   setAddDataAvailable: (available: boolean) => void;
@@ -29,8 +29,8 @@ export const useSidePanelStore = create<SidePanelState>((set) => ({
   toggle: (id) => set((state) => ({ active: state.active === id ? null : id })),
   open: (id) => set({ active: id }),
   close: () => set({ active: null }),
-  addDataMenuOpen: false,
-  setAddDataMenuOpen: (open) => set({ addDataMenuOpen: open }),
+  addDataOpen: false,
+  setAddDataOpen: (open) => set({ addDataOpen: open }),
   addDataAvailable: false,
   setAddDataAvailable: (available) => set({ addDataAvailable: available }),
 }));

@@ -7,6 +7,7 @@ import {
   dropGeoJson,
   layerRow,
   openMenuBarMenu,
+  openAddDataSource,
   openRailMenu,
   waitForMap,
 } from "./helpers";
@@ -73,8 +74,7 @@ function readLas(buffer: Buffer): { count: number; format: number; classes: Map<
 }
 
 async function loadCopc(page: Page): Promise<void> {
-  await openRailMenu(page, "Add Data");
-  await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
+  await openAddDataSource(page, "LiDAR layer");
   await page
     .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })
     .fill(COPC_URL);
@@ -108,8 +108,7 @@ test.describe("point cloud annotation", () => {
     await captureSavedFiles(page);
     await waitForMap(page);
 
-    await openRailMenu(page, "Add Data");
-    await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
+    await openAddDataSource(page, "LiDAR layer");
     await page
       .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })
       .fill(COPC_URL);
@@ -319,8 +318,7 @@ test.describe("point cloud annotation", () => {
     // The exported LAZ opens in GeoLibre again (LAS 1.4, LASzip-compressed).
     const lazPath = join(dir, "annotated.laz");
     await writeFile(lazPath, laz!);
-    await openRailMenu(page, "Add Data");
-    await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
+    await openAddDataSource(page, "LiDAR layer");
     await page.locator('input[type="file"][accept*=".laz"]').first().setInputFiles(lazPath);
     await expect(
       page.getByText(`${exported.toLocaleString("en-US")} points`, { exact: true }).first(),

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "./test";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
-import { openRailMenu, railButton } from "./helpers";
+import { openAddDataSource, railButton } from "./helpers";
 
 // The Zarr panel on the Mapbox renderer. @carbonplan/zarr-layer is a
 // CustomLayerInterface implementation that targets Mapbox GL as well as
@@ -147,9 +147,7 @@ test("a Zarr store added through the panel mounts as a custom layer on the Mapbo
   await bindMapboxEngine(page);
   await expect(railButton(page, "Add Data")).toBeEnabled();
 
-  await openRailMenu(page, "Add Data");
-  await expect(page.getByRole("menuitem", { name: "Zarr layer", exact: true })).toBeEnabled();
-  await page.getByRole("menuitem", { name: "Zarr layer", exact: true }).click();
+  await openAddDataSource(page, "Zarr layer");
   await page.getByRole("textbox", { name: "https://example.com/data.zarr" }).fill(STORE);
   await page.getByRole("textbox", { name: "e.g., temperature" }).fill("temperature");
   await page.getByRole("button", { name: "Add Layer", exact: true }).click();

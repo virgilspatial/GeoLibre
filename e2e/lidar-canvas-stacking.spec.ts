@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { openRailMenu, waitForMap } from "./helpers";
+import { openAddDataSource, waitForMap } from "./helpers";
 
 // maplibre-gl-lidar draws point clouds into an overlaid deck.gl canvas. That
 // overlay is a MapLibre IControl, so MapLibre used to park its absolutely
@@ -28,8 +28,7 @@ test.describe("LiDAR point-cloud canvas stacking", () => {
   }) => {
     await waitForMap(page);
 
-    await openRailMenu(page, "Add Data");
-    await page.getByRole("menuitem", { name: "LiDAR layer", exact: true }).click();
+    await openAddDataSource(page, "LiDAR layer");
     await expect(page.locator(WRAPPER)).toHaveCount(1);
 
     const stack = await page.evaluate((wrapper) => {
