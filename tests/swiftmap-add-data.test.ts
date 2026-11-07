@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { layerTypeForUrl } from "../apps/geolibre-desktop/src/components/layout/add-data-dialog/arcgis-layer-type";
 import { detectLink } from "../apps/geolibre-desktop/src/components/layout/add-data-dialog/link-detection";
 import {
   fileExtension,
@@ -134,5 +135,23 @@ describe("Add Data upload formats", () => {
     });
     assert.equal(summariseGeoJson("not json"), null);
     assert.equal(summariseGeoJson(JSON.stringify({ type: "Topology" })), null);
+  });
+});
+
+describe("Add Data ArcGIS layer type", () => {
+  it("opens GeoLibre's ArcGIS form on the type the URL names", () => {
+    assert.equal(
+      layerTypeForUrl("https://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Cadastre/MapServer"),
+      "map-service",
+    );
+    assert.equal(layerTypeForUrl("https://host/rest/services/Roads/MapServer/"), "map-service");
+    assert.equal(layerTypeForUrl("https://host/rest/services/Roads/MapServer/3"), "feature");
+    assert.equal(layerTypeForUrl("https://host/rest/services/Roads/FeatureServer/0"), "feature");
+    assert.equal(layerTypeForUrl("https://host/rest/services/Dem/ImageServer?f=json"), "image-service");
+    assert.equal(
+      layerTypeForUrl("https://host/rest/services/Hosted/Base/VectorTileServer"),
+      "vector-tile",
+    );
+    assert.equal(layerTypeForUrl(""), "feature");
   });
 });

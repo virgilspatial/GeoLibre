@@ -24,6 +24,8 @@ import { DEFAULT_ARCGIS_URLS } from "../constants";
 import { ServiceLibrarySection } from "../ServiceLibrarySection";
 import { serviceFieldBoolean, serviceFieldString, type ServiceFields } from "../service-library";
 import { ArcGISSignInSection } from "./ArcGISSignInSection";
+// SWIFTMAP (Change 24): a prefilled URL picks its own layer type.
+import { layerTypeForUrl } from "../../add-data-dialog/arcgis-layer-type";
 import { AddDataSourceForm, SampleDataSelect, useAddDataSource } from "../shared";
 
 /**
@@ -70,19 +72,6 @@ function simpleRenderingRuleFunctionName(renderingRule: string): string | null {
   } catch {
     return null;
   }
-}
-
-/**
- * SWIFTMAP (Change 24): the layer type a prefilled service URL names, so a
- * MapServer link from Add Data's From a link tab opens on Map service rather
- * than Feature layer.
- */
-function layerTypeForUrl(url: string): ArcGISLayerType {
-  const path = url.toLowerCase().split("?")[0] ?? "";
-  if (/\/vectortileserver(\/|$)/.test(path)) return "vector-tile";
-  if (/\/imageserver(\/|$)/.test(path)) return "image-service";
-  if (/\/mapserver\/?$/.test(path)) return "map-service";
-  return "feature";
 }
 
 export function ArcGISSource({ initialUrl = "" }: { initialUrl?: string }) {
