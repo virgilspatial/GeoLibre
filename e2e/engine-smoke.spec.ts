@@ -82,6 +82,14 @@ const ENGINES: Engine[] = [
     container: "primary-cesium",
     surface: "canvas",
     popup: ".geolibre-identify-popup",
+    // SWIFTMAP (Change 26): new maps open flat, so start this globe engine from
+    // the globe, as GeoLibre's default did: show the Globe button and click it.
+    prepare: async (page) => {
+      await openMenuBarMenu(page, "Controls");
+      await page.getByRole("menuitem", { name: "Globe", exact: true }).click();
+      await page.locator(".maplibregl-ctrl-globe").click();
+      await expect(page.locator(".maplibregl-ctrl-globe-enabled")).toBeVisible();
+    },
     ready: async (page) => {
       await expect(page.getByTestId("primary-cesium").locator("canvas").first()).toBeVisible({
         timeout: 60_000,
