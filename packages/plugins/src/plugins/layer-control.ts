@@ -11,7 +11,7 @@ export const maplibreLayerControlPlugin: GeoLibrePlugin = {
   // GL engines share LayerControlHost; ArcGIS hosts its native LayerList.
   // The plugin only drives the engine-neutral visibility/position methods.
   engines: ["maplibre", "mapbox", "arcgis"],
-  activeByDefault: true,
+  activeByDefault: false, /* SWIFTMAP: Layer Control off by default (Change 26) */
   activate: (app: GeoLibreAppAPI) => app.setBuiltInMapControlVisible("layer-control", true),
   deactivate: (app: GeoLibreAppAPI) => {
     app.setBuiltInMapControlVisible("layer-control", false);

@@ -50,6 +50,11 @@ export async function openMenuBar(page: Page): Promise<void> {
 
 /** Opens the header's overflow if needed, then the named menu-bar menu. */
 export async function openMenuBarMenu(page: Page, name: string): Promise<void> {
+  // SWIFTMAP (Change 26): Controls opens from the map's Map controls button.
+  if (name === "Controls") {
+    await page.getByRole("button", { name: "Map controls", exact: true }).click();
+    return;
+  }
   await openMenuBar(page);
   await menuBarOverflow(page).getByRole("button", { name, exact: true }).click();
 }

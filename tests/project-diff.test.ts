@@ -207,14 +207,15 @@ describe("diffProjects", () => {
       basemapOpacity: 0.4,
       preferences: {
         ...before.preferences,
-        map: { ...before.preferences.map, projection: "mercator", maxZoom: 18 },
+        // SWIFTMAP: new maps open flat (Change 26), so the change is to globe.
+        map: { ...before.preferences.map, projection: "globe", maxZoom: 18 },
       },
     };
     const diff = diffProjects(before, after);
     assert.deepEqual(diff.camera.map((c) => c.path).sort(), ["center", "zoom"]);
     assert.equal(diff.camera.find((c) => c.path === "center")!.after, "10.00000, 20.00000");
     assert.deepEqual(diff.basemap.map((c) => c.path).sort(), ["basemapOpacity", "basemapStyleUrl"]);
-    assert.deepEqual(diff.projection, [{ path: "projection", before: "globe", after: "mercator" }]);
+    assert.deepEqual(diff.projection, [{ path: "projection", before: "mercator", after: "globe" }]);
     assert.deepEqual(
       diff.preferences.map((c) => c.path),
       ["map.maxZoom"],

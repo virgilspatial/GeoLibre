@@ -184,7 +184,8 @@ describe("newProjectToolbarControlVisibility", () => {
     assert.equal(visible["maptoolkit-logo"], false);
     assert.equal(visible.fullscreen, true);
     assert.equal(visible.scale, false);
-    assert.equal(newProjectBuiltInControlVisible("layer-control", true), true);
+    // SWIFTMAP: Layer Control is off in a new project (Change 26).
+    assert.equal(newProjectBuiltInControlVisible("layer-control", true), false);
     assert.deepEqual(
       newProjectToolbarControlVisibility(true),
       { ...newProjectToolbarControlVisibility(false), "maptoolkit-logo": true },

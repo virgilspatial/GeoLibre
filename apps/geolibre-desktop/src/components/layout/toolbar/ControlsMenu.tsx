@@ -43,10 +43,10 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
   Slider,
 } from "@geolibre/ui";
 import { Clapperboard, ClipboardList, LocateFixed, SlidersHorizontal, Video } from "lucide-react";
+import { MapControlsTrigger, useMapControlsMenu } from "../../map-buttons/MapControlsTrigger";
 import { type MouseEvent as ReactMouseEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ToolbarPanels } from "../../../hooks/useToolbarPanels";
@@ -141,6 +141,7 @@ export function ControlsMenu({
   onOpenRecordVideo,
 }: ControlsMenuProps) {
   const { t } = useTranslation();
+  const mapControlsMenu = useMapControlsMenu(); // SWIFTMAP: opens from the map's stack (Change 26)
   const capabilities = useMapCapabilities();
   const primaryRenderer = useAppStore((s) => s.primaryRenderer);
   const directionsSupported = isPluginEngineSupported(maplibreDirectionsPlugin, primaryRenderer);
@@ -250,8 +251,8 @@ export function ControlsMenu({
   return (
     <>
       <ImageControlDialog panel={panels.image} />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <DropdownMenu {...mapControlsMenu.root}>
+        <MapControlsTrigger>
           <Button
             className={chrome.buttonClass}
             variant="ghost"
@@ -261,8 +262,8 @@ export function ControlsMenu({
             <SlidersHorizontal className={chrome.iconClassName} />
             {chrome.renderLabel(t("toolbar.menu.controls"))}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
+        </MapControlsTrigger>
+        <DropdownMenuContent {...mapControlsMenu.content}>
           <DropdownMenuLabel>{t("toolbar.item.mapControls")}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {show("controls.layerControl") && (

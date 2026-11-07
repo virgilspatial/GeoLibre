@@ -90,6 +90,7 @@ import { SwiftmapRail } from "./rail/SwiftmapRail";
 import { useSidePanelStore } from "./rail/sidePanelStore";
 import { ProjectSwitcher } from "./header/ProjectSwitcher";
 import { SwiftmapMark } from "./header/SwiftmapMark";
+import { MapButtonStack } from "../map-buttons/MapButtonStack";
 
 interface TopToolbarProps {
   /** Unused since Change 15: the Swiftmap header has one layout. Kept for DesktopShell. */
@@ -408,6 +409,7 @@ export function TopToolbar({
         onToggleThemeMode={onToggleThemeMode}
         onSave={() => void projectFiles.handleSave()}
       />
+      <MapButtonStack engine={mapControllerRef} ready={mapReadyGeneration} shown={controlsVisible} />
       <MenuBarOverflow>
           {!viewer && isMenuVisible(uiProfile, "project") && (
             <ProjectMenu

@@ -108,7 +108,9 @@ test("keeps every toolbar menu on one scrollable row on small screens", async ({
   const overflow = menuBarOverflow(page);
   expect(await overflow.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
 
-  for (const menu of ["Project", "Edit", "View", "Processing", "Controls", "Help"]) {
+  // SWIFTMAP (Change 26): Controls left the overflow for the map's Map controls button.
+  await expect(page.getByRole("button", { name: "Map controls", exact: true })).toBeInViewport();
+  for (const menu of ["Project", "Edit", "View", "Processing", "Help"]) {
     const trigger = overflow.getByRole("button", { name: menu, exact: true });
     await expect(trigger).toBeVisible();
     await trigger.scrollIntoViewIfNeeded();

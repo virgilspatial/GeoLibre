@@ -333,7 +333,7 @@ export const DEFAULT_STARTUP_SETTINGS: StartupSettings = {
   mode: "default",
   projectPath: null,
   projectName: null,
-  globeByDefault: true,
+  globeByDefault: false, /* SWIFTMAP: new maps open flat (Change 26) */
   center: [...createDefaultMapView().center],
   zoom: createDefaultMapView().zoom,
   layerStyles: null,
@@ -435,7 +435,8 @@ function normalizeStartupSettings(startup: unknown): StartupSettings {
     mode: mode === "specific" && !projectPath ? "default" : mode,
     projectPath,
     projectName,
-    globeByDefault: typeof candidate.globeByDefault === "boolean" ? candidate.globeByDefault : true,
+    // SWIFTMAP: a missing value means flat too (Change 26).
+    globeByDefault: typeof candidate.globeByDefault === "boolean" ? candidate.globeByDefault : false,
     center: view.center,
     zoom: view.zoom,
     layerStyles: normalizeStartupLayerStyles(candidate.layerStyles),
