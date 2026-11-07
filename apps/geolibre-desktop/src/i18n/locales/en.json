@@ -3546,6 +3546,20 @@
     "resizePanel": "Resize panel. Double-click to reset.",
     "resizeHint": "Drag to resize · Double-click to reset"
   },
+  "swiftmapLegend": {
+    "modes": "Legend contents",
+    "inView": "In view",
+    "all": "All",
+    "notVisibleAtZoom": "Not visible at this zoom",
+    "empty": {
+      "noLayers": "No layers yet.",
+      "noneOn": "No layers turned on.",
+      "zoomIn": "Zoom in to see layers.",
+      "zoomOut": "Zoom out to see layers.",
+      "zoomInOrOut": "Zoom in or out to see layers.",
+      "nothingHere": "Nothing in this area."
+    }
+  },
   "addDataDialog": {
     "title": "Add Data",
     "subtitle": "Upload files or connect a service. New layers go to the top of Layers.",
