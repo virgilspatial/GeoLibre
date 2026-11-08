@@ -138,14 +138,15 @@ test("Style panel for a vector and a raster layer", async ({ page }, testInfo) =
   // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
   await selectLayerRow(page, "smoke");
   await layerRow(page, "smoke").getByRole("button", { name: "Open style panel" }).click();
-  await expect(stylePanel.getByRole("textbox", { name: "Fill color" })).toBeVisible();
+  // SWIFTMAP (Change 27): Swiftmap's Style panel; the fill is a colour swatch button.
+  await expect(stylePanel.getByRole("button", { name: /^Fill colour:/ })).toBeVisible();
   await expectAccessible(page, "style-vector", testInfo);
 
   await addXyzLayer(page, "tiles", `${TILE_HOST}/{z}/{x}/{y}.png`);
   // SWIFTMAP (Change 17): Style is on the selected row's toolbar.
   await selectLayerRow(page, "tiles");
   await layerRow(page, "tiles").getByRole("button", { name: "Open style panel" }).click();
-  await expect(stylePanel.getByText("Style - tiles")).toBeVisible();
+  await expect(stylePanel.getByRole("heading", { name: "tiles" })).toBeVisible();
   await expectAccessible(page, "style-raster", testInfo);
 });
 

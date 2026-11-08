@@ -109,6 +109,7 @@ import { RouteAnimationPanel } from "../panels/RouteAnimationPanel";
 import { FlightSimulatorPanel } from "../panels/FlightSimulatorPanel";
 import { PluginRightPanel } from "../panels/PluginRightPanel";
 import { StylePanel } from "../panels/StylePanel";
+import { SwiftmapStylePanel } from "../style-panel-swiftmap/SwiftmapStylePanel"; // SWIFTMAP: Change 27
 import { SharedSidebar } from "../panels/SharedSidebar";
 import { SidePanel } from "./rail/SidePanel";
 import { LegendPanel } from "./legend-panel/LegendPanel";
@@ -1104,7 +1105,7 @@ export function DesktopShell({
                 A story map presentation collapses it for the same reason. */
             layoutOptions.stylePanelVisible ? (
               <SectionErrorBoundary label="Style panel" displayName={t("shell.section.stylePanel")}>
-                <StylePanel
+                <SwiftmapStylePanel
                   mapControllerRef={mapControllerRef}
                   mapReadyGeneration={mapReadyGeneration}
                   onResizeStart={startStylePanelResize}

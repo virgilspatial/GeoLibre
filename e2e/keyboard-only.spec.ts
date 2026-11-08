@@ -117,7 +117,8 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   // The fixture is points, so the circle radius is the style to change. (The
   // colour fields are native colour inputs, whose picker is OS chrome.)
   const stylePanel = page.getByRole("complementary", { name: "Layer style" });
-  const radius = stylePanel.getByRole("spinbutton", { name: "Circle radius" });
+  // SWIFTMAP (Change 27): Swiftmap's Style panel calls a point's radius "Size".
+  const radius = stylePanel.getByRole("spinbutton", { name: "Size" });
   await tabTo(page, radius, 120);
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.type("9");

@@ -8,6 +8,9 @@ import {
   waitForRenderedFeature,
 } from "./helpers";
 
+// SWIFTMAP (Change 27): skipped, blend modes have no entry point in Swiftmap's Style panel (engine code kept).
+test.skip(true, "SWIFTMAP: blend modes have no entry point in Swiftmap's Style panel");
+
 const POLYGON = readFixture("blend-polygon.geojson");
 
 /**

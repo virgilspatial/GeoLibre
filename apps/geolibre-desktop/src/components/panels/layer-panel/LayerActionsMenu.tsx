@@ -41,6 +41,7 @@ import { layerShortcutLabel, type LayerShortcutId } from "./layer-shortcuts";
 import type { LayerActions } from "./useLayerActions";
 import type { LayerRefresh } from "./useLayerRefresh";
 import type { TimeSliderBinding } from "./useTimeSliderBinding";
+import { quickFiltersAvailable } from "../../style-panel-swiftmap/LayerFilterCard";
 
 /** The LiDAR layer Export submenu, in menu order. */
 const LIDAR_EXPORT_ITEMS = [
@@ -62,7 +63,7 @@ const VECTOR_EXPORT_ITEMS = [
 ] as const;
 
 /** The selected layer's inline cards, opened from the ⋯ menu. */
-export type LayerCard = "opacity" | "properties";
+export type LayerCard = "opacity" | "properties" | "filter";
 
 /**
  * What every row's actions menu shares: the panel-wide state the menu items
@@ -579,6 +580,13 @@ export function LayerActionsMenuItems({
         shortcut={key("properties")}
         onSelect={() => toggleCard("properties")}
       />
+      {/* SWIFTMAP (Change 27): quick filters moved here from the Style panel. */}
+      {quickFiltersAvailable(layer) ? (
+        <Item
+          label={openCard === "filter" ? t("swiftmapStyle.filter.hide") : t("swiftmapStyle.filter.menu")}
+          onSelect={() => toggleCard("filter")}
+        />
+      ) : null}
       <DropdownMenuSeparator />
       {/* preventDefault keeps the menu's close from racing the rename input's autofocus. */}
       <Item

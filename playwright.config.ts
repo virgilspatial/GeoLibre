@@ -45,6 +45,8 @@ const CORE_SPECS = [
   "add-data-dialog.spec.ts",
   // SWIFTMAP (Change 25): the Legend panel that replaced the "coming later" stopgap.
   "legend-panel.spec.ts",
+  // SWIFTMAP (Change 27): the Style panel that replaced GeoLibre's.
+  "style-panel.spec.ts",
   // Moved to `features` once core reached ~11 min wall-clock (~25 min of test
   // time): set-view, paste-style, style-manager and identify-restore. Each
   // covers one dialog or interaction, not something every user hits, and
@@ -153,7 +155,14 @@ export default defineConfig({
     // `apps/geolibre-desktop/.env.local` is still picked up despite these being
     // blanked. That case is not silently tolerated — `cesium-globe.spec.ts`
     // asserts the tokenless hint and fails with a message naming the file.
-    env: { CESIUM_TOKEN: "", VITE_CESIUM_TOKEN: "" },
+    //
+    // SWIFTMAP (Change 27, 7b review round 4): the Protomaps key is blanked the
+    // same way, so a key in `.env.local` doesn't reach the e2e build. A
+    // shell value, even "", overrides the file in both Vite and pruneBuildEnv.
+    // With a key, saving a project opens "Strip credentials?" (the basemap URL
+    // carries it), which stopped layer-groups.spec.ts on every local run. CI
+    // has no key, so this matches it.
+    env: { CESIUM_TOKEN: "", VITE_CESIUM_TOKEN: "", VITE_PROTOMAPS_API_KEY: "" },
     url: BASE_URL,
     // Reuse locally (the repo's existing DX trade-off), never in CI. Note the
     // interaction with `env` above: Playwright skips the whole command when it

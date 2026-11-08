@@ -137,7 +137,7 @@ test("a Zarr store added through the panel mounts as a custom layer on the Mapbo
     return route.fulfill({ status: 404, body: "" });
   });
   await page.addLocatorHandler(
-    page.getByRole("heading", { name: "Recover unsaved work?" }),
+    page.getByRole("heading", { name: "Restore unsaved changes?" }),
     async () => {
       await page.getByRole("button", { name: "Discard", exact: true }).click();
     },

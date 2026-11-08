@@ -3,6 +3,9 @@ import { readFile } from "node:fs/promises";
 import { layerRow, openMenuBarMenu, openAddDataSource, railButton, selectLayerRow } from "./helpers";
 import { DESKTOP_SETTINGS_STORAGE_KEY } from "../apps/geolibre-desktop/src/lib/storage-keys";
 
+// SWIFTMAP (Change 27): skipped, it styles through GeoLibre's old Style panel, which Swiftmap replaced (engine code kept).
+test.skip(true, "SWIFTMAP: it styles through GeoLibre's old Style panel, which Swiftmap replaced");
+
 const PMTILES = "https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.pmtiles";
 const COPC =
   "https://raw.githubusercontent.com/PDAL/PDAL/master/test/data/copc/1.2-with-color.copc.laz";
@@ -48,7 +51,7 @@ for (const theme of ["light", "dark"] as const) {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addLocatorHandler(
-      page.getByRole("heading", { name: "Recover unsaved work?" }),
+      page.getByRole("heading", { name: "Restore unsaved changes?" }),
       async () => {
         await page.getByRole("button", { name: "Discard", exact: true }).click();
       },

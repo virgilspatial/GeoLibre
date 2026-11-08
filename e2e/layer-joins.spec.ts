@@ -9,6 +9,9 @@ import {
   waitForMap,
 } from "./helpers";
 
+// SWIFTMAP (Change 27): skipped, joins have no entry point in Swiftmap's Style panel (engine code kept).
+test.skip(true, "SWIFTMAP: joins have no entry point in Swiftmap's Style panel");
+
 for (const format of ["csv", "xlsx"]) {
   test(`joins a local ${format} table without coordinates`, async ({ page }) => {
     await waitForMap(page);

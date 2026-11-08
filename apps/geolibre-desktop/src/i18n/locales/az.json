@@ -23,7 +23,7 @@
     "discard": "Sil",
     "restoreError": "Bu anlıq görüntünü bərpa etmək mümkün olmadı. O, zədələnmiş və ya GeoLibre-nin bu versiyası ilə uyğun olmaya bilər.",
     "recoveryTitle": "Yadda saxlanmamış işi bərpa edək?",
-    "recoveryDescription": "GeoLibre düzgün bağlanmayıb. “{{name}}” üçün daha yeni avtomatik saxlanmış nüsxə mövcuddur.",
+    "recoveryDescription": "Swiftmap düzgün bağlanmayıb. “{{name}}” üçün daha yeni avtomatik saxlanmış nüsxə mövcuddur.",
     "autosavePaused": "Avtomatik saxlama dayandırılıb: bu layihə {{limit}} MB-dan böyükdür, ona görə yeni anlıq görüntülər saxlanılmır. İşinizi qorumaq üçün onu diskə saxlayın.",
     "diff": {
       "compare": "Müqayisə et",
