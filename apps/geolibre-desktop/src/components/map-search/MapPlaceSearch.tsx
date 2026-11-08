@@ -26,7 +26,7 @@ import type { MapEngine } from "@geolibre/map";
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@geolibre/ui";
 import { Loader2, Search, X } from "lucide-react";
 import { createPortal } from "react-dom";
-import { findPrimaryPane } from "../map-buttons/MapButtonStack";
+import { findPrimaryPane } from "../map-buttons/primary-pane";
 import { mapButtonClass } from "../map-buttons/MapStackButton";
 import { formatLatLon, parseLatLon } from "../../lib/coordinates";
 import { parseGridReference } from "../../lib/grid-reference";

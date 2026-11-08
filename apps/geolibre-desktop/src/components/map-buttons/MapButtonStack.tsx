@@ -13,8 +13,10 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from "./MapStackButton";
+import { MapPlaceSearch } from "../map-search/MapPlaceSearch";
 import { needleRotation, nativeCornerTop, visibleMapButtons } from "./map-buttons-model";
 import { useMapControlsMenuStore } from "./mapControlsMenuStore";
+import { findPrimaryPane } from "./primary-pane";
 
 // SWIFTMAP (Change 26): the mockup's map button stack, top right of the primary
 // map: Zoom, Compass, My location, Full screen, then Map controls. It replaces
@@ -36,14 +38,6 @@ function fullscreenElement(): Element | null {
   return (
     document.fullscreenElement ?? (document as FullscreenDocument).webkitFullscreenElement ?? null
   );
-}
-
-/** The primary map's pane: the first grid cell in a split layout, else the map area. */
-export function findPrimaryPane(): HTMLElement | null {
-  const grid = document.querySelector<HTMLElement>('[data-testid="map-grid"]');
-  const cell = grid?.firstElementChild;
-  if (cell instanceof HTMLElement) return cell;
-  return document.querySelector<HTMLElement>("[data-map-column] > main");
 }
 
 export function MapButtonStack({ engine, ready, shown }: MapButtonStackProps) {
@@ -134,59 +128,68 @@ export function MapButtonStack({ engine, ready, shown }: MapButtonStackProps) {
 
   const buttons = visibleMapButtons(shown);
 
-  return createPortal(
-    <div
-      ref={stackRef}
-      role="group"
-      aria-label={t("swiftmapMapButtons.group")}
-      className="pointer-events-none absolute end-4 top-4 z-20 flex flex-col items-end gap-2 [&>*]:pointer-events-auto"
-      data-testid="swiftmap-map-buttons"
-    >
-      {buttons.includes("zoom") && (
-        <div className="flex flex-col overflow-hidden rounded-[8px] border border-border bg-background">
-          <MapStackButton
-            joined
-            label={t("swiftmapMapButtons.zoomIn")}
-            className="border-b border-border"
-            onClick={() => engine.current?.zoomIn()}
-          >
-            <ZoomInIcon />
-          </MapStackButton>
-          <MapStackButton
-            joined
-            label={t("swiftmapMapButtons.zoomOut")}
-            onClick={() => engine.current?.zoomOut()}
-          >
-            <ZoomOutIcon />
-          </MapStackButton>
-        </div>
-      )}
-      {buttons.includes("compass") && (
-        <MapStackButton
-          label={t("swiftmapMapButtons.resetNorth")}
-          onClick={() => engine.current?.resetNorthPitch()}
+  return (
+    <>
+      {createPortal(
+        <div
+          ref={stackRef}
+          role="group"
+          aria-label={t("swiftmapMapButtons.group")}
+          className="pointer-events-none absolute end-4 top-4 z-20 flex flex-col items-end gap-2 [&>*]:pointer-events-auto"
+          data-testid="swiftmap-map-buttons"
         >
-          <CompassIcon rotation={needleRotation(bearing)} />
-        </MapStackButton>
-      )}
-      {buttons.includes("geolocate") && (
-        <MapStackButton label={t("swiftmapMapButtons.myLocation")} onClick={locate}>
-          <MyLocationIcon />
-        </MapStackButton>
-      )}
-      {buttons.includes("fullscreen") && (
-        <MapStackButton
-          label={t(
-            isFullscreen ? "swiftmapMapButtons.exitFullScreen" : "swiftmapMapButtons.fullScreen",
+          {buttons.includes("zoom") && (
+            <div className="flex flex-col overflow-hidden rounded-[8px] border border-border bg-background">
+              <MapStackButton
+                joined
+                label={t("swiftmapMapButtons.zoomIn")}
+                className="border-b border-border"
+                onClick={() => engine.current?.zoomIn()}
+              >
+                <ZoomInIcon />
+              </MapStackButton>
+              <MapStackButton
+                joined
+                label={t("swiftmapMapButtons.zoomOut")}
+                onClick={() => engine.current?.zoomOut()}
+              >
+                <ZoomOutIcon />
+              </MapStackButton>
+            </div>
           )}
-          onClick={toggleFullscreen}
-        >
-          <FullScreenIcon />
-        </MapStackButton>
+          {buttons.includes("compass") && (
+            <MapStackButton
+              label={t("swiftmapMapButtons.resetNorth")}
+              onClick={() => engine.current?.resetNorthPitch()}
+            >
+              <CompassIcon rotation={needleRotation(bearing)} />
+            </MapStackButton>
+          )}
+          {buttons.includes("geolocate") && (
+            <MapStackButton label={t("swiftmapMapButtons.myLocation")} onClick={locate}>
+              <MyLocationIcon />
+            </MapStackButton>
+          )}
+          {buttons.includes("fullscreen") && (
+            <MapStackButton
+              label={t(
+                isFullscreen
+                  ? "swiftmapMapButtons.exitFullScreen"
+                  : "swiftmapMapButtons.fullScreen",
+              )}
+              onClick={toggleFullscreen}
+            >
+              <FullScreenIcon />
+            </MapStackButton>
+          )}
+          {/* GeoLibre's Controls menu draws its trigger here (MapControlsTrigger). */}
+          <div ref={setAnchor} className="empty:hidden" />
+        </div>,
+        pane,
       )}
-      {/* GeoLibre's Controls menu draws its trigger here (MapControlsTrigger). */}
-      <div ref={setAnchor} className="empty:hidden" />
-    </div>,
-    pane,
+      {/* SWIFTMAP (Change 28): place search on the map, top left, wherever the
+          buttons are (editors and viewers, not ?maponly). */}
+      <MapPlaceSearch mapControllerRef={engine} />
+    </>
   );
 }
