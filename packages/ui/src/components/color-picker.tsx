@@ -44,6 +44,11 @@ export type ColorPickerProps = {
   onChange: (value: ColorValue) => void;
   labels: ColorPickerLabels;
   className?: string;
+  /**
+   * SWIFTMAP (Change 27): false hides the opacity track and percentage, for
+   * colours that carry no transparency (outlines, label text). Default true.
+   */
+  showAlpha?: boolean;
 };
 
 type EyeDropperCtor = new () => { open: () => Promise<{ sRGBHex: string }> };
@@ -160,7 +165,13 @@ function Track({
   );
 }
 
-export function ColorPicker({ value, onChange, labels, className }: ColorPickerProps) {
+export function ColorPicker({
+  value,
+  onChange,
+  labels,
+  className,
+  showAlpha = true,
+}: ColorPickerProps) {
   const [hsv, setHsv] = React.useState<HSV>(() =>
     rgbToHsv(hexToRgb(value.hex) ?? { r: 0, g: 0, b: 0 }),
   );
@@ -237,6 +248,7 @@ export function ColorPicker({ value, onChange, labels, className }: ColorPickerP
         {...dragHandlers((x) => update({ ...hsv, h: x * 360 }))}
         onKeyDown={arrowKeys(1, (dx, dy) => update({ ...hsv, h: clamp(hsv.h + dx + dy, 0, 360) }))}
       />
+      {showAlpha && (
       <Track
         label={labels.opacity}
         now={Math.round(value.alpha * 100)}
@@ -246,6 +258,7 @@ export function ColorPicker({ value, onChange, labels, className }: ColorPickerP
         {...dragHandlers((x) => setAlpha(x))}
         onKeyDown={arrowKeys(0.01, (dx, dy) => setAlpha(value.alpha + dx + dy))}
       />
+      )}
 
       <div className="flex items-center gap-2">
         <Button
@@ -276,12 +289,13 @@ export function ColorPicker({ value, onChange, labels, className }: ColorPickerP
             aria-label={labels.formatValue(format.toUpperCase())}
             spellCheck={false}
             dir="ltr"
-            className="h-9 min-w-0 flex-1 rounded-s-md border border-input bg-transparent px-2 text-sm tabular-nums outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 min-w-0 flex-1 rounded-s-md border border-input last:rounded-e-md bg-transparent px-2 text-sm tabular-nums outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring"
             value={draft ?? formatColor(hsv, format)}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitText}
             onKeyDown={(e) => e.key === "Enter" && commitText()}
           />
+          {showAlpha && (
           <input
             aria-label={labels.opacityPercent}
             dir="ltr"
@@ -291,6 +305,7 @@ export function ColorPicker({ value, onChange, labels, className }: ColorPickerP
             onBlur={commitAlpha}
             onKeyDown={(e) => e.key === "Enter" && commitAlpha()}
           />
+          )}
         </div>
       </div>
     </div>

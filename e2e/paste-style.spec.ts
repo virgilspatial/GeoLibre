@@ -1,6 +1,9 @@
 import { expect, test } from "./test";
 import { dropGeoJson, layerRow, readFixture, selectLayerRow, waitForMap } from "./helpers";
 
+// SWIFTMAP (Change 27): skipped, style paste/import has no entry point in Swiftmap's Style panel (engine code kept).
+test.skip(true, "SWIFTMAP: style paste/import has no entry point in Swiftmap's Style panel");
+
 const FIXTURE_TEXT = readFixture("smoke.geojson");
 
 /** A stacked Mapbox GL style: two classes carry a colour, one deliberately does not. */

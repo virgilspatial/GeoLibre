@@ -50,6 +50,7 @@ import {
   type LayerActionsMenuShared,
 } from "./LayerActionsMenu";
 import { LayerOpacityCard, LayerPropertiesCard } from "./LayerRowCards";
+import { LayerFilterCard, quickFiltersAvailable } from "../../style-panel-swiftmap/LayerFilterCard";
 
 interface LayerRowProps {
   layer: GeoLibreLayer;
@@ -280,7 +281,8 @@ export function LayerRow({
       <div
         className={cn(
           "group/row rounded-[10px] transition-colors hover:bg-row-hover",
-          selected && "bg-row-hover ring-1 ring-inset ring-accent",
+          // flow-root keeps a card's bottom margin inside the row (7b review round 1).
+          selected && "flow-root bg-row-hover ring-1 ring-inset ring-accent",
         )}
       >
         <div data-drag-grip="" className="relative flex min-w-0 items-center gap-2.5 py-1 ps-3.5 pe-1.5">
@@ -490,6 +492,9 @@ export function LayerRow({
           />
         ) : null}
         {selected && openCard === "properties" ? <LayerPropertiesCard layer={layer} /> : null}
+        {selected && openCard === "filter" && quickFiltersAvailable(layer) ? (
+          <LayerFilterCard layer={layer} mapControllerRef={mapControllerRef} />
+        ) : null}
       </div>
       {/* A load failure says why the layer shows nothing. Suppressed for the
           kinds the globe or ArcGIS view draws themselves. */}

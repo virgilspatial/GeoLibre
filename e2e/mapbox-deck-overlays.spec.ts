@@ -139,7 +139,7 @@ async function openMapboxProject(page: Page, baseURL: string, theme: "light" | "
     (route) => route.fulfill({ json: PROJECT }),
   );
   await page.addLocatorHandler(
-    page.getByRole("heading", { name: "Recover unsaved work?" }),
+    page.getByRole("heading", { name: "Restore unsaved changes?" }),
     async () => {
       await page.getByRole("button", { name: "Discard", exact: true }).click();
     },

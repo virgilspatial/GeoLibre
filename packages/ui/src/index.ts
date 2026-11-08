@@ -87,6 +87,7 @@ export {
   PopoverTrigger,
   PopoverContent,
   PopoverAnchor,
+  PopoverClose,
   PopoverHeader,
   PopoverTitle,
   PopoverDescription,

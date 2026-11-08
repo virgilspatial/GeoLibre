@@ -139,7 +139,8 @@ test("opens the selected layer in the Style panel from its toolbar", async ({ pa
   await layerRow(page, "first").getByRole("button", { name: "Open style panel" }).click();
 
   await expect(stylePanel).toBeVisible();
-  await expect(stylePanel.getByText("Style - first", { exact: true })).toBeVisible();
+  // SWIFTMAP (Change 27): Swiftmap's Style panel is headed by the layer name.
+  await expect(stylePanel.getByRole("heading", { name: "first", exact: true })).toBeVisible();
 });
 
 test("opens the Style panel from the layer toolbar by keyboard", async ({ page }) => {
@@ -159,12 +160,13 @@ test("opens the Style panel from the layer toolbar by keyboard", async ({ page }
   await styleButton("first").focus();
   await page.keyboard.press("Enter");
   await expect(stylePanel).toBeVisible();
-  await expect(stylePanel.getByText("Style - first", { exact: true })).toBeVisible();
+  // SWIFTMAP (Change 27): Swiftmap's Style panel is headed by the layer name.
+  await expect(stylePanel.getByRole("heading", { name: "first", exact: true })).toBeVisible();
 
   await selectLayerRow(page, "second");
   await styleButton("second").focus();
   await page.keyboard.press("Space");
-  await expect(stylePanel.getByText("Style - second", { exact: true })).toBeVisible();
+  await expect(stylePanel.getByRole("heading", { name: "second", exact: true })).toBeVisible();
 });
 
 // SWIFTMAP (Change 17): the rebuilt panel's search, selection, cards and shortcuts.

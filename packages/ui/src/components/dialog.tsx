@@ -25,6 +25,24 @@ export const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+/** A field someone types into: what a dialog with a form should focus first. */
+const TEXT_FIELD =
+  'input:not([type="button"],[type="submit"],[type="reset"],[type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"],[type="hidden"],[disabled]),textarea:not([disabled]),[contenteditable="true"]';
+
+/**
+ * SWIFTMAP (Change 27, round 2): a dialog with only buttons focuses itself on
+ * open, not its first button, so no button shows a focus ring and Enter can't
+ * press one (such as Discard) by accident. Tab still reaches the buttons; Esc
+ * and × still close it. A dialog with a text field keeps Radix's default
+ * (its first focusable element, the field in Swiftmap's forms).
+ */
+function focusDialogWithoutTextField(event: Event): void {
+  const content = event.currentTarget;
+  if (!(content instanceof HTMLElement) || content.querySelector(TEXT_FIELD)) return;
+  event.preventDefault();
+  content.focus({ preventScroll: true });
+}
+
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
@@ -33,13 +51,17 @@ export const DialogContent = React.forwardRef<
      * positioned by the caller relative to the content box. */
     resizeHandle?: React.ReactNode;
   }
->(({ className, bodyClassName, resizeHandle, children, ...props }, ref) => (
+>(({ className, bodyClassName, resizeHandle, children, onOpenAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      onOpenAutoFocus={(event) => {
+        onOpenAutoFocus?.(event);
+        if (!event.defaultPrevented) focusDialogWithoutTextField(event);
+      }}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden border bg-popover text-popover-foreground shadow-xl duration-200 supports-[not_(max-height:1dvh)]:max-h-[calc(100vh-1rem)] sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 flex outline-none max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden border bg-popover text-popover-foreground shadow-xl duration-200 supports-[not_(max-height:1dvh)]:max-h-[calc(100vh-1rem)] sm:rounded-lg",
         className,
       )}
       {...props}

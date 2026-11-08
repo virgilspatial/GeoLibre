@@ -23,7 +23,7 @@
     "discard": "Scarta",
     "restoreError": "Impossibile ripristinare questo snapshot. Potrebbe essere danneggiato o incompatibile con questa versione di GeoLibre.",
     "recoveryTitle": "Recuperare il lavoro non salvato?",
-    "recoveryDescription": "GeoLibre non si è chiuso correttamente. È disponibile un salvataggio automatico più recente di \"{{name}}\".",
+    "recoveryDescription": "Swiftmap non si è chiuso correttamente. È disponibile un salvataggio automatico più recente di \"{{name}}\".",
     "autosavePaused": "Il salvataggio automatico è in pausa: questo progetto supera i {{limit}} MB, quindi non vengono conservati nuovi snapshot. Salvalo su disco per non perdere il tuo lavoro.",
     "diff": {
       "compare": "Confronta",

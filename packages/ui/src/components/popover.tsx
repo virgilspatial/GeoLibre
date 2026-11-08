@@ -32,6 +32,12 @@ function PopoverContent({
   );
 }
 
+// SWIFTMAP (Change 27, 7b review round 4): closes the popover from inside it,
+// for the Done button on settings popovers that edit live.
+function PopoverClose({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Close>) {
+  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
+}
+
 function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
   return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />;
 }
@@ -65,6 +71,7 @@ export {
   PopoverTrigger,
   PopoverContent,
   PopoverAnchor,
+  PopoverClose,
   PopoverHeader,
   PopoverTitle,
   PopoverDescription,

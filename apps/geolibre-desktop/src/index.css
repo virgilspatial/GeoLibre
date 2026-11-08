@@ -6155,3 +6155,58 @@ html.dark .maplibregl-popup-anchor-right:has(.vector-control-popup) .maplibregl-
   top: var(--swiftmap-map-corner-top, 6px);
   right: 6px; /* MapLibre corners are physical, not logical */
 }
+
+/* SWIFTMAP (Change 27, 7b review round 1): the map pop-up's × matches the
+   Style panel's: a 28px button with a 16px X icon (Lucide "x", drawn as a mask
+   in the text colour, replacing MapLibre's "×" glyph), the same muted colour,
+   accent hover and 2px focus ring. */
+.maplibregl-map .maplibregl-popup-close-button {
+  width: 28px;
+  height: 28px;
+  inset-block-start: 6px;
+  inset-inline-end: 6px;
+  border: 0;
+  border-radius: 6px;
+  font-size: 0;
+  line-height: 0;
+  outline: none;
+}
+
+.maplibregl-map .maplibregl-popup-close-button::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E")
+    center / 16px 16px no-repeat;
+}
+
+.maplibregl-map .maplibregl-popup-close-button:focus-visible {
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
+/* SWIFTMAP (Change 27, 7b review round 3): Identify pop-up field names wrap
+   only at spaces, never mid-word ("_constraint_r / ating"). GeoLibre draws each
+   row as its own grid with a 0.45fr name column; here the rows share one grid
+   (subgrid) whose name column fits the longest name, up to 60% of the width,
+   so the values still line up. The full card restyle is later in branch 7. */
+:is(.geolibre-identify-popup-root, .geolibre-identify-popup-groups) div:has(> .grid.border-t) {
+  display: grid;
+  grid-template-columns: fit-content(60%) minmax(0, 1fr);
+  column-gap: 0.5rem;
+}
+
+:is(.geolibre-identify-popup-root, .geolibre-identify-popup-groups) div:has(> .grid.border-t) > * {
+  grid-column: 1 / -1;
+}
+
+:is(.geolibre-identify-popup-root, .geolibre-identify-popup-groups) .grid.border-t {
+  grid-template-columns: subgrid;
+}
+
+:is(.geolibre-identify-popup-root, .geolibre-identify-popup-groups) .grid.border-t > :first-child {
+  overflow-wrap: normal;
+  word-break: normal;
+}

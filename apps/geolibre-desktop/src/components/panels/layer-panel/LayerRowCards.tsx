@@ -6,7 +6,12 @@ import { readRasterInfo, type RasterInfo } from "../../../lib/raster-info";
 import { rasterInfoUrl } from "./layer-panel-utils";
 import { layerPropertyRows } from "./layer-properties";
 
-const cardClass = "mx-2 mb-2 rounded-lg border bg-background";
+/**
+ * The white card inside the selected row: 8px from the row's start, end and
+ * bottom edges (the row is `flow-root`, so the margin can't escape it), one
+ * padding for every card (7b review round 1).
+ */
+export const cardClass = "mx-2 mb-2 rounded-lg border bg-background px-3 py-2.5";
 
 /**
  * SWIFTMAP: the opacity card of the selected layer or a group (Change 17):
@@ -25,7 +30,7 @@ export function LayerOpacityCard({
   const { t } = useTranslation();
   const percent = Math.round(opacity * 100);
   return (
-    <div className={`${cardClass} flex items-center gap-2.5 px-3 py-2`}>
+    <div className={`${cardClass} flex items-center gap-2.5`}>
       <span className="text-xs font-medium">{t("layerPanel.opacity")}</span>
       <Slider
         aria-label={t("layerPanel.opacityFor", { name })}
@@ -74,7 +79,7 @@ export function LayerPropertiesCard({ layer }: { layer: GeoLibreLayer }) {
   const rows = layerPropertyRows(layer, t, i18n.language, raster);
   return (
     <dl
-      className={`${cardClass} grid grid-cols-[auto_minmax(0,1fr)] gap-x-3.5 gap-y-1.5 px-3 py-2.5 text-xs`}
+      className={`${cardClass} grid grid-cols-[auto_minmax(0,1fr)] gap-x-3.5 gap-y-1.5 text-xs`}
     >
       {rows.map((row) => (
         <div key={row.label} className="contents">
