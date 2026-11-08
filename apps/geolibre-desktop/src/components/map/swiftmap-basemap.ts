@@ -1,31 +1,27 @@
-import { DEFAULT_BASEMAP, getProtomapsStyleUrl, useAppStore } from "@geolibre/core";
+import { DEFAULT_BASEMAP, getProtomapsApiKey, useAppStore } from "@geolibre/core";
 import { readLastBasemap, writeLastBasemap } from "../../lib/last-basemap";
+import { swiftmapBasemapUrl } from "../basemap/basemap-catalog";
 
 /**
  * SWIFTMAP (Change 23): Protomaps Light is the default basemap for new maps
  * when a Protomaps key is available (build-time or runtime
  * `VITE_PROTOMAPS_API_KEY`); without one, GeoLibre's default (OpenFreeMap
- * Liberty) stays. GeoLibre's `DEFAULT_BASEMAP` is left alone.
+ * Liberty) stays. GeoLibre's `DEFAULT_BASEMAP` is left alone. Since Change 28
+ * the default is Swiftmap's own Light basemap (a sentinel, built locally and
+ * carrying no key), not Protomaps' hosted style URL.
  */
 
 /** Set once the default has been applied, so later basemap choices are kept. */
 export const SWIFTMAP_DEFAULT_BASEMAP_FLAG = "swiftmap.defaultBasemap.v1";
 
-/** The New Project dialog's preset id for Protomaps Light. */
-export const PROTOMAPS_LIGHT_ID = "protomaps-light";
-
 type Env = Record<string, string | undefined>;
+
+/** Swiftmap's Light basemap, the default with a Protomaps key. */
+const SWIFTMAP_LIGHT = swiftmapBasemapUrl({ kind: "protomaps", flavor: "light", labels: true });
 
 /** The style URL a new map starts with. */
 export function swiftmapDefaultBasemapUrl(env?: Env): string {
-  return getProtomapsStyleUrl("light", env) ?? DEFAULT_BASEMAP;
-}
-
-/** The New Project dialog's preselected basemap, given the presets it shows. */
-export function swiftmapDefaultBasemapId(
-  presetIds: readonly string[],
-): typeof PROTOMAPS_LIGHT_ID | "liberty" {
-  return presetIds.includes(PROTOMAPS_LIGHT_ID) ? PROTOMAPS_LIGHT_ID : "liberty";
+  return getProtomapsApiKey(env) ? SWIFTMAP_LIGHT : DEFAULT_BASEMAP;
 }
 
 function storageOf(storage?: Storage): Storage | null {
@@ -64,8 +60,8 @@ function setFlag(storage: Storage | null): void {
  * @returns Whether the basemap was switched.
  */
 export function applySwiftmapDefaultBasemap(options: { env?: Env; storage?: Storage } = {}): boolean {
-  const styleUrl = getProtomapsStyleUrl("light", options.env);
-  if (!styleUrl) return false;
+  if (!getProtomapsApiKey(options.env)) return false;
+  const styleUrl = SWIFTMAP_LIGHT;
   const storage = storageOf(options.storage);
   if (flagSet(storage)) return false;
 

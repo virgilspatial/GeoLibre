@@ -47,6 +47,8 @@ const CORE_SPECS = [
   "legend-panel.spec.ts",
   // SWIFTMAP (Change 27): the Style panel that replaced GeoLibre's.
   "style-panel.spec.ts",
+  // SWIFTMAP (Change 28): the Basemap card that replaced GeoLibre's Background row.
+  "basemap-card.spec.ts",
   // Moved to `features` once core reached ~11 min wall-clock (~25 min of test
   // time): set-view, paste-style, style-manager and identify-restore. Each
   // covers one dialog or interaction, not something every user hits, and

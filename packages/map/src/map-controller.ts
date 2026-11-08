@@ -232,6 +232,10 @@ export type { BuiltInMapControl };
 // BuiltInMapControl above); re-exported so existing importers keep working.
 export { DEFAULT_BUILT_IN_CONTROL_VISIBILITY, DEFAULT_BUILT_IN_CONTROL_POSITIONS };
 
+/* SWIFTMAP (Change 28): swaps one basemap for another on the live map without
+   a reload; returns whether it did. Registered by Swiftmap on globalThis. */
+type SwiftmapBasemapSwap = (map: maplibregl.Map, previousUrl: string, nextUrl: string) => boolean;
+
 export class MapController implements MapEngine {
   readonly kind = "maplibre" as const;
   readonly capabilities: MapEngineCapabilities = MAPLIBRE_CAPABILITIES;
@@ -929,7 +933,26 @@ export class MapController implements MapEngine {
 
   setStyle(url: string): void {
     if (!this.map) return;
+    const previous = this.basemapStyleUrl;
     this.basemapStyleUrl = url;
+    /* SWIFTMAP (Change 28): Swiftmap swaps between its own basemaps in place
+       (labels on/off, Light/Grey/Dark/Aerial) so the map doesn't blank. */
+    const swap = (globalThis as { __swiftmapBasemapSwap?: SwiftmapBasemapSwap })
+      .__swiftmapBasemapSwap;
+    if (
+      swap &&
+      this.styleReady &&
+      !this.activeCrs &&
+      !this.crsStyleDeferred &&
+      swap(this.map, previous, url)
+    ) {
+      this.styleGeneration += 1;
+      this.abortPendingMapboxStyle();
+      this.basemapOriginalPaintValues.clear();
+      this.applyBasemapVisibility();
+      this.applyBasemapOpacity();
+      return;
+    }
     this.applyStyleToMap(url);
     // Switching to/from a planetary basemap changes the active body (the store's
     // ellipsoid subscription runs first, so the singleton is already current),

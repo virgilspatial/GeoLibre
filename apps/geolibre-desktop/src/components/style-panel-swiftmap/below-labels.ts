@@ -42,20 +42,28 @@ export function setBelowLabels(layer: GeoLibreLayer, on: boolean, engine: MapEng
 }
 
 /**
+ * Points every layer that asked to be below the labels at `target`, the
+ * basemap's first label layer, or back to its normal place when there is none.
+ */
+export function pointBelowLabelsAt(target: string | undefined): void {
+  const { layers, updateLayer } = useAppStore.getState();
+  for (const layer of layers) {
+    if (isBelowLabels(layer) && layer.beforeId !== target) {
+      updateLayer(layer.id, { beforeId: target });
+    }
+  }
+}
+
+/**
  * After each map (re)load, including a basemap switch, points every layer that
- * asked to be below the labels at the new basemap's label layer.
+ * asked to be below the labels at the new basemap's label layer. (A Swiftmap
+ * basemap swapped in place, Change 28, calls `pointBelowLabelsAt` itself.)
  */
 export function useBelowLabelsSync(
   engineRef: RefObject<MapEngine | null>,
   mapReadyGeneration: number | undefined,
 ): void {
   useEffect(() => {
-    const { layers, updateLayer } = useAppStore.getState();
-    const target = basemapLabelLayerId(engineRef.current) ?? undefined;
-    for (const layer of layers) {
-      if (isBelowLabels(layer) && layer.beforeId !== target) {
-        updateLayer(layer.id, { beforeId: target });
-      }
-    }
+    pointBelowLabelsAt(basemapLabelLayerId(engineRef.current) ?? undefined);
   }, [engineRef, mapReadyGeneration]);
 }

@@ -13,7 +13,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  BLANK_BASEMAP,
   pluginOwnsPaint,
   resolveLayerCapabilities,
   useAppStore,
@@ -33,16 +32,14 @@ import { isMacPlatform } from "../../lib/commands";
 import { notify } from "../../lib/notify";
 import { canExportRasterLayer } from "../../lib/raster-export";
 import { activeInterfaceProfile } from "../../lib/ui-profile";
-import { Button, cn, ScrollArea, Separator } from "@geolibre/ui";
+import { Button, cn, ScrollArea } from "@geolibre/ui";
 import { Layers, PanelLeftOpen } from "lucide-react";
 import { participantCanEditLayer } from "../../lib/collab-protocol";
 import type { CollaborationApi } from "../../hooks/useCollaboration";
 import { useSidePanelStore } from "../layout/rail/sidePanelStore";
-import { BasemapPickerDialog } from "./BasemapPickerDialog";
-import { LayerPanelPlaceSearch } from "./LayerPanelPlaceSearch";
 import { useMapCapabilities } from "../../hooks/useMapCapabilities";
-import { BACKGROUND_SELECTION_ID } from "./layer-panel/layer-panel-utils";
-import { BackgroundAppearanceDialog, BackgroundLayerRow } from "./layer-panel/BackgroundLayerRow";
+import { BasemapCard } from "../basemap/BasemapCard";
+import { useOverflowing } from "../basemap/use-overflowing";
 import { BindTimeSliderDialog } from "./layer-panel/BindTimeSliderDialog";
 import type { LayerActionsMenuShared, LayerCard } from "./layer-panel/LayerActionsMenu";
 import { LayerGroupHeader } from "./layer-panel/LayerGroupHeader";
@@ -79,6 +76,7 @@ import { useTimeSliderBinding } from "./layer-panel/useTimeSliderBinding";
 import { setLayersPanelCollapsed } from "../../lib/layer-panel-collapse";
 
 interface LayerPanelProps {
+  /** Unused since Change 28 (the Blank background dialog went with the Background row). */
   themeMode: ThemeMode;
   mapControllerRef: RefObject<MapEngine | null>;
   refresh: LayerRefresh;
@@ -159,7 +157,6 @@ function isShortcutExcludedTarget(target: EventTarget | null): boolean {
 }
 
 export function LayerPanel({
-  themeMode,
   mapControllerRef,
   refresh,
   collaborationApi,
@@ -193,13 +190,6 @@ export function LayerPanel({
   const selectedLayerId = useAppStore((s) => s.selectedLayerId);
   const selectLayer = useAppStore((s) => s.selectLayer);
   const identifyLayerId = useAppStore((s) => s.identifyLayerId);
-  const basemapVisible = useAppStore((s) => s.basemapVisible);
-  const basemapStyleUrl = useAppStore((s) =>
-    // eslint-disable-next-line local/no-renderer-kind-checks -- Mapbox keeps its own persisted style URL
-    s.primaryRenderer === "mapbox"
-      ? (s.preferences.map.mapboxStyleUrl ?? s.basemapStyleUrl)
-      : s.basemapStyleUrl,
-  );
   const addLayerGroup = useAppStore((s) => s.addLayerGroup);
   const removeLayerGroup = useAppStore((s) => s.removeLayerGroup);
   const moveLayerGroupToGroup = useAppStore((s) => s.moveLayerGroupToGroup);
@@ -240,8 +230,6 @@ export function LayerPanel({
     ],
   );
 
-  const [basemapPickerOpen, setBasemapPickerOpen] = useState(false);
-  const [backgroundAppearanceOpen, setBackgroundAppearanceOpen] = useState(false);
   const [layerPendingRemoval, setLayerPendingRemoval] = useState<GeoLibreLayer | null>(null);
   const [groupPendingRemoval, setGroupPendingRemoval] = useState<LayerGroup | null>(null);
   // SWIFTMAP: search, and the selected layer's card and menu (Change 17).
@@ -519,9 +507,6 @@ export function LayerPanel({
     moveLayerGroupToGroup(group.id, targetId);
   };
 
-  const backgroundSelected = selectedLayerId === BACKGROUND_SELECTION_ID;
-  const blankBackgroundActive = basemapStyleUrl === BLANK_BASEMAP;
-
   const renderGroupHeader = (group: LayerGroup) => {
     if (hasCollapsedAncestor(group)) return null;
     return (
@@ -543,6 +528,7 @@ export function LayerPanel({
 
   // SWIFTMAP: drag and drop (Change 18). Off while searching.
   const listRef = useRef<HTMLDivElement>(null);
+  const listOverflows = useOverflowing(listRef, "[data-radix-scroll-area-viewport]");
   const drag = useRowDrag({
     listRef,
     enabled: !searching,
@@ -762,8 +748,8 @@ export function LayerPanel({
             </button>
           </div>
         ) : null}
-        {/* Rows, group headers and the Background card are listitems carrying
-            their nesting depth as aria-level. */}
+        {/* Rows and group headers are listitems carrying their nesting depth
+            as aria-level. */}
         <div
           ref={listRef}
           data-layer-list=""
@@ -824,18 +810,6 @@ export function LayerPanel({
           {groupHeaders.bottom.map((group) => (
             <Fragment key={group.id}>{renderGroupHeader(group)}</Fragment>
           ))}
-          {/* Kept until branch 6 moves basemaps to Map controls (item 26). */}
-          {!searching ? (
-            <div className="pt-2">
-              <BackgroundLayerRow
-                selected={backgroundSelected}
-                basemapVisible={basemapVisible}
-                blankBackgroundActive={blankBackgroundActive}
-                onOpenBasemapPicker={() => setBasemapPickerOpen(true)}
-                onOpenAppearance={() => setBackgroundAppearanceOpen(true)}
-              />
-            </div>
-          ) : null}
           {/* Where a drop lands: a 2px line in the gap the rows open. */}
           {drag.indicator?.kind === "line" ? (
             <div
@@ -864,15 +838,9 @@ export function LayerPanel({
           ) : null}
         </div>
       </ScrollArea>
-      {/* Kept until the map's own place search lands (item 27). */}
-      <Separator />
-      <LayerPanelPlaceSearch mapControllerRef={mapControllerRef} />
-      <BasemapPickerDialog open={basemapPickerOpen} onOpenChange={setBasemapPickerOpen} />
-      <BackgroundAppearanceDialog
-        open={backgroundAppearanceOpen}
-        onOpenChange={setBackgroundAppearanceOpen}
-        themeMode={themeMode}
-      />
+      {/* SWIFTMAP (Change 28): the Basemap card replaces GeoLibre's Background
+          row, fixed at the bottom below the scrolling list. */}
+      <BasemapCard divider={listOverflows} />
       <BindTimeSliderDialog binding={binding} />
       <RefreshSettingsDialog
         settings={refreshSettings}
