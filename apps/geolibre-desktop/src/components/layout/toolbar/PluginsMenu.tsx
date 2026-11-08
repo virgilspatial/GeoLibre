@@ -49,6 +49,7 @@ import {
   type ToolbarChrome,
 } from "./constants";
 import { renderItems } from "./PluginToolbarMenus";
+import { SWIFTMAP_HIDDEN_PLUGIN_IDS } from "../swiftmap-hidden";
 
 type PluginRegistry = ReturnType<typeof usePluginRegistry>;
 type RegisteredPlugin = PluginRegistry["plugins"][number];
@@ -85,11 +86,13 @@ export function PluginsMenu({
   toggle,
   getMapControlPosition,
   setMapControlPosition,
-  hiddenPluginIds,
+  hiddenPluginIds: profileHiddenPluginIds,
   onOpenManagePlugins,
   trigger,
   triggerAlign,
 }: PluginsMenuProps) {
+  // SWIFTMAP (Change 30): plugins Swiftmap hides, on top of the UI profile's.
+  const hiddenPluginIds = new Set([...profileHiddenPluginIds, ...SWIFTMAP_HIDDEN_PLUGIN_IDS]);
   const { t, i18n } = useTranslation();
   const primaryRenderer = useAppStore((state) => state.primaryRenderer);
   const { entries: toolbarMenuEntries } = useToolbarMenus();

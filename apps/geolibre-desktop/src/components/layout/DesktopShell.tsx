@@ -43,6 +43,7 @@ import type { DataUrlLoadState } from "../../hooks/useDataUrlLoader";
 import { wikipediaLang } from "../../lib/knowledge";
 import { isMapClickModeActive } from "../../lib/map-click-modes";
 import { lidarOutputForMap } from "../../lib/lidar-export";
+import { createLatch } from "../../lib/settle-gate";
 import { useLineOfSightTool } from "../../lib/line-of-sight-store";
 import { bindNetcdfProfileSamplesToProject } from "../../lib/netcdf-profile-store";
 import { projectUrlFromLocation } from "../../lib/project-url";
@@ -73,6 +74,8 @@ import { NetcdfCubeWindow } from "./NetcdfCubeWindow";
 import { NetcdfProfileWindow } from "./NetcdfProfileWindow";
 import { AlongTrackProfileWindow } from "./AlongTrackProfileWindow";
 import { hasElevationConsent } from "../../lib/elevation-consent";
+import { FloorPickerPanel } from "../floor-picker/FloorPickerPanel";
+import { SHOW_INDOOR_MAPS } from "./swiftmap-hidden";
 import { MapLegendPanel } from "../legend/MapLegendPanel";
 import { RasterSubsetPanel } from "./RasterSubsetPanel";
 import { BasemapExtractPanel } from "./BasemapExtractPanel";
@@ -181,6 +184,7 @@ interface DesktopShellProps {
   layoutOptions: LayoutOptions;
   projectUrlLoadState?: ProjectUrlLoadState;
   dataUrlLoadState?: DataUrlLoadState;
+  startupProjectSettled?: boolean;
   mapAppAPI: ReturnType<typeof createAppAPI> | null;
   themeMode: ThemeMode;
   onToggleThemeMode: () => void;
@@ -191,6 +195,7 @@ export function DesktopShell({
   layoutOptions,
   projectUrlLoadState,
   dataUrlLoadState,
+  startupProjectSettled,
   mapAppAPI,
   themeMode,
   onToggleThemeMode,
@@ -425,12 +430,21 @@ export function DesktopShell({
     fetchPluginRegistry(undefined, controller.signal).catch(() => {});
     return () => controller.abort();
   }, [canInstallPlugins]);
+  // Latched: the loader goes from `loaded` back to `idle` after a few seconds,
+  // which must not un-settle a project that has already loaded.
+  const [latchProjectUrlSettled] = useState(createLatch);
+  const projectUrlSettled = latchProjectUrlSettled(
+    !hasProjectUrl ||
+      projectUrlLoadState?.status === "loaded" ||
+      projectUrlLoadState?.status === "error",
+  );
   const restoredProjectGeneration = usePluginStateRestore({
     mapControllerRef,
     enforceViewerPlugins,
     externalPluginsReady,
     mapReadyGeneration,
     projectGeneration,
+    projectUrlSettled,
   });
   useEffect(() => {
     const root = document.documentElement;
@@ -461,16 +475,16 @@ export function DesktopShell({
     layoutOptions,
     externalPluginsReady,
     mapReadyGeneration,
-    projectUrlSettled:
-      !hasProjectUrl ||
-      projectUrlLoadState?.status === "loaded" ||
-      projectUrlLoadState?.status === "error",
+    projectUrlSettled,
   });
   useStartupPanels({
     mapControllerRef,
     viewer: layoutOptions.viewer,
+    panelsHidden: layoutOptions.panelsHidden,
     externalPluginsReady,
     mapReadyGeneration,
+    projectUrlSettled,
+    startupProjectSettled,
   });
 
   const handleMapControllerReady = useCallback(() => {
@@ -901,6 +915,15 @@ export function DesktopShell({
                     mapControllerRef={mapControllerRef}
                     mapReadyGeneration={mapReadyGeneration}
                   />
+                  {/* SWIFTMAP (Change 30): GeoLibre's on-map Floor picker is hidden. */}
+                  {SHOW_INDOOR_MAPS ? (
+                    <SilentErrorBoundary label="Floor picker">
+                      <FloorPickerPanel
+                        mapControllerRef={mapControllerRef}
+                        mapReadyGeneration={mapReadyGeneration}
+                      />
+                    </SilentErrorBoundary>
+                  ) : null}
                   <MapContextMenu
                     mapControllerRef={mapControllerRef}
                     mapReadyGeneration={mapReadyGeneration}

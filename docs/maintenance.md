@@ -158,6 +158,15 @@ loading. `apps/geolibre-desktop/vite-plugins/isolate-maplibre-registry.ts` renam
 MapLibre's copy at build time. A CI run can't see this failure without a real
 Mapbox token, so after a bump of either package, load a Mapbox style with one.
 
+The Mapbox engine's plugin-layer mirror (`mirrorPluginLayerState` in
+`packages/map/src/mapbox-engine.ts`) identifies a plugin's native layer by the
+style's own layer object, `style.getOwnLayer(id)`, an internal, because
+`map.getLayer` returns a fresh `serialize()` copy on every call.
+`OwnedPaintResets` keys what GeoLibre wrote on that object, so a cleared dash
+or blur resets only GeoLibre's own value. Without `getOwnLayer` nothing is
+owned and dashes on plugin layers stop resetting to solid, silently;
+`tests/upstream-contracts.test.ts` checks both halves in the bundle.
+
 ### `@deck.gl/mapbox` and `@deck.gl/maplibre`
 
 `bridgeArcgisDeckControl` (`packages/plugins/src/plugins/arcgis-deck/control-adapter.ts`)
@@ -178,6 +187,23 @@ down once that cache fills. After bumping deck.gl or loaders.gl, run
 `tests/arcgis-i3s-tiles.test.ts`: its real-`Tileset3D` case fails if the field
 is renamed or no longer starts at 32 MB. If upstream starts honouring the
 option, the helper can go.
+
+### `@deck.gl/geo-layers` — I3S mesh layer replaced
+
+deck.gl's `Tile3DLayer` draws ArcGIS I3S nodes with its own `MeshLayer`, which
+shades them through luma.gl's PBR material module. From deck.gl 9.4 / luma.gl
+9.4 that draws nothing on WebGL (every fragment transparent, no error), so no
+I3S scene layer rendered from the 9.3 → 9.4 bump (#2395) until GeoLibre
+replaced the layer. `packages/plugins/src/plugins/i3s-mesh-layer.ts` is deck.gl
+9.3's I3S mesh layer without the PBR module, passed to `Tile3DLayer` as
+`_subLayerProps.mesh.type` in `arcgis-i3s-tiles.ts`.
+
+After bumping deck.gl or luma.gl, load **Add data → 3D Tiles layer → Load sample
+data → San Francisco Buildings (ArcGIS I3S)** on the Positron background (Liberty
+draws its own 3D buildings, which look like I3S ones) and check the textured
+buildings draw. To see whether upstream fixed its layer, drop the
+`_subLayerProps` override and check again; if it draws, delete
+`i3s-mesh-layer.ts`.
 
 ### `@maplibre/maplibre-gl-style-spec`
 
@@ -542,7 +568,7 @@ bump, check whether the Zarr control now forwards `minzoom` so the write can go.
 relies on two things zarr-cesium does not export as API:
 
 - `ZarrLayerProvider` only honours named matplotlib colormaps (its documented
-  `colorScale` option is not forwarded in 0.3.3), so GeoLibre writes the layer's
+  `colorScale` option is still not forwarded in 0.4.4), so GeoLibre writes the layer's
   ramp to the provider's private `source.colorScale.colors` and calls
   `source.updateColormapTexture()`. If those move, the globe draws the default
   ramp and logs one warning.
@@ -872,6 +898,27 @@ manual check, not a Dependabot event:
   and `font-src` in `tauri.conf.json` and `docker/nginx.conf`, and cached by
   the `geolibre-arcgis-sdk` service-worker rule in `vite.config.ts`. The
   version is in every URL, so a bump mints new cache entries.
+
+### JAXA Earth API for JavaScript — loaded from JAXA's server
+
+The JAXA Earth plugin draws its tiles with JAXA's "JAXA Earth API for
+JavaScript", which is not published to npm.
+`packages/plugins/src/plugins/jaxa-earth-api.ts` fetches the release named by
+`JAXA_EARTH_API_VERSION` from `data.earth.jaxa.jp`, refuses it unless its
+SHA-256 equals `JAXA_EARTH_MODULE_SHA256`, and imports it from a `blob:` URL.
+The module has no imports of its own, so no CSP change is needed (`blob:` is in
+`script-src` and the fetch runs under `connect-src`). The surface it uses
+(`ImageCollection`, `TileGenerator`, `image.ColorMap`, `Resampling`) is typed
+by hand, so the compiler does not check it against JAXA's `jaxa.earth.esm.d.ts`.
+
+The checksum is the only trust boundary: once imported, the module runs with
+the app's full privileges, including the Tauri IPC bridge on desktop. To move to
+a new release, bump the version, compute the checksum from the exact bytes JAXA
+serves (`curl -s <module url> | sha256sum`), review the module and the
+new `.d.ts` diff against the members above before committing the hash, and add a
+dataset from the panel in a browser. If JAXA republishes the
+pinned file in place, every JAXA layer fails with a "module changed" error
+until the checksum is updated.
 
 ### Desktop CSP `script-src` allowlist
 
@@ -1433,6 +1480,12 @@ while it was present: Vite copies `public/` into the output and only clears that
 output when a build actually runs. Rebuild, or delete the stale directory.
 
 ## Generated files and cross-file sync
+
+- **The network endpoints page.** [`network-endpoints.md`](network-endpoints.md)
+  lists every external host the app contacts, by hand. A change that adds one
+  (a basemap, plugin, relay route in `workers/tiles`, CDN asset, or default
+  service), including a `maplibre-gl-*` bump that brings a new host, updates
+  that page in the same PR and marks the host default or opt-in.
 
 - **Native PostGIS tile concurrency.** `MAX_TILES_IN_FLIGHT` in
   `apps/geolibre-desktop/src/lib/postgis-tiles-url.ts` caps tile requests per

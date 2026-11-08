@@ -51,6 +51,7 @@ import type { ToolbarPanels } from "../../../hooks/useToolbarPanels";
 import type { ViewportHistory } from "../../../hooks/useViewportHistory";
 import { IS_MAS_BUILD } from "../../../lib/build-flags";
 import type { Command } from "../../../lib/commands";
+import { resolveProjectStorage } from "../../../lib/project-storage";
 import { CVD_MODE_LABEL_KEYS, useCvdPreviewStore } from "../../../lib/cvd-preview-store";
 import { CVD_MODES } from "../../../lib/cvd-simulation";
 import { useLineOfSightTool } from "../../../lib/line-of-sight-store";
@@ -74,6 +75,7 @@ import {
   VECTOR_TOOL_COMMANDS,
   WEBSITE_URL,
 } from "./constants";
+import { SWIFTMAP_HIDDEN_PLUGIN_IDS } from "../swiftmap-hidden";
 
 type SetOpen = Dispatch<SetStateAction<boolean>>;
 type PluginRef = Pick<GeoLibrePlugin, "id" | "name" | "engines">;
@@ -132,6 +134,8 @@ export interface ToolbarCommandContext {
   /** Open New Project with its Examples (starter projects) section expanded. */
   openStarterExamples: () => void;
   setShareDialogOpen: SetOpen;
+  /** Open the Gallery, optionally on the signed-in user's own projects. */
+  openGalleryScope: (scope?: "mine") => void;
   setPrintLayoutOpen: SetOpen;
   setGeoreferencerOpen: SetOpen;
   setFieldCollectionOpen: SetOpen;
@@ -189,6 +193,10 @@ const SWIFTMAP_REMOVED_COMMANDS = new Set([
   "add.deckgl-viz",
   "add.spaceborne-lidar",
   "add.splatting",
+  // Indoor maps, hidden in Change 30 (GeoLibre v3.7.0).
+  "add.indoorgml",
+  // Plugins Swiftmap hides (Change 30).
+  ...[...SWIFTMAP_HIDDEN_PLUGIN_IDS].map((id) => `plugin.${id}`),
 ]);
 
 export function buildToolbarCommands(context: ToolbarCommandContext): Command[] {
@@ -225,6 +233,7 @@ export function buildToolbarCommands(context: ToolbarCommandContext): Command[] 
     setNewProjectDialogOpen,
     openStarterExamples,
     setShareDialogOpen,
+    openGalleryScope,
     setPrintLayoutOpen,
     setGeoreferencerOpen,
     setFieldCollectionOpen,
@@ -285,7 +294,13 @@ export function buildToolbarCommands(context: ToolbarCommandContext): Command[] 
       keywords: "load",
       icon: FolderOpen,
       shortcut: { key: "o", mod: true, shift: false },
-      run: () => void projectFiles.handleOpenFromFile(),
+      run: () => {
+        if (resolveProjectStorage() === "server") {
+          openGalleryScope("mine");
+        } else {
+          void projectFiles.handleOpenFromFile();
+        }
+      },
     },
     {
       id: "project.open-url",

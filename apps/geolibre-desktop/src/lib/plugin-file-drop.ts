@@ -5,103 +5,23 @@
  * handler works the same on web and desktop.
  */
 
+import { listZipEntryPaths, type ReadRange } from "@geolibre/core";
 import type { TFunction } from "i18next";
-import { open as openLocalFile, SeekMode, stat } from "@tauri-apps/plugin-fs";
+import { stat } from "@tauri-apps/plugin-fs";
 import type {
   GeoLibreDroppedFile,
   GeoLibreDroppedFileInfo,
   GeoLibreFileHandler,
 } from "@geolibre/plugins";
-import { listDirectory, readLocalFileBytes } from "./file-io/local-fs";
+import { listDirectory, readLocalFileBytes, readLocalFileRange } from "./file-io/local-fs";
 import { browserSafeFileName } from "./file-io/paths";
 import { toArrayBuffer } from "./file-io/shared";
 
-/** Reads `length` bytes of a file from `offset`. */
-type ReadRange = (offset: number, length: number) => Promise<Uint8Array>;
-
-const EOCD_SIGNATURE = 0x06054b50;
-const EOCD_SIZE = 22;
-const ZIP64_LOCATOR_SIGNATURE = 0x07064b50;
-const ZIP64_LOCATOR_SIZE = 20;
-const ZIP64_EOCD_SIGNATURE = 0x06064b50;
-const ZIP64_EOCD_SIZE = 56;
-const CENTRAL_ENTRY_SIGNATURE = 0x02014b50;
-const CENTRAL_ENTRY_SIZE = 46;
-/** Longest possible zip comment plus the record that precedes it. */
-const MAX_EOCD_SEARCH = 0xffff + EOCD_SIZE;
-/** A central directory beyond this is not a file a handler should inspect. */
-const MAX_CENTRAL_DIRECTORY_BYTES = 16 * 1024 * 1024;
+export { listZipEntryPaths };
 
 /** Walk limits for a dropped folder, so dropping a home directory cannot hang the app. */
 const MAX_FOLDER_DEPTH = 16;
 const MAX_FOLDER_ENTRIES = 20_000;
-
-function viewOf(bytes: Uint8Array): DataView {
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
-
-/**
- * List the paths inside a zip from its central directory, reading only the tail
- * of the archive rather than the whole file.
- *
- * @param size - The archive's size in bytes.
- * @param readRange - Reads a byte range of the archive.
- * @returns The entry paths in archive order, or undefined when the file has no
- *   readable central directory (not a zip, or truncated).
- */
-export async function listZipEntryPaths(
-  size: number,
-  readRange: ReadRange,
-): Promise<string[] | undefined> {
-  if (size < EOCD_SIZE) return undefined;
-  const tailLength = Math.min(size, MAX_EOCD_SEARCH);
-  const tailOffset = size - tailLength;
-  const tail = await readRange(tailOffset, tailLength);
-  const tailView = viewOf(tail);
-  let eocd = -1;
-  for (let i = tail.byteLength - EOCD_SIZE; i >= 0; i -= 1) {
-    if (tailView.getUint32(i, true) === EOCD_SIGNATURE) {
-      eocd = i;
-      break;
-    }
-  }
-  if (eocd < 0) return undefined;
-
-  let directorySize = tailView.getUint32(eocd + 12, true);
-  let directoryOffset = tailView.getUint32(eocd + 16, true);
-  if (directorySize === 0xffffffff || directoryOffset === 0xffffffff) {
-    const locator = eocd - ZIP64_LOCATOR_SIZE;
-    if (locator < 0 || tailView.getUint32(locator, true) !== ZIP64_LOCATOR_SIGNATURE) {
-      return undefined;
-    }
-    const zip64Offset = Number(tailView.getBigUint64(locator + 8, true));
-    if (zip64Offset + ZIP64_EOCD_SIZE > size) return undefined;
-    const zip64 = viewOf(await readRange(zip64Offset, ZIP64_EOCD_SIZE));
-    if (zip64.getUint32(0, true) !== ZIP64_EOCD_SIGNATURE) return undefined;
-    directorySize = Number(zip64.getBigUint64(40, true));
-    directoryOffset = Number(zip64.getBigUint64(48, true));
-  }
-  if (directorySize > MAX_CENTRAL_DIRECTORY_BYTES || directoryOffset + directorySize > size) {
-    return undefined;
-  }
-
-  const directory = await readRange(directoryOffset, directorySize);
-  const view = viewOf(directory);
-  const decoder = new TextDecoder();
-  const paths: string[] = [];
-  let cursor = 0;
-  while (cursor + CENTRAL_ENTRY_SIZE <= directory.byteLength) {
-    if (view.getUint32(cursor, true) !== CENTRAL_ENTRY_SIGNATURE) return undefined;
-    const nameLength = view.getUint16(cursor + 28, true);
-    const extraLength = view.getUint16(cursor + 30, true);
-    const commentLength = view.getUint16(cursor + 32, true);
-    const nameStart = cursor + CENTRAL_ENTRY_SIZE;
-    if (nameStart + nameLength > directory.byteLength) return undefined;
-    paths.push(decoder.decode(directory.subarray(nameStart, nameStart + nameLength)));
-    cursor = nameStart + nameLength + extraLength + commentLength;
-  }
-  return paths;
-}
 
 /** Whether `name` ends in one of `extensions`, ignoring case and a missing dot. */
 export function matchesFileHandlerExtensions(name: string, extensions: string[]): boolean {
@@ -137,7 +57,7 @@ export interface FileHandlerDropResult<T> {
   failed: { handler: GeoLibreFileHandler; error: unknown }[];
 }
 
-function toDroppedFile<T>(leaf: DropLeaf<T>): GeoLibreDroppedFile {
+export function toDroppedFile<T>(leaf: DropLeaf<T>): GeoLibreDroppedFile {
   const file: GeoLibreDroppedFile = {
     name: leaf.name,
     size: leaf.size,
@@ -419,28 +339,6 @@ export async function offerBrowserDrop(
     }
   }
   return offerDropToFileHandlers(leaves, files, handlers);
-}
-
-/** Range-read a local file through the `fs` plugin, without loading all of it. */
-async function readLocalFileRange(
-  path: string,
-  offset: number,
-  length: number,
-): Promise<Uint8Array> {
-  const handle = await openLocalFile(path, { read: true });
-  try {
-    await handle.seek(offset, SeekMode.Start);
-    const bytes = new Uint8Array(length);
-    let filled = 0;
-    while (filled < length) {
-      const count = await handle.read(bytes.subarray(filled));
-      if (!count) break;
-      filled += count;
-    }
-    return bytes.subarray(0, filled);
-  } finally {
-    await handle.close();
-  }
 }
 
 function pathLeaf(origin: string, absolutePath: string, size: number, path?: string) {
