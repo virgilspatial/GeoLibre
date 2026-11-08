@@ -3,17 +3,17 @@ import { beforeEach, describe, it } from "node:test";
 import { DEFAULT_BASEMAP, useAppStore, type GeoLibreLayer } from "@geolibre/core";
 import {
   applySwiftmapDefaultBasemap,
-  swiftmapDefaultBasemapId,
   swiftmapDefaultBasemapUrl,
   SWIFTMAP_DEFAULT_BASEMAP_FLAG,
 } from "../apps/geolibre-desktop/src/components/map/swiftmap-basemap";
 import { readLastBasemap, writeLastBasemap } from "../apps/geolibre-desktop/src/lib/last-basemap";
 
-// SWIFTMAP (Change 23): Protomaps Light as the default basemap.
+// SWIFTMAP (Change 23): Protomaps Light as the default basemap; since Change 28
+// Swiftmap's own Light sentinel rather than Protomaps' hosted style URL.
 
 const KEY_ENV = { VITE_PROTOMAPS_API_KEY: "test-key" };
 const NO_KEY_ENV = { VITE_PROTOMAPS_API_KEY: "" };
-const LIGHT = "https://api.protomaps.com/styles/v5/light/en.json?key=test-key";
+const LIGHT = "geolibre://offline-basemap/swiftmap/light";
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -37,11 +37,6 @@ describe("Swiftmap default basemap", () => {
   it("is Protomaps Light with a key, and GeoLibre's default without one", () => {
     assert.equal(swiftmapDefaultBasemapUrl(KEY_ENV), LIGHT);
     assert.equal(swiftmapDefaultBasemapUrl(NO_KEY_ENV), DEFAULT_BASEMAP);
-  });
-
-  it("preselects Protomaps Light in the New Project dialog only when it is offered", () => {
-    assert.equal(swiftmapDefaultBasemapId(["protomaps-light", "protomaps-dark"]), "protomaps-light");
-    assert.equal(swiftmapDefaultBasemapId([]), "liberty");
   });
 
   it("switches an untouched first-run map and remembers it", () => {

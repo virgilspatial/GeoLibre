@@ -26,7 +26,7 @@ import {
   withStartupLayers,
 } from "../../lib/startup-layers";
 import { CollapsibleSection } from "../CollapsibleSection";
-import { swiftmapDefaultBasemapId } from "../map/swiftmap-basemap";
+import { swiftmapDefaultBasemapUrl } from "../map/swiftmap-basemap";
 import { RegionalBasemapSection } from "../panels/RegionalBasemapSection";
 import { StarterProjectsSection } from "./StarterProjectsSection";
 import {
@@ -47,6 +47,10 @@ import { useTranslation } from "react-i18next";
 
 const DEFAULT_BASEMAP_ID = "liberty";
 const CUSTOM_BASEMAP_ID = "custom";
+// SWIFTMAP (Change 28): GeoLibre's basemap list (OpenFreeMap, Protomaps,
+// Regional, Moon, Mars, other bodies, Blank, Custom URL) is hidden; the code
+// stays so it can come back.
+const SHOW_GEOLIBRE_BASEMAP_CHOICES = false;
 const BLANK_BASEMAP_ID = "blank";
 const DEFAULT_PROJECT_NAME = "Untitled Project";
 
@@ -160,11 +164,6 @@ export function NewProjectDialog({
     if (!open) return;
     const refresh = () => setProtomapsPresets(resolveProtomapsPresets());
     refresh();
-    // SWIFTMAP (Change 23): preselect Protomaps Light when a key makes it
-    // available, else Liberty. On open, since the key can arrive after mount.
-    setSelectedBasemapId(
-      swiftmapDefaultBasemapId(resolveProtomapsPresets().map((basemap) => basemap.id)),
-    );
     window.addEventListener("geolibre:runtime-env-change", refresh);
     return () => window.removeEventListener("geolibre:runtime-env-change", refresh);
   }, [open]);
@@ -229,6 +228,12 @@ export function NewProjectDialog({
 
   const createProject = () => {
     if (!canCreate) return;
+    // SWIFTMAP (Change 28): no basemap choice here; new projects start on
+    // Swiftmap's default and the Layers panel's Basemap card changes it.
+    if (!SHOW_GEOLIBRE_BASEMAP_CHOICES) {
+      createWithBasemap(DEFAULT_BASEMAP_ID, { styleUrl: swiftmapDefaultBasemapUrl() });
+      return;
+    }
 
     if (isCustomSelected) {
       const styleUrl = customIsPmtiles
@@ -381,7 +386,11 @@ export function NewProjectDialog({
           <>
             <DialogHeader>
               <DialogTitle>{t("newProject.title")}</DialogTitle>
-              <DialogDescription>{t("newProject.basemapDescription")}</DialogDescription>
+              <DialogDescription>
+                {SHOW_GEOLIBRE_BASEMAP_CHOICES
+                  ? t("newProject.basemapDescription")
+                  : t("swiftmapBasemap.newProjectDescription")}
+              </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleCreate} className="space-y-4">
@@ -441,45 +450,47 @@ export function NewProjectDialog({
                 />
               ) : null}
 
-              <div className="space-y-4">
-                <Label>{t("newProject.basemapLabel")}</Label>
+              {SHOW_GEOLIBRE_BASEMAP_CHOICES ? (
+                <>
+                  <div className="space-y-4">
+                    <Label>{t("newProject.basemapLabel")}</Label>
 
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {t("newProject.sectionOpenFreeMap")}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {OPENFREEMAP_BASEMAPS.map((basemap) => (
-                      <BasemapButton
-                        key={basemap.id}
-                        id={basemap.id}
-                        name={basemap.name}
-                        selected={selectedBasemapId === basemap.id}
-                        onSelect={setSelectedBasemapId}
-                        onActivate={createWithBasemapId}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {protomapsPresets.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {t("newProject.sectionProtomaps")}
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {protomapsPresets.map((basemap) => (
-                        <BasemapButton
-                          key={basemap.id}
-                          id={basemap.id}
-                          name={basemap.name}
-                          selected={selectedBasemapId === basemap.id}
-                          onSelect={setSelectedBasemapId}
-                          onActivate={createWithBasemapId}
-                        />
-                      ))}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {t("newProject.sectionOpenFreeMap")}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {OPENFREEMAP_BASEMAPS.map((basemap) => (
+                          <BasemapButton
+                            key={basemap.id}
+                            id={basemap.id}
+                            name={basemap.name}
+                            selected={selectedBasemapId === basemap.id}
+                            onSelect={setSelectedBasemapId}
+                            onActivate={createWithBasemapId}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+
+                    {protomapsPresets.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {t("newProject.sectionProtomaps")}
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {protomapsPresets.map((basemap) => (
+                            <BasemapButton
+                              key={basemap.id}
+                              id={basemap.id}
+                              name={basemap.name}
+                              selected={selectedBasemapId === basemap.id}
+                              onSelect={setSelectedBasemapId}
+                              onActivate={createWithBasemapId}
+                            />
+                          ))}
+                        </div>
+                </div>
                 ) : null}
 
                 <RegionalBasemapSection
@@ -582,6 +593,8 @@ export function NewProjectDialog({
                   <p className="text-xs text-destructive">{t("newProject.invalidCustomUrl")}</p>
                 ) : null}
               </div>
+              </>
+              ) : null}
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>

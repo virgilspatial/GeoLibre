@@ -1,6 +1,7 @@
 import {
   type ReactElement,
   type RefObject,
+  useLayoutEffect,
   useCallback,
   useEffect,
   useId,
@@ -22,8 +23,11 @@ import {
   useLayersWhen,
 } from "@geolibre/core";
 import type { MapEngine } from "@geolibre/map";
-import { Input } from "@geolibre/ui";
-import { Hexagon, Loader2, LocateFixed, MapPin, Search, Table2, X } from "lucide-react";
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@geolibre/ui";
+import { Loader2, Search, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { findPrimaryPane } from "../map-buttons/MapButtonStack";
+import { mapButtonClass } from "../map-buttons/MapStackButton";
 import { formatLatLon, parseLatLon } from "../../lib/coordinates";
 import { parseGridReference } from "../../lib/grid-reference";
 import { type H3CellMatch, parseH3Cell } from "../../lib/h3-search";
@@ -36,8 +40,24 @@ import {
   searchLayerFeatures,
 } from "../../lib/feature-search";
 
-interface LayerPanelPlaceSearchProps {
+interface MapPlaceSearchProps {
   mapControllerRef: RefObject<MapEngine | null>;
+}
+
+/** Whether a key press is typing into a field (so `/` there is just a slash). */
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.closest("input, textarea, select, [contenteditable='true'], [role='textbox']") !== null
+  );
+}
+
+/** The side away from the map's start edge, where the icon's tooltip opens. */
+function endSide(): "left" | "right" {
+  return typeof document !== "undefined" && document.documentElement.dir === "rtl"
+    ? "left"
+    : "right";
 }
 
 /** Fast-UI minimum debounce before firing a forward-geocode while typing. */
@@ -48,7 +68,7 @@ const DEBOUNCE_MS = 500;
  * call is still in flight, which is the point of running the two separately.
  */
 const FEATURE_DEBOUNCE_MS = 120;
-/** Cap the result list so the dropdown stays compact at the panel foot. */
+/** Cap the result list so the dropdown stays compact. */
 const MAX_RESULTS = 6;
 /**
  * Don't forward-geocode until the query is at least this many characters. The
@@ -78,8 +98,15 @@ type SearchRow =
   | { kind: "feature"; match: FeatureSearchMatch };
 
 /**
- * A compact "Search places" geocoder input pinned to the bottom of the Layers
- * panel. It searches two things at once, independently:
+ * SWIFTMAP (Change 28, 7c review 1): the mockup's place search on the map. A
+ * 34px icon in the map's top left ("Find address or place") that expands to
+ * the right into a 270px card on click or `/`; results drop down below it.
+ * Esc, or clicking away with nothing typed, collapses it back to the icon. It
+ * was GeoLibre's `LayerPanelPlaceSearch`, pinned to the foot of the Layers
+ * panel; the search logic below is GeoLibre's, unchanged, and only the markup
+ * and the expand/collapse are Swiftmap's.
+ *
+ * It searches two things at once, independently:
  *
  * - **The data on the map.** The typed query is matched against the attributes
  *   of the loaded vector layers (`feature-search.ts`), grouped by layer at the
@@ -96,10 +123,18 @@ type SearchRow =
  * `h3-search.ts`), the latter fitting the view to the cell and outlining it on
  * the map.
  */
-export function LayerPanelPlaceSearch({
-  mapControllerRef,
-}: LayerPanelPlaceSearchProps): ReactElement {
+export function MapPlaceSearch({ mapControllerRef }: MapPlaceSearchProps): ReactElement | null {
   const { t } = useTranslation();
+  const gridCells = useAppStore((s) => s.mapLayout.rows * s.mapLayout.cols);
+  const [pane, setPane] = useState<HTMLElement | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const iconRef = useRef<HTMLButtonElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Re-find the primary map pane when the split layout changes, as the map
+  // buttons do.
+  useLayoutEffect(() => {
+    setPane(findPrimaryPane());
+  }, [gridCells]);
   // Per-instance id so multiple mounts never collide on the aria-controls link.
   const resultsId = `${useId()}-results`;
   const geocodingPrefs = useAppStore((s) => s.preferences.geocoding);
@@ -320,11 +355,6 @@ export function LayerPanelPlaceSearch({
   // The place half is a plain list only when the geocoder is idle; otherwise it
   // renders its own status line, which never hides the data groups above it.
   const showPlaceRows = status === "idle" && placeRows.length > 0;
-  // The heading labels the places half, so it appears only when that half has
-  // something under it — a list, a spinner, or a message. Keeping it tied to
-  // what renders rather than to the two minimum-length constants agreeing means
-  // a query short enough for one half but not the other cannot strand it.
-  const showPlaceHeading = featureGroups.length > 0 && (showPlaceRows || status !== "idle");
 
   /**
    * Every selectable row, data groups first, in the order they render. Place
@@ -497,62 +527,63 @@ export function LayerPanelPlaceSearch({
   const hasRows = rows.length > 0;
 
   /**
+   * A row's two lines, as in the mockup: a geocoder name splits at its first
+   * comma ("Newcastle" over "City of Newcastle, NSW, Australia"), and a
+   * feature shows the field it matched under its value.
+   */
+  const rowLines = (row: SearchRow): { title: string; sub?: string } => {
+    if (row.kind === "feature") return { title: row.match.value, sub: row.match.field };
+    if (row.kind === "h3") {
+      return {
+        title: t("layers.searchPlacesGoToH3Cell", {
+          cell: row.cell.cell,
+          resolution: row.cell.resolution,
+        }),
+      };
+    }
+    if (row.kind === "coordinate") {
+      return {
+        title: t("layers.searchPlacesGoToCoordinate", { coordinate: row.match.displayName }),
+      };
+    }
+    const name = row.kind === "suggestion" ? row.suggestion.text : row.match.displayName;
+    const comma = name.indexOf(",");
+    return comma === -1
+      ? { title: name }
+      : { title: name.slice(0, comma), sub: name.slice(comma + 1).trim() };
+  };
+
+  /**
    * Render one selectable row. `index` is the row's position in the flat
    * `rows` list, which is what the keyboard navigation and `aria-activedescendant`
    * address.
    */
-  const renderRow = (row: SearchRow, index: number): ReactElement => (
-    <button
-      key={`${row.kind}-${index}`}
-      type="button"
-      role="option"
-      aria-selected={index === activeIndex}
-      id={`${resultsId}-option-${index}`}
-      className={`flex w-full items-start gap-2 px-3 py-1.5 text-start text-xs hover:bg-muted ${
-        index === activeIndex ? "bg-muted" : ""
-      }`}
-      // Use mousedown so the selection runs before the input's blur handler
-      // closes the dropdown.
-      onMouseDown={(event) => {
-        event.preventDefault();
-        handleSelect(row);
-      }}
-      onMouseEnter={() => setActiveIndex(index)}
-    >
-      {row.kind === "feature" ? (
-        <Table2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      ) : row.kind === "h3" ? (
-        <Hexagon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      ) : row.kind === "coordinate" ? (
-        <LocateFixed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      ) : (
-        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-      )}
-      {row.kind === "suggestion" ? (
-        <span className="line-clamp-2">{row.suggestion.text}</span>
-      ) : row.kind === "feature" ? (
-        <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 block">{row.match.value}</span>
-          <span className="block truncate text-[10px] text-muted-foreground">
-            {row.match.field}
-          </span>
-        </span>
-      ) : (
-        <span className="line-clamp-2">
-          {row.kind === "h3"
-            ? t("layers.searchPlacesGoToH3Cell", {
-                cell: row.cell.cell,
-                resolution: row.cell.resolution,
-              })
-            : row.kind === "coordinate"
-              ? t("layers.searchPlacesGoToCoordinate", {
-                  coordinate: row.match.displayName,
-                })
-              : row.match.displayName}
-        </span>
-      )}
-    </button>
-  );
+  const renderRow = (row: SearchRow, index: number): ReactElement => {
+    const { title, sub } = rowLines(row);
+    return (
+      <button
+        key={`${row.kind}-${index}`}
+        type="button"
+        role="option"
+        aria-selected={index === activeIndex}
+        id={`${resultsId}-option-${index}`}
+        className={cn(
+          "flex w-full flex-col items-start gap-px rounded-md px-2 py-[7px] text-start text-foreground hover:bg-muted",
+          index === activeIndex && "bg-muted",
+        )}
+        // Use mousedown so the selection runs before the input's blur handler
+        // closes the dropdown.
+        onMouseDown={(event) => {
+          event.preventDefault();
+          handleSelect(row);
+        }}
+        onMouseEnter={() => setActiveIndex(index)}
+      >
+        <span className="line-clamp-2 text-[13px] font-medium">{title}</span>
+        {sub ? <span className="line-clamp-1 text-xs text-muted-foreground">{sub}</span> : null}
+      </button>
+    );
+  };
 
   // Flat row index each group starts at: the groups render in order and every
   // group's rows are contiguous, so a running total is all it takes to keep the
@@ -564,121 +595,186 @@ export function LayerPanelPlaceSearch({
   /** Row index of the first place row: every feature row precedes them. */
   const placeOffset = rows.length - placeRows.length;
 
-  return (
-    <div className="relative p-2">
-      {open ? (
-        <div className="absolute bottom-full left-2 right-2 z-20 mb-1 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
-          <div
-            id={resultsId}
-            role="listbox"
-            aria-label={t("layers.searchPlaces")}
-            className="max-h-60 overflow-auto"
-          >
-            {featureGroups.map((group, groupIndex) => (
-              <div key={group.layerId} role="group" aria-label={group.layerName}>
-                <div className="flex items-baseline gap-1 border-b bg-muted/50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  <span className="truncate">{group.layerName}</span>
-                  {group.truncated ? (
-                    <span className="shrink-0 normal-case tracking-normal opacity-80">
-                      {t("layers.searchFeaturesPartial")}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="py-1">
+  /** Back to the icon: clears the search and what it put on the map. */
+  const collapse = useCallback(
+    (focusIcon: boolean) => {
+      handleClear();
+      setExpanded(false);
+      if (focusIcon) requestAnimationFrame(() => iconRef.current?.focus());
+    },
+    [handleClear],
+  );
+
+  // `/` opens the search from anywhere but a text field.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.defaultPrevented || isTyping(event.target)) return;
+      event.preventDefault();
+      setExpanded(true);
+      inputRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+  useEffect(() => {
+    if (expanded) inputRef.current?.focus();
+  }, [expanded]);
+
+  if (!pane) return null;
+
+  const searchLabel = t("swiftmapSearch.label");
+  const showEmpty = status === "empty" && featureGroups.length === 0;
+  const showPlacesHeading = showPlaceRows || (featureGroups.length > 0 && status !== "idle");
+  const groupHeading = "px-2 pb-1 pt-2 text-[11.5px] font-medium text-muted-foreground";
+
+  return createPortal(
+    <div className="pointer-events-none absolute start-4 top-4 z-20 [&>*]:pointer-events-auto">
+      {!expanded ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              ref={iconRef}
+              type="button"
+              aria-label={searchLabel}
+              aria-keyshortcuts="/"
+              className={mapButtonClass}
+              data-testid="swiftmap-place-search-open"
+              onClick={() => setExpanded(true)}
+            >
+              <Search className="size-4" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side={endSide()} sideOffset={12}>
+            {searchLabel}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <div
+          ref={cardRef}
+          className="flex w-[270px] flex-col overflow-hidden rounded-[10px] border border-border bg-background shadow-[0_8px_24px_rgba(9,9,11,0.14)]"
+          data-testid="swiftmap-place-search"
+        >
+          <div className="flex h-10 items-center gap-2 pe-2.5 ps-3 text-muted-foreground">
+            <Search className="size-4 shrink-0" aria-hidden="true" />
+            <input
+              ref={inputRef}
+              type="text"
+              role="combobox"
+              aria-expanded={open}
+              aria-autocomplete="list"
+              aria-controls={hasRows ? resultsId : undefined}
+              aria-activedescendant={
+                hasRows && activeIndex >= 0 ? `${resultsId}-option-${activeIndex}` : undefined
+              }
+              value={query}
+              placeholder={t("swiftmapSearch.placeholder")}
+              aria-label={searchLabel}
+              className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+              onChange={(event) => {
+                // The user editing the text is what ends a selection's hold on the
+                // input, wherever the effects happen to run in the commit.
+                settledQuery.current = null;
+                setQuery(event.target.value);
+              }}
+              onFocus={() => {
+                if (hasRows || status !== "idle") setOpen(true);
+              }}
+              onBlur={() => {
+                // Defer so a click/mousedown on a result still resolves first.
+                // Clear any pending timer so rapid focus/blur cycles don't leak.
+                // Clicking away with nothing typed collapses back to the icon.
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                const empty = query.trim() === "";
+                blurTimerRef.current = setTimeout(() => {
+                  setOpen(false);
+                  if (empty && !cardRef.current?.contains(document.activeElement)) {
+                    setExpanded(false);
+                  }
+                }, 150);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && hasRows) {
+                  event.preventDefault();
+                  setOpen(true);
+                  setActiveIndex((i) => Math.min(i + 1, rows.length - 1));
+                } else if (event.key === "ArrowUp" && hasRows) {
+                  event.preventDefault();
+                  setActiveIndex((i) => Math.max(i - 1, 0));
+                } else if (event.key === "Enter" && hasRows) {
+                  event.preventDefault();
+                  const row = rows[activeIndex >= 0 ? activeIndex : 0];
+                  if (row) handleSelect(row);
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  collapse(true);
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={query ? t("swiftmapSearch.clear") : t("swiftmapSearch.close")}
+              // Keep the field's focus, so its blur doesn't collapse the card first.
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (query) {
+                  handleClear();
+                  inputRef.current?.focus();
+                } else {
+                  collapse(true);
+                }
+              }}
+            >
+              <X className="size-[13px]" strokeWidth={2.5} aria-hidden="true" />
+            </button>
+          </div>
+          {open ? (
+            <div
+              id={resultsId}
+              role="listbox"
+              aria-label={searchLabel}
+              className="flex max-h-80 flex-col overflow-y-auto border-t border-border p-1"
+            >
+              {featureGroups.map((group, groupIndex) => (
+                <div key={group.layerId} role="group" aria-label={group.layerName}>
+                  <div className={cn(groupHeading, "flex items-baseline gap-1")}>
+                    <span className="truncate">{group.layerName}</span>
+                    {group.truncated ? (
+                      <span className="shrink-0 opacity-80">
+                        {t("layers.searchFeaturesPartial")}
+                      </span>
+                    ) : null}
+                  </div>
                   {group.matches.map((match, offset) =>
                     renderRow({ kind: "feature", match }, groupOffsets[groupIndex] + offset),
                   )}
                 </div>
-              </div>
-            ))}
-            {/* The places half keeps its own heading only when data groups sit
-                above it, so a query with no data match looks exactly as before. */}
-            {showPlaceHeading ? (
-              <div className="border-b border-t bg-muted/50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {t("layers.searchPlacesGroup")}
-              </div>
-            ) : null}
-            {status === "loading" ? (
-              <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {t("layers.searchPlacesSearching")}
-              </div>
-            ) : status === "error" ? (
-              <div className="px-3 py-2 text-xs text-destructive">
-                {t("layers.searchPlacesError")}
-              </div>
-            ) : status === "empty" ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
-                {t("layers.searchPlacesNoResults")}
-              </div>
-            ) : showPlaceRows ? (
-              <div className="py-1">
-                {placeRows.map((row, offset) => renderRow(row, placeOffset + offset))}
-              </div>
-            ) : null}
-          </div>
+              ))}
+              {showPlacesHeading ? (
+                <div className={groupHeading}>{t("swiftmapSearch.placesGroup")}</div>
+              ) : null}
+              {status === "loading" ? (
+                <div className="flex items-center gap-2 px-2 py-2.5 text-[13px] text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                  {t("layers.searchPlacesSearching")}
+                </div>
+              ) : status === "error" ? (
+                <div className="px-2 py-2.5 text-[13px] text-destructive">
+                  {t("layers.searchPlacesError")}
+                </div>
+              ) : showEmpty ? (
+                <div className="px-2 py-2.5 text-[13px] text-muted-foreground">
+                  {t("swiftmapSearch.nothingMatches", { query: query.trim() })}
+                </div>
+              ) : showPlaceRows ? (
+                placeRows.map((row, offset) => renderRow(row, placeOffset + offset))
+              ) : null}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      <div className="relative">
-        <Search className="pointer-events-none absolute start-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          ref={inputRef}
-          type="text"
-          role="combobox"
-          aria-expanded={open}
-          aria-autocomplete="list"
-          aria-controls={hasRows ? resultsId : undefined}
-          aria-activedescendant={
-            hasRows && activeIndex >= 0 ? `${resultsId}-option-${activeIndex}` : undefined
-          }
-          value={query}
-          placeholder={t("layers.searchPlacesPlaceholder")}
-          aria-label={t("layers.searchPlaces")}
-          className="h-8 ps-7 pe-7 text-xs"
-          onChange={(event) => {
-            // The user editing the text is what ends a selection's hold on the
-            // input, wherever the effects happen to run in the commit.
-            settledQuery.current = null;
-            setQuery(event.target.value);
-          }}
-          onFocus={() => {
-            if (hasRows || status !== "idle") setOpen(true);
-          }}
-          onBlur={() => {
-            // Defer so a click/mousedown on a result still resolves first.
-            // Clear any pending timer so rapid focus/blur cycles don't leak.
-            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-            blurTimerRef.current = setTimeout(() => setOpen(false), 150);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown" && hasRows) {
-              event.preventDefault();
-              setOpen(true);
-              setActiveIndex((i) => Math.min(i + 1, rows.length - 1));
-            } else if (event.key === "ArrowUp" && hasRows) {
-              event.preventDefault();
-              setActiveIndex((i) => Math.max(i - 1, 0));
-            } else if (event.key === "Enter" && hasRows) {
-              event.preventDefault();
-              const row = rows[activeIndex >= 0 ? activeIndex : 0];
-              if (row) handleSelect(row);
-            } else if (event.key === "Escape") {
-              handleClear();
-            }
-          }}
-        />
-        {query ? (
-          <button
-            type="button"
-            className="absolute end-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t("layers.searchPlacesClear")}
-            title={t("layers.searchPlacesClear")}
-            onClick={handleClear}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
-      </div>
-    </div>
+      )}
+    </div>,
+    pane,
   );
 }

@@ -74,6 +74,8 @@ import { resolveAuthGate, type AuthGateConfig } from "./lib/auth-gate";
 import { getInitialThemeMode } from "./hooks/useThemeMode";
 import { KeychainWaitScreen } from "./components/common/KeychainWaitScreen";
 import { applySwiftmapDefaultBasemap } from "./components/map/swiftmap-basemap";
+import { installSwiftmapBasemaps } from "./components/basemap/basemap-registry";
+import { installSwiftmapBasemapSwap } from "./components/basemap/basemap-swap";
 import { applyTemporaryDesktopSettings } from "./hooks/useDesktopSettings";
 import {
   desktopSettingsUrl,
@@ -96,6 +98,11 @@ installEarthdataFetchAuth();
 installGeocodingTokenProvider();
 // SWIFTMAP: Swiftmap's first-run map buttons, before the toolbar reads them (Change 26).
 seedSwiftmapControlDefaults();
+// SWIFTMAP (Change 28): builds Swiftmap's basemap styles whenever the store
+// switches to one, so every later basemap change finds its style ready, and
+// switches between them in place, without blanking the map.
+installSwiftmapBasemaps();
+installSwiftmapBasemapSwap();
 // SWIFTMAP (Change 23): Protomaps Light for the first map when a build-time key
 // is set, before React renders, so Liberty never flashes up first.
 applySwiftmapDefaultBasemap();

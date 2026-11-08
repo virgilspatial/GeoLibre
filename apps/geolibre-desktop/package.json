@@ -55,6 +55,7 @@
     "@osmix/core": "^0.3.0",
     "@osmix/geojson": "^0.0.17",
     "@osmix/pbf": "^0.0.10",
+    "@protomaps/basemaps": "^5.7.2",
     "@strands-agents/sdk": "^1.22.0",
     "@tanstack/react-virtual": "^3.14.22",
     "@tauri-apps/api": "^2.12.4",

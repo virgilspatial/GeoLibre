@@ -3,17 +3,24 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createElement } from "react";
 
+// SWIFTMAP (Change 28): the New Project dialog no longer offers GeoLibre's
+// basemap list (OpenFreeMap, Protomaps, Regional, Moon, Mars, Blank, Custom
+// URL). New projects start on Swiftmap's default basemap, and the Layers
+// panel's Basemap card changes it. Replaces upstream's double-click tests,
+// whose buttons are gone.
+
 // Loaded after the harness so its CSS imports and Vite globals are handled.
 const { NewProjectDialog } =
   await import("../apps/geolibre-desktop/src/components/layout/NewProjectDialog");
-const { OPENFREEMAP_BASEMAPS, BLANK_BASEMAP } = await import("@geolibre/core");
+const { swiftmapDefaultBasemapUrl } =
+  await import("../apps/geolibre-desktop/src/components/map/swiftmap-basemap");
 
 function renderDialog() {
-  const calls = { created: 0, openChange: [] as boolean[] };
+  const calls = { created: 0 };
   render(
     createElement(NewProjectDialog, {
       open: true,
-      onOpenChange: (open: boolean) => calls.openChange.push(open),
+      onOpenChange: () => undefined,
       onSaveCurrentProject: async () => true,
       onProjectCreated: () => {
         calls.created += 1;
@@ -23,32 +30,20 @@ function renderDialog() {
   return calls;
 }
 
-describe("NewProjectDialog basemap double-click", () => {
-  it("creates the project with the double-clicked basemap", async () => {
-    const calls = renderDialog();
-    const target = OPENFREEMAP_BASEMAPS.find((b) => b.id !== "liberty")!;
-    const button = await screen.findByRole("button", { name: target.name });
-    // No preliminary clicks: the selection stays on the default ("liberty"), so
-    // this proves creation uses the double-clicked id, not the selection state.
-    fireEvent.doubleClick(button);
-    assert.equal(calls.created, 1);
-    assert.deepEqual(calls.openChange, [false]);
-    assert.equal(useAppStore.getState().basemapStyleUrl, target.styleUrl);
+describe("NewProjectDialog basemap (Swiftmap)", () => {
+  it("offers no basemap choices", async () => {
+    renderDialog();
+    await screen.findByRole("button", { name: "Create" });
+    for (const name of ["Liberty", "Positron", "Blank", "Custom URL"]) {
+      assert.equal(screen.queryByRole("button", { name }), null, name);
+    }
+    assert.ok(screen.getByText(/change the basemap afterwards in the Layers panel/));
   });
 
-  it("creates a blank project on double-click", async () => {
+  it("creates the project on Swiftmap's default basemap", async () => {
     const calls = renderDialog();
-    fireEvent.doubleClick(await screen.findByRole("button", { name: "Blank" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create" }));
     assert.equal(calls.created, 1);
-    assert.equal(useAppStore.getState().basemapStyleUrl, BLANK_BASEMAP);
-  });
-
-  it("only selects Custom URL on double-click, since it still needs a URL", async () => {
-    const calls = renderDialog();
-    const button = await screen.findByRole("button", { name: "Custom URL" });
-    fireEvent.click(button);
-    fireEvent.doubleClick(button);
-    assert.equal(calls.created, 0);
-    assert.equal(button.getAttribute("aria-pressed"), "true");
+    assert.equal(useAppStore.getState().basemapStyleUrl, swiftmapDefaultBasemapUrl());
   });
 });

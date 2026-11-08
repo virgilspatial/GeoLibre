@@ -39,7 +39,7 @@ function fullscreenElement(): Element | null {
 }
 
 /** The primary map's pane: the first grid cell in a split layout, else the map area. */
-function findPrimaryPane(): HTMLElement | null {
+export function findPrimaryPane(): HTMLElement | null {
   const grid = document.querySelector<HTMLElement>('[data-testid="map-grid"]');
   const cell = grid?.firstElementChild;
   if (cell instanceof HTMLElement) return cell;

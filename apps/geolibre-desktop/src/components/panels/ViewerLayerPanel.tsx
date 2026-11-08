@@ -8,12 +8,14 @@ import type { GeoLibreLayer, LayerGroup, LayerQuickFilter } from "@geolibre/core
 import type { MapEngine } from "@geolibre/map";
 import { Button } from "@geolibre/ui";
 import { Eye, EyeOff, Filter, Folder, Layers } from "lucide-react";
-import { Fragment, useMemo, type RefObject } from "react";
+import { Fragment, useMemo, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuickFilterProfiles } from "../../hooks/useQuickFilterProfiles";
 import { layerFilteredHintKey } from "../../lib/layer-filter-hint";
 import { LayerHoverControls } from "./layer-panel/LayerHoverControls";
 import { QuickFilterControl } from "./QuickFilterControl";
+import { BasemapCard } from "../basemap/BasemapCard";
+import { useOverflowing } from "../basemap/use-overflowing";
 
 /** Indent per group nesting level, in rem, mirroring the Layers panel's tree. */
 const GROUP_INDENT_REM = 0.75;
@@ -98,6 +100,8 @@ export function ViewerLayerPanel({ mapControllerRef, mapReadyGeneration }: Viewe
   const layers = useAppStore((state) => state.layers);
   const layerGroups = useAppStore((state) => state.layerGroups);
   const setLayerVisibility = useAppStore((state) => state.setLayerVisibility);
+  const listRef = useRef<HTMLDivElement>(null);
+  const listOverflows = useOverflowing(listRef);
 
   const groupById = useMemo(
     () => new Map(layerGroups.map((group) => [group.id, group] as const)),
@@ -127,66 +131,71 @@ export function ViewerLayerPanel({ mapControllerRef, mapReadyGeneration }: Viewe
   }, [groupById, layers]);
 
   return (
-    <aside className="w-72 shrink-0 overflow-y-auto border-e bg-card p-3">
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        <Layers className="h-4 w-4" />
-        {t("sharedRail.layers")}
-      </h2>
-      <LayerHoverControls className="mb-2 border-b pb-2" />
-      <div className="space-y-1">
-        {rows.map(({ layer, headers, depth }) => (
-          <Fragment key={layer.id}>
-            {headers.map((group, index) => (
-              <div
-                key={group.id}
-                className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground"
-                style={{
-                  marginInlineStart: `${(depth - headers.length + index) * GROUP_INDENT_REM}rem`,
-                }}
+    // SWIFTMAP (Change 28): the list scrolls and the Basemap card stays at the
+    // bottom. A viewer's basemap pick lasts for the visit and isn't saved.
+    <aside className="flex w-72 shrink-0 flex-col border-e bg-card">
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-3">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <Layers className="h-4 w-4" />
+          {t("sharedRail.layers")}
+        </h2>
+        <LayerHoverControls className="mb-2 border-b pb-2" />
+        <div className="space-y-1">
+          {rows.map(({ layer, headers, depth }) => (
+            <Fragment key={layer.id}>
+              {headers.map((group, index) => (
+                <div
+                  key={group.id}
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground"
+                  style={{
+                    marginInlineStart: `${(depth - headers.length + index) * GROUP_INDENT_REM}rem`,
+                  }}
+                >
+                  <Folder className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{group.name}</span>
+                </div>
+              ))}
+              <label
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted focus-within:outline-none focus-within:ring-2 focus-within:ring-ring"
+                style={{ marginInlineStart: `${depth * GROUP_INDENT_REM}rem` }}
               >
-                <Folder className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{group.name}</span>
-              </div>
-            ))}
-            <label
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted focus-within:outline-none focus-within:ring-2 focus-within:ring-ring"
-              style={{ marginInlineStart: `${depth * GROUP_INDENT_REM}rem` }}
-            >
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={layer.visible}
-                onChange={(event) => setLayerVisibility(layer.id, event.target.checked)}
-              />
-              {layer.visible ? (
-                <Eye className="h-4 w-4 text-primary" />
-              ) : (
-                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={layer.visible}
+                  onChange={(event) => setLayerVisibility(layer.id, event.target.checked)}
+                />
+                {layer.visible ? (
+                  <Eye className="h-4 w-4 text-primary" />
+                ) : (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="truncate">{layer.name}</span>
+                {/* A persistent expression filter renders no control here, so
+                    without this icon a viewer sees a layer quietly missing
+                    features and nothing saying why. */}
+                {hasActiveLayerFilter(layer) && (
+                  <span title={t(layerFilteredHintKey(layer))}>
+                    <Filter
+                      className="h-3 w-3 shrink-0 text-primary"
+                      aria-label={t(layerFilteredHintKey(layer))}
+                    />
+                  </span>
+                )}
+              </label>
+              {(layer.quickFilters?.length ?? 0) > 0 && (
+                <ViewerQuickFilters
+                  layer={layer}
+                  mapControllerRef={mapControllerRef}
+                  mapReadyGeneration={mapReadyGeneration}
+                  indentRem={depth * GROUP_INDENT_REM}
+                />
               )}
-              <span className="truncate">{layer.name}</span>
-              {/* A persistent expression filter renders no control here, so
-                  without this icon a viewer sees a layer quietly missing
-                  features and nothing saying why. */}
-              {hasActiveLayerFilter(layer) && (
-                <span title={t(layerFilteredHintKey(layer))}>
-                  <Filter
-                    className="h-3 w-3 shrink-0 text-primary"
-                    aria-label={t(layerFilteredHintKey(layer))}
-                  />
-                </span>
-              )}
-            </label>
-            {(layer.quickFilters?.length ?? 0) > 0 && (
-              <ViewerQuickFilters
-                layer={layer}
-                mapControllerRef={mapControllerRef}
-                mapReadyGeneration={mapReadyGeneration}
-                indentRem={depth * GROUP_INDENT_REM}
-              />
-            )}
-          </Fragment>
-        ))}
+            </Fragment>
+          ))}
+        </div>
       </div>
+      <BasemapCard viewer divider={listOverflows} />
     </aside>
   );
 }
