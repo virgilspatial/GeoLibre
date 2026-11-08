@@ -312,7 +312,6 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
                     id={switchId}
                     checked={false}
                     aria-disabled="true"
-                    className="cursor-not-allowed opacity-50"
                     onClick={(event) => event.preventDefault()}
                   />
                 </span>
