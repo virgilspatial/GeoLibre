@@ -9,6 +9,8 @@ import { NetcdfProfilePanel } from "../NetcdfProfilePanel";
 import { NetcdfSymbologySection } from "../NetcdfSymbologySection";
 import { QuickFiltersSection } from "../QuickFiltersSection";
 import { STYLE_PANEL_ASIDE_CLASS } from "./constants";
+import { SHOW_I3S_BUILDING } from "../../layout/swiftmap-hidden";
+import { I3sBuildingSection } from "./I3sBuildingSection";
 import { TilesetHeightOffsetSection } from "./TilesetHeightOffsetSection";
 
 interface NoPaintControlsStylePanelProps {
@@ -102,6 +104,13 @@ export function NoPaintControlsStylePanel({
             // The height field comes first: it applies on every renderer,
             // while the symbology below only reaches the globe (#3107).
             <>
+              {/* SWIFTMAP (Change 30): Building Scene Layer controls are hidden. */}
+              {SHOW_I3S_BUILDING && layer.metadata.i3sKind === "building" ? (
+                <>
+                  <I3sBuildingSection layer={layer} />
+                  <Separator />
+                </>
+              ) : null}
               <TilesetHeightOffsetSection layer={layer} />
               <Separator />
               <p className="text-xs text-muted-foreground">{t("style.tilesetSymbology")}</p>

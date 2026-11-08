@@ -72,6 +72,7 @@ const FULL_REGISTRY_IDS = [
   "add.cad",
   "add.gpx",
   "add.landxml",
+  // SWIFTMAP (Change 30): no "add.indoorgml" (indoor maps are hidden).
   "add.xyz",
   "add.wms",
   "add.wfs",

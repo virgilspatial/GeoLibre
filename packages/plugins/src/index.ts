@@ -12,6 +12,12 @@ export {
   type AssistantToolEntry,
 } from "./assistant-tool-registry";
 export * from "./types";
+export {
+  setI3sBuildingNodeVisible,
+  visibleI3sBuildingSublayers,
+  type I3sBuildingNode,
+  type I3sBuildingState,
+} from "./plugins/i3s-building";
 export { openControlPanel, closeControlPanel, isControlPanelVisible } from "./control-panels";
 export { PluginManager } from "./plugin-manager";
 export {
@@ -57,6 +63,8 @@ export {
   registerFileHandler,
   unregisterFileHandler,
   listFileHandlers,
+  findFileHandlerByDataType,
+  isFileHandlerDataType,
   type FileHandlerEntry,
 } from "./file-handler-registry";
 export {
@@ -692,6 +700,8 @@ export {
   type OceanDataPlatformFileSaver,
 } from "./plugins/maplibre-ocean-data-platform";
 export { DYNAMICAL_PLUGIN_ID, maplibreDynamicalPlugin } from "./plugins/maplibre-dynamical";
+export { JAXA_EARTH_PLUGIN_ID, maplibreJaxaEarthPlugin } from "./plugins/maplibre-jaxa-earth";
+export { registerJaxaEarthProtocol } from "./plugins/jaxa-earth-api";
 export {
   maplibreSatelliteEmbeddingsPlugin,
   SATELLITE_EMBEDDINGS_PLUGIN_ID,
@@ -708,9 +718,12 @@ export {
   defaultOverpassEndpoint,
   downloadOsmGeoJson,
   escapeOverpassString,
+  INVALID_OVERPASS_ENDPOINT_MESSAGE,
   overpassJsonToGeoJson,
   OVERPASS_DEFAULT_ENDPOINT,
   OVERPASS_DEV_ENDPOINT,
+  OVERPASS_URL_PATTERN,
+  setOverpassEndpoint,
   type OsmDownloadFilter,
   type OsmDownloadPreset,
   type OverpassElement,
