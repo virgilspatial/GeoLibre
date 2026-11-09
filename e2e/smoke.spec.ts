@@ -123,8 +123,8 @@ test("keeps every toolbar menu on one scrollable row on small screens", async ({
   await expect(renderingEngine).toBeInViewport();
   await page.keyboard.press("Escape");
 
-  // Every rail item is on screen too.
-  for (const item of ["Layers", "Legend", "Add Data", "Analysis", "Tools", "Settings"]) {
+  // Every rail item is on screen too. Add Data left the rail (Change 34).
+  for (const item of ["Layers", "Legend", "Analysis", "Tools", "Settings"]) {
     await expect(railButton(page, item)).toBeInViewport();
   }
 });

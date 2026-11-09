@@ -203,17 +203,22 @@ export function AddDataDialog({
         ? t("toolbar.item.zarrLayer")
         : kind === "pmtiles"
           ? t("toolbar.item.pmtilesLayer")
-          : kind
-            ? t(`addData.kind.${KIND_I18N_KEY[kind]}.label`)
-            : t("addData.title");
+          : kind === "cad"
+            ? // SWIFTMAP (Change 34): DXF only; DWG isn't promised (it doesn't load in the browser).
+              t("addDataDialog.cadForm.title")
+            : kind
+              ? t(`addData.kind.${KIND_I18N_KEY[kind]}.label`)
+              : t("addData.title");
   // KML/KMZ is the one kind whose loader differs by renderer: native on the
   // globe, converted to map layers elsewhere.
   const description =
     kind === "kml" && !nativeGlobe
       ? t("addData.kml.mapDescription")
-      : kind && kind !== "pmtiles" && kind !== "zarr" && kind !== "raster"
-        ? t(`addData.kind.${KIND_I18N_KEY[kind]}.description`)
-        : "";
+      : kind === "cad"
+        ? t("addDataDialog.cadForm.description")
+        : kind && kind !== "pmtiles" && kind !== "zarr" && kind !== "raster"
+          ? t(`addData.kind.${KIND_I18N_KEY[kind]}.description`)
+          : "";
 
   const closeDialog = useCallback(() => {
     martin.stopTransient();

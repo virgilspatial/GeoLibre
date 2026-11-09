@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { menuBarButton, railButton, waitForMap } from "./helpers";
+import { addDataButton, menuBarButton, railButton, waitForMap } from "./helpers";
 
 /** Serves `body` as this test's deployment.json. */
 async function serveDeployment(page: Page, body: unknown): Promise<void> {
@@ -8,9 +8,14 @@ async function serveDeployment(page: Page, body: unknown): Promise<void> {
 
 // SWIFTMAP (Change 15): the menu bar sits in the header's overflow, so these
 // check that a menu exists, whether or not the overflow is open. Change 16 moved
-// Add data and Plugins to the rail, as "Add Data" and "Tools".
+// Add data and Plugins to the rail, as "Add Data" and "Tools"; Change 34 moved
+// Add Data out of the rail, to the Layers panel's +.
 const toolbarButton = (page: Page, name: string) =>
-  name === "Add Data" || name === "Tools" ? railButton(page, name) : menuBarButton(page, name);
+  name === "Add Data"
+    ? addDataButton(page)
+    : name === "Tools"
+      ? railButton(page, name)
+      : menuBarButton(page, name);
 
 test("capabilities restrict the toolbar before first paint", async ({ page }) => {
   // Record any frame in which the gated menu ever existed: a full-grant first

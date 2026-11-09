@@ -16,7 +16,7 @@ import {
   REVERSE_GEOCODE_PLUGIN_ID,
 } from "@geolibre/plugins";
 import { cn } from "@geolibre/ui";
-import { Database, Settings as SettingsIcon, User, Wrench } from "lucide-react";
+import { Settings as SettingsIcon, User, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -320,23 +320,18 @@ export function TopToolbar({
     isActive,
     toggle,
   });
-  const railAddData =
-    !viewer && isMenuVisible(uiProfile, "addData") && deploymentCapabilities.has("data:add") ? (
-      <RailButton
-        label={t("rail.addData")}
-        aria-haspopup="dialog"
-        aria-expanded={addDataOpen}
-        disabled={!addDataReady}
-        onClick={() => setAddDataOpen(true)}
-      >
-        <Database {...railLucideProps} />
-      </RailButton>
-    ) : null;
-  const railAddDataShown = railAddData !== null;
+  // SWIFTMAP (Change 34): Add Data left the rail. Editors open it from the
+  // Layers panel's + or its empty state's "Add data" (or drop files on the
+  // map); this only says whether they can, once the map engine is ready.
+  const addDataAvailable =
+    !viewer &&
+    isMenuVisible(uiProfile, "addData") &&
+    deploymentCapabilities.has("data:add") &&
+    addDataReady;
   const setAddDataAvailable = useSidePanelStore((s) => s.setAddDataAvailable);
   useEffect(() => {
-    setAddDataAvailable(railAddDataShown);
-  }, [railAddDataShown, setAddDataAvailable]);
+    setAddDataAvailable(addDataAvailable);
+  }, [addDataAvailable, setAddDataAvailable]);
   const railTools =
     !viewer &&
     isMenuVisible(uiProfile, "plugins") &&
@@ -584,7 +579,7 @@ export function TopToolbar({
       {/* SWIFTMAP: the rail (Change 16), drawn into DesktopShell's workspace row. */}
       {railHost
         ? createPortal(
-            <SwiftmapRail addData={railAddData} tools={railTools} settings={railSettings} />,
+            <SwiftmapRail tools={railTools} settings={railSettings} />,
             railHost,
           )
         : null}
@@ -724,7 +719,7 @@ export function TopToolbar({
           }
         />
       </MountWhenOpened>
-      {railAddData ? (
+      {addDataAvailable ? (
         <SwiftmapAddDataDialog
           open={addDataOpen}
           onOpenChange={setAddDataOpen}

@@ -62,7 +62,7 @@ export function ElementToggles({ layout, dispatch }: LayoutEditorProps) {
       />
       <ToggleField
         id="el-attribution"
-        label={t("printLayout.element.attribution")}
+        label={t("swiftmapPrint.attributionToggle")}
         checked={layout.showAttribution}
         onChange={toggle("showAttribution")}
       />
