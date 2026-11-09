@@ -122,6 +122,9 @@ export function useLayoutOptions({
       showDate,
       dateText: resolvedDateText,
       showAttribution,
+      // SWIFTMAP (Change 34): every client PDF credits Swiftmap, not GeoLibre
+      // (GeoLibre's drawer defaults to "Created with GeoLibre").
+      attributionText: t("swiftmapPrint.attribution"),
       pageMargin,
       pageBackground,
       panelTheme,

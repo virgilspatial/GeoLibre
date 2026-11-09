@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page } from "./test";
 import {
+  addDataButton,
   bindMapLibreMap,
   layerRow,
   menuBarOverflow,
-  railButton,
   readFixture,
   waitForMap,
 } from "./helpers";
@@ -67,11 +67,11 @@ test("adds, restyles and exports a GeoJSON layer with the keyboard alone", async
   );
   await waitForMap(page);
 
-  // Add Data → From a link, by Tab and arrow keys. Add Data is on the rail
-  // (Swiftmap, Change 16) and opens the Add Data dialog (Change 24). A
+  // Add Data → From a link, by Tab and arrow keys. Add Data opens from the
+  // Layers panel's + (Swiftmap, Change 34) as the Add Data dialog (Change 24). A
   // collection URL is detected as OGC API - Features, and Enter hands it to
   // GeoLibre's form for that type, prefilled.
-  await tabTo(page, railButton(page, "Add Data"));
+  await tabTo(page, addDataButton(page));
   await page.keyboard.press("Enter");
   const addData = page.getByRole("dialog", { name: "Add Data" });
   await expect(addData).toBeVisible();

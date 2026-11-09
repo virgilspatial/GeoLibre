@@ -1,14 +1,16 @@
 import { expect, test } from "./test";
-import { layerRow, railButton, readFixture, waitForMap } from "./helpers";
+import { addDataButton, layerRow, railButton, readFixture, waitForMap } from "./helpers";
 
 // SWIFTMAP (Change 24): the Add Data dialog, Stage 0. Hermetic: the upload is a
 // local GeoJSON fixture and the link checks need no network.
 
-test("the rail and the Layers panel's + open Add Data; Esc closes it", async ({ page }) => {
+// Change 34: Add Data left the rail; the Layers panel's + and its empty state open it.
+test("the Layers panel's + and empty state open Add Data; Esc closes it", async ({ page }) => {
   await waitForMap(page);
   const dialog = page.getByRole("dialog", { name: "Add Data" });
+  await expect(railButton(page, "Add Data")).toHaveCount(0);
 
-  await railButton(page, "Add Data").click();
+  await addDataButton(page).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("tab")).toHaveText(["Upload", "From a link", "More sources"]);
   await expect(dialog.getByText("File Geodatabase (.gdb)")).toBeVisible();
@@ -18,7 +20,9 @@ test("the rail and the Layers panel's + open Add Data; Esc closes it", async ({ 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
-  await page.locator('button[aria-label="Add Data"]:not([data-testid="swiftmap-rail"] *)').click();
+  const empty = page.getByTestId("layers-empty");
+  await expect(empty).toContainText("or drop files on the map");
+  await empty.getByRole("button", { name: "Add data", exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toHaveCount(0);
@@ -26,7 +30,7 @@ test("the rail and the Layers panel's + open Add Data; Esc closes it", async ({ 
 
 test("Upload shows a file card and adds the layer at the top of Layers", async ({ page }) => {
   await waitForMap(page);
-  await railButton(page, "Add Data").click();
+  await addDataButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Add Data" });
   await page.getByTestId("add-data-file-input").setInputFiles({
     name: "site_boundary.geojson",
@@ -50,7 +54,7 @@ test("Upload shows a file card and adds the layer at the top of Layers", async (
 
 test("Upload refuses file types it can't add", async ({ page }) => {
   await waitForMap(page);
-  await railButton(page, "Add Data").click();
+  await addDataButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Add Data" });
   await page.getByTestId("add-data-file-input").setInputFiles({
     name: "plan.dwg",
@@ -64,7 +68,7 @@ test("Upload refuses file types it can't add", async ({ page }) => {
 
 test("From a link detects the type, or offers to choose it", async ({ page }) => {
   await waitForMap(page);
-  await railButton(page, "Add Data").click();
+  await addDataButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Add Data" });
   await dialog.getByRole("tab", { name: "From a link" }).click();
   const field = dialog.getByRole("textbox", { name: "Service or file URL" });
@@ -90,7 +94,7 @@ test("From a link detects the type, or offers to choose it", async ({ page }) =>
 
 test("More sources lists the Stage 0 groups without search", async ({ page }) => {
   await waitForMap(page);
-  await railButton(page, "Add Data").click();
+  await addDataButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Add Data" });
   await dialog.getByRole("tab", { name: "More sources" }).click();
   await expect(dialog.getByRole("heading")).toHaveText([

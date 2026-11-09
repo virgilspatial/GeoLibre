@@ -3629,6 +3629,15 @@
     "add": "Add",
     "newProjectDescription": "Name the project. You can change the basemap afterwards in the Layers panel."
   },
+  "swiftmapLayers": {
+    "addData": "Add data",
+    "dropHint": "or drop files on the map",
+    "empty": "No layers yet."
+  },
+  "swiftmapPrint": {
+    "attribution": "Created with Swiftmap",
+    "attributionToggle": "Include Swiftmap credit"
+  },
   "swiftmapSearch": {
     "label": "Find address or place",
     "placeholder": "Find address or place…",
@@ -3905,6 +3914,10 @@
       "more": "More sources"
     },
     "dropTip": "Tip: you can also drop files straight onto the map",
+    "cadForm": {
+      "title": "Add CAD drawing (DXF)",
+      "description": "Add a DXF drawing as a vector layer, choosing which of its layers to load and the coordinate system it was drawn in."
+    },
     "done": "Done",
     "addLayer": "Add layer",
     "adding": "Adding…",

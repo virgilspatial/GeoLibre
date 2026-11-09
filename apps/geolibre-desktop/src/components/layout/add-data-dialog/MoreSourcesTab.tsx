@@ -35,7 +35,7 @@ export function MoreSourcesTab({ groups, onPicked }: MoreSourcesTabProps) {
         <section key={group.id} aria-labelledby={`add-data-more-${group.id}`}>
           <h3
             id={`add-data-more-${group.id}`}
-            className={`mb-1 px-2.5 text-xs font-medium text-muted-foreground ${index === 0 ? "mt-0" : "mt-4"}`}
+            className={`mb-1 px-2.5 text-xs font-medium text-muted-foreground ${index === 0 ? "mt-0" : "mt-3"}`}
           >
             {group.label}
           </h3>
@@ -44,7 +44,7 @@ export function MoreSourcesTab({ groups, onPicked }: MoreSourcesTabProps) {
               <li key={entry.id}>
                 <button
                   type="button"
-                  className="flex h-[34px] w-full items-center rounded-md px-2.5 text-start text-[13px] text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-[30px] w-full items-center rounded-md px-2.5 text-start text-[13px] text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => {
                     onPicked();
                     entry.onSelect();

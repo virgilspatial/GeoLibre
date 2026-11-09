@@ -14,7 +14,7 @@ interface SidePanelState {
   /** Whether the Add Data dialog is open; the rail and the Layers panel's + open it (Changes 17, 24). */
   addDataOpen: boolean;
   setAddDataOpen: (open: boolean) => void;
-  /** Whether the rail offers Add Data (editors, with the capability). */
+  /** Whether editors can add data (the capability, once the map is ready): the Layers + and empty state use it (Change 34). */
   addDataAvailable: boolean;
   setAddDataAvailable: (available: boolean) => void;
 }

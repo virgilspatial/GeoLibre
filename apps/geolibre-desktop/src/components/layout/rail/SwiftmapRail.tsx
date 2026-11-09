@@ -5,8 +5,6 @@ import { BufferRingIcon, LegendIcon, RailButton, railLucideProps } from "./RailB
 import { useSidePanelStore, type SidePanelId } from "./sidePanelStore";
 
 interface SwiftmapRailProps {
-  /** The Add Data menu, with a rail button as its trigger. Null when hidden. */
-  addData: ReactNode;
   /** The Tools menu (GeoLibre's plugins), with a rail button as its trigger. */
   tools: ReactNode;
   /** The Settings menu, pinned to the bottom of the rail. */
@@ -15,12 +13,13 @@ interface SwiftmapRailProps {
 
 /**
  * SWIFTMAP: the rail (Change 16). Layers, Legend and Analysis switch the side
- * panel, and clicking the one shown closes it. Add Data, Tools and Settings open
- * GeoLibre's menus beside the rail until branches 5 and 6 replace them.
+ * panel, and clicking the one shown closes it. Tools and Settings open
+ * GeoLibre's menus beside the rail until branch 6 replaces them. Add Data left
+ * the rail (Change 34): it opens from the Layers panel or a drop on the map.
  *
  * Below `md` the rail is a row above the map, with Settings at its end.
  */
-export function SwiftmapRail({ addData, tools, settings }: SwiftmapRailProps) {
+export function SwiftmapRail({ tools, settings }: SwiftmapRailProps) {
   const { t } = useTranslation();
   const active = useSidePanelStore((state) => state.active);
   const toggle = useSidePanelStore((state) => state.toggle);
@@ -39,7 +38,6 @@ export function SwiftmapRail({ addData, tools, settings }: SwiftmapRailProps) {
     >
       {panelButton("layers", t("rail.layers"), <Layers {...railLucideProps} />)}
       {panelButton("legend", t("rail.legend"), <LegendIcon />)}
-      {addData}
       {panelButton("analysis", t("rail.analysis"), <BufferRingIcon />)}
       {tools}
       {settings ? <div className="ms-auto flex md:ms-0 md:mt-auto">{settings}</div> : null}

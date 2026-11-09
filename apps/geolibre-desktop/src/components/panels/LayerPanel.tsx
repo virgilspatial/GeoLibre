@@ -26,14 +26,13 @@ import { getLayerBounds, type MapEngine } from "@geolibre/map";
 import { getIsMobileViewport } from "../../hooks/useIsMobileViewport";
 import type { ThemeMode } from "../../hooks/useThemeMode";
 import { usePluginRegistry } from "../../hooks/usePlugins";
-import { useDesktopSettingsStore } from "../../hooks/useDesktopSettings";
 import { canOpenLayerAttributeTable } from "../../lib/attribute-table-source";
 import { isMacPlatform } from "../../lib/commands";
 import { notify } from "../../lib/notify";
 import { canExportRasterLayer } from "../../lib/raster-export";
-import { activeInterfaceProfile } from "../../lib/ui-profile";
 import { Button, cn, ScrollArea } from "@geolibre/ui";
 import { Layers, PanelLeftOpen } from "lucide-react";
+import { EmptyLayers } from "./layer-panel/EmptyLayers";
 import { participantCanEditLayer } from "../../lib/collab-protocol";
 import type { CollaborationApi } from "../../hooks/useCollaboration";
 import { useSidePanelStore } from "../layout/rail/sidePanelStore";
@@ -173,9 +172,6 @@ export function LayerPanel({
   hideOwnRail = false,
 }: LayerPanelProps) {
   const { t } = useTranslation();
-  const isBeginnerProfile = useDesktopSettingsStore(
-    (s) => activeInterfaceProfile(s.desktopSettings.uiProfile) === "beginner",
-  );
   const isMac = useMemo(() => isMacPlatform(), []);
   const addDataAvailable = useSidePanelStore((s) => s.addDataAvailable);
   const layers = useAppStore((s) => s.layers);
@@ -731,11 +727,8 @@ export function LayerPanel({
         className="min-h-0 [&_[data-radix-scroll-area-viewport]]:touch-pan-y [&_[data-radix-scroll-area-viewport]]:overscroll-contain [&_[data-radix-scroll-area-viewport]>div]:block! [&_[data-radix-scroll-area-viewport]>div]:w-full! [&_[data-radix-scroll-area-viewport]>div]:min-w-0!"
         onClick={handleListClick}
       >
-        {layers.length === 0 && (
-          <p className="px-4 pb-2 pt-4 text-xs text-muted-foreground">
-            {isBeginnerProfile ? t("layers.emptyBeginner") : t("layers.empty")}
-          </p>
-        )}
+        {/* SWIFTMAP (Change 34): an "Add data" button now that Add Data left the rail. */}
+        {layers.length === 0 ? <EmptyLayers canAddData={addDataAvailable} /> : null}
         {searching && matchingLayers.length === 0 ? (
           <div className="flex flex-col items-start gap-1.5 px-5 py-2.5 text-[13px] text-muted-foreground">
             <span>{t("layerPanel.noMatch", { query: query.trim() })}</span>

@@ -67,6 +67,13 @@ export function railButton(page: Page, name: string) {
   return page.getByTestId("swiftmap-rail").getByRole("button", { name, exact: true });
 }
 
+/** SWIFTMAP (Change 34): Add Data left the rail; editors open it from the Layers panel's +. */
+export function addDataButton(page: Page) {
+  return page
+    .getByRole("complementary", { name: "Layers" })
+    .getByRole("button", { name: "Add Data", exact: true });
+}
+
 /**
  * Opens a rail menu: "Tools" (GeoLibre's Plugins menu) or "Settings". "Add Data"
  * opens the Add Data dialog instead (Change 24); see {@link openAddDataSource}.

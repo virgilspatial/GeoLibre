@@ -36,8 +36,9 @@ export const RailButton = forwardRef<HTMLButtonElement, RailButtonProps>(
           {children}
         </Button>
       </TooltipTrigger>
-      {/* The header's stock 12px tooltip (Change 25), 8px from the button. */}
-      <TooltipContent side="right" sideOffset={8}>
+      {/* The header's stock 12px tooltip (Change 25), the header's 6px from the
+          button (Change 34), so both sit the same distance away. */}
+      <TooltipContent side="right" sideOffset={6}>
         {label}
       </TooltipContent>
     </Tooltip>
