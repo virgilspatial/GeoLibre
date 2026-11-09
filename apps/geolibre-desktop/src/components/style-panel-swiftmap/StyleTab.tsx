@@ -6,7 +6,10 @@ import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { StyleSuggestion } from "../../lib/style-suggestions";
 import { isNumericProperty } from "../../lib/vector-style-classification";
-import { supportsExtrusionControls } from "../panels/style-panel/layer-capabilities";
+import {
+  isControlPaintedVectorLayer,
+  supportsExtrusionControls,
+} from "../panels/style-panel/layer-capabilities";
 import { isBelowLabels, setBelowLabels } from "./below-labels";
 import {
   ColorSwatchField,
@@ -28,6 +31,7 @@ import {
   singleStylePatch,
 } from "./style-actions";
 import { layerFields, numericFields } from "./layer-fields";
+import { lineBlurOf } from "./line-style";
 import {
   ARROW_NEUTRAL,
   categoriesOf,
@@ -112,6 +116,8 @@ export function StyleTab({
   );
   const categories = showAs === "categories" ? categoriesOf(style) : null;
   const extrusionAvailable = geometry !== "line" && geometry !== "point" && supportsExtrusionControls(layer);
+  // A map control that paints its own layers takes no line opacity, dash or blur.
+  const strokeOptions = !isControlPaintedVectorLayer(layer);
 
   return (
     <div className="flex flex-col gap-5">
@@ -167,7 +173,12 @@ export function StyleTab({
       </div>
 
       {showAs === "single" ? (
-        <SingleSymbolEditor style={style} geometry={geometry} patch={patch} />
+        <SingleSymbolEditor
+          style={style}
+          geometry={geometry}
+          patch={patch}
+          strokeOptions={strokeOptions}
+        />
       ) : showAs === "categories" && categories ? (
         <CategoriesEditor
           layer={layer}
@@ -175,9 +186,16 @@ export function StyleTab({
           view={categories}
           geometry={geometry}
           patch={patch}
+          strokeOptions={strokeOptions}
         />
       ) : showAs === "graduated" ? (
-        <GraduatedEditor layer={layer} style={style} patch={patch} />
+        <GraduatedEditor
+          layer={layer}
+          style={style}
+          geometry={geometry}
+          patch={patch}
+          strokeOptions={strokeOptions}
+        />
       ) : (
         <CustomStyleNote kind={showAs === "heatmap" || showAs === "clusters" ? showAs : "custom"} />
       )}
@@ -207,6 +225,16 @@ export function StyleTab({
               />
             ) : null}
           </FieldPair>
+        ) : null}
+        {strokeOptions && geometry !== "point" ? (
+          <StepperField
+            label={t(geometry === "line" ? "swiftmapStyle.lineBlur" : "swiftmapStyle.outlineBlur")}
+            value={lineBlurOf(style)}
+            onChange={(strokeBlur) => patch({ strokeBlur })}
+            min={0}
+            max={20}
+            step={0.5}
+          />
         ) : null}
         {geometry === "line" ? <DirectionArrows style={style} patch={patch} /> : null}
         <SwitchRow

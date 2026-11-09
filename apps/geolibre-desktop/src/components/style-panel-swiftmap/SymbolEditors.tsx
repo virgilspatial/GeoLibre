@@ -1,6 +1,6 @@
 import { VECTOR_COLOR_RAMPS, type GeoLibreLayer, type LayerStyle, type MarkerShape } from "@geolibre/core";
 import { ColorRampSelect, Input } from "@geolibre/ui";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ColorSwatchField,
@@ -13,6 +13,14 @@ import {
 } from "./fields";
 import { DEFAULT_CLASS_COUNT, GRADUATED_SCHEMES, graduatedStylePatch } from "./style-actions";
 import { numericFields } from "./layer-fields";
+import {
+  lineStyleChoices,
+  lineStyleOf,
+  lineStylePatch,
+  strokeOpacityPercent,
+  strokeOpacityPatch,
+  type LineStyleChoice,
+} from "./line-style";
 import { classRanges, formatBreak, type GeometryKind } from "./style-model";
 
 // SWIFTMAP (Change 27): the Style tab's symbol editors for each "Show as".
@@ -45,7 +53,38 @@ function useLastColor(color: string, fallback: string) {
   };
 }
 
-export function SingleSymbolEditor({
+/**
+ * Line style (Change 31): a dash preset, plus "Custom" while the layer has a
+ * pattern set elsewhere. Layer-wide in the engine, like stroke opacity and blur.
+ */
+export function LineStyleField({
+  label,
+  style,
+  patch,
+}: {
+  label: string;
+  style: LayerStyle;
+  patch: Patch;
+}) {
+  const { t } = useTranslation();
+  return (
+    <SelectField
+      label={label}
+      value={lineStyleOf(style)}
+      onChange={(value) => patch(lineStylePatch(value as LineStyleChoice))}
+      options={lineStyleChoices(style).map((value) => ({
+        value,
+        label: t(`swiftmapStyle.lineStyles.${value}`),
+      }))}
+    />
+  );
+}
+
+/**
+ * Categories and Graduated colour each class, but line style and opacity are
+ * layer-wide, so they sit once under the class list. Points take opacity only.
+ */
+export function LineStyleBlock({
   style,
   geometry,
   patch,
@@ -55,8 +94,62 @@ export function SingleSymbolEditor({
   patch: Patch;
 }) {
   const { t } = useTranslation();
+  const line = geometry === "line";
+  const opacity = (
+    <StepperField
+      label={t(line ? "swiftmapStyle.lineOpacity" : "swiftmapStyle.outlineOpacity")}
+      value={strokeOpacityPercent(style)}
+      onChange={(percent) => patch(strokeOpacityPatch(percent))}
+      min={0}
+      max={100}
+      step={5}
+    />
+  );
+  if (geometry === "point") return opacity;
+  return (
+    <FieldPair>
+      <LineStyleField
+        label={t(line ? "swiftmapStyle.lineStyle" : "swiftmapStyle.outlineStyle")}
+        style={style}
+        patch={patch}
+      />
+      {opacity}
+    </FieldPair>
+  );
+}
+
+export function SingleSymbolEditor({
+  style,
+  geometry,
+  patch,
+  strokeOptions = true,
+}: {
+  style: LayerStyle;
+  geometry: GeometryKind;
+  patch: Patch;
+  /** Line opacity and style (Change 31); off for layers a map control paints. */
+  strokeOptions?: boolean;
+}) {
+  const { t } = useTranslation();
   const fill = useLastColor(style.fillColor, "#3b82f6");
   const stroke = useLastColor(style.strokeColor, "#1e3a8a");
+  // Stroke opacity is the colour picker's opacity, as fill opacity is.
+  const strokeAlpha = strokeOptions
+    ? {
+        alpha: strokeOpacityPercent(style) / 100,
+        onAlphaChange: (alpha: number) => patch(strokeOpacityPatch(Math.round(alpha * 100))),
+      }
+    : {};
+  // Width on the start side, the line style beside it (points have none).
+  const withLineStyle = (width: ReactNode, label: string) =>
+    strokeOptions && geometry !== "point" ? (
+      <FieldPair>
+        {width}
+        <LineStyleField label={label} style={style} patch={patch} />
+      </FieldPair>
+    ) : (
+      width
+    );
 
   if (geometry === "line") {
     return (
@@ -65,15 +158,19 @@ export function SingleSymbolEditor({
           label={t("swiftmapStyle.colour.line")}
           color={stroke.last}
           onChange={(strokeColor) => patch({ strokeColor })}
+          {...strokeAlpha}
         />
-        <StepperField
-          label={t("swiftmapStyle.lineWidth")}
-          value={style.strokeWidth}
-          onChange={(strokeWidth) => patch({ strokeWidth })}
-          min={0}
-          max={30}
-          step={0.5}
-        />
+        {withLineStyle(
+          <StepperField
+            label={t("swiftmapStyle.lineWidth")}
+            value={style.strokeWidth}
+            onChange={(strokeWidth) => patch({ strokeWidth })}
+            min={0}
+            max={30}
+            step={0.5}
+          />,
+          t("swiftmapStyle.lineStyle"),
+        )}
       </div>
     );
   }
@@ -105,15 +202,19 @@ export function SingleSymbolEditor({
           patch(none ? { strokeColor: TRANSPARENT } : { strokeColor: stroke.last });
         }}
         onChange={(strokeColor) => patch({ strokeColor })}
+        {...strokeAlpha}
       />
-      <StepperField
-        label={t("swiftmapStyle.outlineWidth")}
-        value={style.strokeWidth}
-        onChange={(strokeWidth) => patch({ strokeWidth })}
-        min={0}
-        max={20}
-        step={0.5}
-      />
+      {withLineStyle(
+        <StepperField
+          label={t("swiftmapStyle.outlineWidth")}
+          value={style.strokeWidth}
+          onChange={(strokeWidth) => patch({ strokeWidth })}
+          min={0}
+          max={20}
+          step={0.5}
+        />,
+        t("swiftmapStyle.outlineStyle"),
+      )}
     </>
   );
 
@@ -211,11 +312,15 @@ export function RampField({ value, onChange }: { value: string; onChange: (ramp:
 export function GraduatedEditor({
   layer,
   style,
+  geometry,
   patch,
+  strokeOptions = true,
 }: {
   layer: GeoLibreLayer;
   style: LayerStyle;
+  geometry: GeometryKind;
   patch: Patch;
+  strokeOptions?: boolean;
 }) {
   const { t } = useTranslation();
   const fields = numericFields(layer);
@@ -329,6 +434,7 @@ export function GraduatedEditor({
           <span className={noteClass}>{t("swiftmapStyle.noClasses")}</span>
         ) : null}
       </div>
+      {strokeOptions ? <LineStyleBlock style={style} geometry={geometry} patch={patch} /> : null}
     </div>
   );
 }

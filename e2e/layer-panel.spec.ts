@@ -207,7 +207,7 @@ test("searches, selects, shows cards and duplicates from the keyboard", async ({
   await select.focus();
   await page.keyboard.press("o");
   await expect(row.getByText("Source", { exact: true })).toHaveCount(0);
-  await expect(row.getByRole("slider", { name: "Heritage items opacity" })).toBeVisible();
+  await expect(row.getByRole("slider", { name: "Layer opacity of Heritage items" })).toBeVisible();
 
   // Duplicate (Ctrl/Cmd+D) puts the copy directly above the original.
   await select.focus();

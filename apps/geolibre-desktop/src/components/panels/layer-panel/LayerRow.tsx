@@ -489,6 +489,8 @@ export function LayerRow({
             name={layer.name}
             opacity={layer.opacity}
             onChange={(v) => setLayerOpacity(layer.id, v)}
+            label={t("swiftmapStyle.opacity")}
+            sliderLabel={t("swiftmapStyle.opacityFor", { name: layer.name })}
           />
         ) : null}
         {selected && openCard === "properties" ? <LayerPropertiesCard layer={layer} /> : null}

@@ -22,18 +22,24 @@ export function LayerOpacityCard({
   name,
   opacity,
   onChange,
+  label,
+  sliderLabel,
 }: {
   name: string;
   opacity: number;
   onChange: (opacity: number) => void;
+  /** The card's label; a layer's says "Layer opacity" (Change 31), a group's "Opacity". */
+  label?: string;
+  /** The slider's accessible name, when the caller words it differently. */
+  sliderLabel?: string;
 }) {
   const { t } = useTranslation();
   const percent = Math.round(opacity * 100);
   return (
     <div className={`${cardClass} flex items-center gap-2.5`}>
-      <span className="text-xs font-medium">{t("layerPanel.opacity")}</span>
+      <span className="text-xs font-medium">{label ?? t("layerPanel.opacity")}</span>
       <Slider
-        aria-label={t("layerPanel.opacityFor", { name })}
+        aria-label={sliderLabel ?? t("layerPanel.opacityFor", { name })}
         className="min-w-0 flex-1"
         min={0}
         max={100}
