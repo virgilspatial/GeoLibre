@@ -4034,6 +4034,18 @@
         "reference": "Reference"
       },
       "cadDrawing": "CAD drawing (DXF)",
+      "label": {
+        "geoparquet": "GeoParquet",
+        "flatgeobuf": "FlatGeobuf",
+        "pmtiles": "PMTiles",
+        "zarr": "Zarr",
+        "lidar": "LiDAR",
+        "threeDTiles": "3D Tiles",
+        "landxml": "LandXML",
+        "duckdb": "DuckDB",
+        "postgres": "PostgreSQL",
+        "mssql": "SQL Server"
+      },
       "historicalImagery": "Historical imagery",
       "overture": "Overture Maps"
     }

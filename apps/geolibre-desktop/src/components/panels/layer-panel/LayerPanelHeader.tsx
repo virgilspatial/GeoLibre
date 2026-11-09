@@ -10,9 +10,6 @@ interface LayerPanelHeaderProps {
   canAddData: boolean;
 }
 
-/** SWIFTMAP: the rail's tooltip size (Change 16), opening below the button. */
-const headerTooltipClass = "rounded-[10px] px-3.5 py-2 text-sm font-medium";
-
 function HeaderButton({
   label,
   onClick,
@@ -35,7 +32,8 @@ function HeaderButton({
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={8} className={headerTooltipClass}>
+      {/* SWIFTMAP (Change 35): the stock tooltip, 6px from the button, as in the header and rail. */}
+      <TooltipContent side="bottom" sideOffset={6}>
         {label}
       </TooltipContent>
     </Tooltip>

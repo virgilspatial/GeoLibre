@@ -52,7 +52,7 @@ for (const theme of ["light", "dark"] as const) {
     await page.keyboard.press("Escape");
 
     // This used to open a different importer that produced a No Mapbox layer.
-    await openSource(page, "FlatGeobuf layer");
+    await openSource(page, "FlatGeobuf");
     const countries = await request.get("https://flatgeobuf.org/test/data/countries.fgb");
     expect(countries.ok()).toBeTruthy();
     await page.locator('input[type="file"]').setInputFiles({

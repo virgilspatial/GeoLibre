@@ -44,7 +44,8 @@ const MORE_SOURCE_SECTIONS: readonly { id: string; labelKey: ParseKeys; ids: rea
   {
     id: "threeD",
     labelKey: "addDataDialog.more.section.threeD",
-    ids: ["lidar", "3d-tiles", "kml", "gltf-model"],
+    // KML / KMZ isn't listed: Upload and From a link load it (Change 35).
+    ids: ["lidar", "3d-tiles", "gltf-model"],
   },
   {
     // CAD drawings open GeoLibre's form, where the drawing's coordinate system is
@@ -60,10 +61,23 @@ const MORE_SOURCE_SECTIONS: readonly { id: string; labelKey: ParseKeys; ids: rea
   },
 ];
 
-/** Entries whose catalog label promises more than the browser build does. */
+/**
+ * Swiftmap names for catalog entries: the format alone, without GeoLibre's
+ * "layer" (Change 35), and CAD without DWG, which doesn't load in the browser
+ * build (Change 24). GeoLibre's own strings stay for its command palette.
+ */
 const LABEL_OVERRIDES: Partial<Record<string, ParseKeys>> = {
-  // DWG doesn't load in the browser build (Change 24).
+  geoparquet: "addDataDialog.more.label.geoparquet",
+  flatgeobuf: "addDataDialog.more.label.flatgeobuf",
+  pmtiles: "addDataDialog.more.label.pmtiles",
+  zarr: "addDataDialog.more.label.zarr",
+  lidar: "addDataDialog.more.label.lidar",
+  "3d-tiles": "addDataDialog.more.label.threeDTiles",
   cad: "addDataDialog.more.cadDrawing",
+  landxml: "addDataDialog.more.label.landxml",
+  duckdb: "addDataDialog.more.label.duckdb",
+  postgres: "addDataDialog.more.label.postgres",
+  mssql: "addDataDialog.more.label.mssql",
 };
 
 /** Sources that need the desktop app's Martin server or Python sidecar. */
@@ -118,7 +132,6 @@ export function useAddDataSources({
     netcdf: addLayer.netcdf,
     lidar: addLayer.lidar,
     "3d-tiles": addLayer.threeDTiles,
-    kml: () => openAddDataKind("kml"),
     "gltf-model": onAddGltfModel,
     cad: () => openAddDataKind("cad"),
     landxml: () => openAddDataKind("landxml"),

@@ -645,7 +645,7 @@ export function MapPlaceSearch({ mapControllerRef }: MapPlaceSearchProps): React
               <Search className="size-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side={endSide()} sideOffset={12}>
+          <TooltipContent side={endSide()} sideOffset={6}>
             {searchLabel}
           </TooltipContent>
         </Tooltip>

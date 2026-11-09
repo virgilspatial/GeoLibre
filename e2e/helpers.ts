@@ -84,7 +84,7 @@ export async function openRailMenu(page: Page, name: "Add Data" | "Tools" | "Set
 
 /**
  * SWIFTMAP (Change 24): opens the Add Data dialog from the rail and picks a More
- * sources entry, such as "LiDAR layer". The dialog closes and GeoLibre's own
+ * sources entry, such as "LiDAR". The dialog closes and GeoLibre's own
  * loader for that source opens.
  */
 export async function openAddDataSource(page: Page, name: string): Promise<void> {

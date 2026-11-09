@@ -18,7 +18,7 @@ async function pickSample(page: Page, label: string): Promise<void> {
 // checked, so nothing is fetched from the tileset hosts.
 test("3D Tiles sample picks rename the layer unless the user typed one", async ({ page }) => {
   await waitForMap(page);
-  await openAddDataSource(page, "3D Tiles layer");
+  await openAddDataSource(page, "3D Tiles");
 
   const url = page.getByRole("textbox", { name: "Tileset URL", exact: true });
   const name = page.getByRole("textbox", { name: "Layer name", exact: true });
