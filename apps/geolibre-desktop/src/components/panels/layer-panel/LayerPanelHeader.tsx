@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@geolibre/ui";
 import { FolderPlus, Plus } from "lucide-react";
 import { useSidePanelStore } from "../../layout/rail/sidePanelStore";
+import { LayerOptionsMenu } from "../../draw-order/LayerOptionsMenu";
 
 interface LayerPanelHeaderProps {
   onCreateGroup: () => void;
@@ -47,6 +48,7 @@ function HeaderButton({
  * and a + that opens the Add Data dialog (Change 24). GeoLibre's eight header icons
  * (planet switcher, Basemaps, GeoEditor, Compact view, Show/hide all, Identify
  * visible layers, Collapse) were dropped by the user; their engine code stays.
+ * Then ⋯ Layer options (Change 36).
  */
 export function LayerPanelHeader({ onCreateGroup, canAddData }: LayerPanelHeaderProps) {
   const { t } = useTranslation();
@@ -63,6 +65,7 @@ export function LayerPanelHeader({ onCreateGroup, canAddData }: LayerPanelHeader
             <Plus className="h-4 w-4" strokeWidth={2} />
           </HeaderButton>
         ) : null}
+        <LayerOptionsMenu />
       </div>
     </div>
   );

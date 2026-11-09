@@ -72,6 +72,7 @@ import { useLayerActions } from "./layer-panel/useLayerActions";
 import type { LayerRefresh } from "./layer-panel/useLayerRefresh";
 import { useLayerRename } from "./layer-panel/useLayerRename";
 import { useTimeSliderBinding } from "./layer-panel/useTimeSliderBinding";
+import { useDrawOrderHint } from "../draw-order/useDrawOrderHint";
 import { setLayersPanelCollapsed } from "../../lib/layer-panel-collapse";
 
 interface LayerPanelProps {
@@ -174,6 +175,8 @@ export function LayerPanel({
   const { t } = useTranslation();
   const isMac = useMemo(() => isMacPlatform(), []);
   const addDataAvailable = useSidePanelStore((s) => s.addDataAvailable);
+  // SWIFTMAP (Change 36): explains once why a reorder didn't change the map.
+  useDrawOrderHint();
   const layers = useAppStore((s) => s.layers);
   const layerGroups = useAppStore((s) => s.layerGroups);
   // The 3D globe and the ArcGIS view draw a subset of the layer kinds MapLibre

@@ -236,6 +236,11 @@ export { DEFAULT_BUILT_IN_CONTROL_VISIBILITY, DEFAULT_BUILT_IN_CONTROL_POSITIONS
    a reload; returns whether it did. Registered by Swiftmap on globalThis. */
 type SwiftmapBasemapSwap = (map: maplibregl.Map, previousUrl: string, nextUrl: string) => boolean;
 
+/* SWIFTMAP (Change 36): the order the map draws layers in (bottom to top), which
+   may differ from the Layers panel's (points above lines above polygons).
+   Registered by Swiftmap on globalThis. */
+type SwiftmapDrawOrder = (layers: GeoLibreLayer[]) => GeoLibreLayer[];
+
 export class MapController implements MapEngine {
   readonly kind = "maplibre" as const;
   readonly capabilities: MapEngineCapabilities = MAPLIBRE_CAPABILITIES;
@@ -1289,8 +1294,13 @@ export class MapController implements MapEngine {
     // converge, but a map-only embed (`?maponly`) has no panels to trigger one,
     // so the wrong stack is what the viewer keeps looking at. See
     // opengeos/GeoLibre#1404.
-    for (let index = layers.length - 1; index >= 0; index -= 1) {
-      syncLayer(map, layers[index], this.getBeforeStyleLayerId(layers, index));
+    /* SWIFTMAP (Change 36): only placement follows Swiftmap's draw order;
+       `syncedLayers` keeps the panel order, so a later sync re-applies it. */
+    const drawn =
+      (globalThis as { __swiftmapDrawOrder?: SwiftmapDrawOrder }).__swiftmapDrawOrder?.(layers) ??
+      layers;
+    for (let index = drawn.length - 1; index >= 0; index -= 1) {
+      syncLayer(map, drawn[index], this.getBeforeStyleLayerId(drawn, index));
     }
     this.layerIds = nextIds;
     this.syncedLayers = layers;
@@ -2398,7 +2408,13 @@ export class MapController implements MapEngine {
 
     const styleLayerIds =
       this.map.getLayersOrder?.() ?? (this.map.getStyle().layers ?? []).map(({ id }) => id);
+    /* SWIFTMAP (Change 36): a layer drawn below another style layer (its
+       `beforeId`, e.g. "Draw below basemap labels") anchors only to layers above
+       it with the same `beforeId`, so a normal layer above it can't lift it. */
+    const ownBeforeId = layerIndex >= 0 ? layers[layerIndex]?.beforeId : undefined;
+    const keepsOwnPlace = Boolean(this.getExternalBeforeStyleLayerId(layers[layerIndex]));
     for (const layer of layers.slice(layerIndex + 1)) {
+      if (keepsOwnPlace && layer.beforeId !== ownBeforeId) continue;
       const candidateIds = new Set(this.getCandidateStyleLayers(layer).map(({ id }) => id));
       // A logical layer can render through several MapLibre style layers. KML
       // icon points, for example, use a symbol companion plus a fallback
