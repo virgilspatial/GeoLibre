@@ -20,6 +20,7 @@ import {
   type InViewResult,
   type LegendLayer,
 } from "../apps/geolibre-desktop/src/components/layout/legend-panel/legend-model";
+import { dashedLineBackground } from "../apps/geolibre-desktop/src/components/layout/legend-panel/LegendSwatch";
 
 // SWIFTMAP (Change 25): the Legend panel's swatches, In view classification and
 // the panel's notes, count and empty line.
@@ -77,6 +78,80 @@ describe("Legend: which layers are listed", () => {
   });
 });
 
+// SWIFTMAP (Change 31): line opacity and dashes (GeoLibre #3360) reach the swatches.
+describe("Legend: line opacity and dashes", () => {
+  it("carries a line's dash pattern and opacity", () => {
+    const swatch = legendLayer(
+      layer("l", "line", { strokeWidth: 2, strokeDash: [4, 2], strokeOpacity: 0.5 }),
+    ).swatch;
+    assert.deepEqual(swatch, {
+      kind: "line",
+      color: DEFAULT_LAYER_STYLE.strokeColor,
+      width: 2,
+      opacity: 0.5,
+      dash: [4, 2],
+    });
+  });
+
+  it("gives every class of a categorised or graduated line the layer's dash", () => {
+    const categorised = legendLayer(
+      layer("c", "line", {
+        strokeDash: [1, 2],
+        vectorStyleMode: "categorized",
+        vectorStyleProperty: "kind",
+        vectorStyleStops: [
+          { value: "a", color: "#ff0000" },
+          { value: "b", color: "#00ff00" },
+        ],
+      }),
+    );
+    assert.equal(categorised.classes.length, 2);
+    for (const item of categorised.classes) {
+      assert.equal(item.swatch.kind === "line" && item.swatch.dash?.join(" "), "1 2");
+    }
+    const graduated = legendLayer(
+      layer("g", "line", {
+        strokeDash: [8, 3],
+        vectorStyleMode: "graduated",
+        vectorStyleProperty: "n",
+        vectorStyleStops: [
+          { value: 0, color: "#ff0000" },
+          { value: 10, color: "#00ff00" },
+        ],
+      }),
+    );
+    assert.equal(graduated.classes[1]?.swatch.kind === "line" && graduated.classes[1].swatch.dash?.join(" "), "8 3");
+  });
+
+  it("draws a dotted polygon outline for Dotted and a dashed one for every other pattern", () => {
+    const outline = (strokeDash: number[]) => {
+      const swatch = legendLayer(layer("p", "polygon", { strokeWidth: 1, strokeDash })).swatch;
+      return swatch?.kind === "polygon" ? swatch.outlineDash : undefined;
+    };
+    assert.equal(outline([]), null);
+    assert.equal(outline([1, 2]), "dotted");
+    assert.equal(outline([4, 2]), "dashed");
+    assert.equal(outline([4, 2, 1, 2]), "dashed");
+    assert.equal(outline([3, 3, 9]), "dashed");
+  });
+
+  it("carries the outline opacity", () => {
+    const swatch = legendLayer(layer("p", "polygon", { strokeWidth: 1, strokeOpacity: 0.25 })).swatch;
+    assert.equal(swatch?.kind === "polygon" && swatch.outlineOpacity, 0.25);
+  });
+
+  it("draws the dash as a gradient scaled by the width, shrunk to fit the swatch", () => {
+    assert.equal(
+      dashedLineBackground("#000", [4, 2], 2),
+      "repeating-linear-gradient(to right, #000 0px 8px, transparent 8px 12px)",
+    );
+    // A long dash at width 3 would repeat every 33px; it's shrunk to 12px.
+    const long = dashedLineBackground("#000", [8, 3], 3);
+    const ends = [...long.matchAll(/ (\d+(?:\.\d+)?)px\)?(?:,|$)/g)].map((m) => Number(m[1]));
+    assert.ok(Math.abs(Math.max(...ends) - 12) < 0.01, long);
+  });
+});
+
 describe("Legend: swatches from the GeoLibre style", () => {
   it("draws single-symbol points, lines and hatched polygons", () => {
     assert.deepEqual(legendLayer(layer("p", "point", { fillColor: "#a855f7" })).swatch, {
@@ -89,6 +164,8 @@ describe("Legend: swatches from the GeoLibre style", () => {
         kind: "line",
         color: "#dc2626",
         width: 3,
+        opacity: 1,
+        dash: null,
       },
     );
     const hatched = legendLayer(

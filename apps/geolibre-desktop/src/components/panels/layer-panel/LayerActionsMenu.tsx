@@ -568,7 +568,11 @@ export function LayerActionsMenuItems({
       ) : null}
       {opacityAvailable ? (
         <Item
-          label={openCard === "opacity" ? t("layerPanel.hideOpacity") : t("layerPanel.opacity")}
+          label={
+            openCard === "opacity"
+              ? t("swiftmapStyle.layerOpacityHide")
+              : t("swiftmapStyle.layerOpacityMenu")
+          }
           shortcut={key("opacity")}
           onSelect={() => toggleCard("opacity")}
         />

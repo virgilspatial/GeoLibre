@@ -1,5 +1,5 @@
 import { expect, test } from "./test";
-import { dropGeoJson, layerRow, selectLayerRow, waitForMap } from "./helpers";
+import { dropGeoJson, layerRow, railButton, selectLayerRow, waitForMap } from "./helpers";
 
 // SWIFTMAP (Change 27): Swiftmap's Style panel. It opens from the layer
 // toolbar's palette icon, applies changes live (Show as Categories with an
@@ -69,6 +69,52 @@ test("styles a layer live, by category, and closes without a rail", async ({ pag
   await layerRow(page, "zoning").getByRole("button", { name: "Layer actions" }).click();
   await page.getByRole("menuitem", { name: "Filter", exact: true }).click();
   await expect(page.getByTestId("layer-filter-card")).toBeVisible();
+});
+
+// SWIFTMAP (Change 31): line style (GeoLibre #3360) sits beside Width, and the
+// legend's swatch draws the dash.
+const ROADS = JSON.stringify({
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Track" },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [0, 0],
+          [1, 0.5],
+          [2, 0],
+        ],
+      },
+    },
+  ],
+});
+
+test("dashes a line from the Style panel, and the legend shows the dash", async ({ page }) => {
+  await waitForMap(page);
+  await dropGeoJson(page, "tracks", ROADS);
+  await selectLayerRow(page, "tracks");
+  await layerRow(page, "tracks").getByRole("button", { name: "Open style panel" }).click();
+  const panel = page.getByRole("complementary", { name: "Layer style", exact: true });
+  await expect(panel.getByText("Line layer · Single symbol")).toBeVisible();
+
+  const lineStyle = panel.getByRole("combobox", { name: "Line style" });
+  await expect(lineStyle).toHaveValue("solid");
+  await lineStyle.selectOption("dashed");
+  await expect(lineStyle).toHaveValue("dashed");
+  // No Custom choice while the pattern is a preset.
+  await expect(lineStyle.locator("option")).toHaveCount(5);
+
+  // Blur sits under More options.
+  await panel.getByRole("button", { name: "More options" }).click();
+  await expect(panel.getByRole("spinbutton", { name: "Line blur (px)" })).toHaveValue("0");
+
+  await railButton(page, "Legend").click();
+  const legend = page.getByTestId("legend-panel");
+  await legend.getByRole("radio", { name: "All" }).click();
+  const row = legend.locator('[data-testid="legend-layer"][data-layer-name="tracks"]');
+  await expect(row.getByTestId("legend-swatch")).toHaveAttribute("data-dash", "dashed");
 });
 
 // 7b review round 4: settings popovers apply live and end with Done; Enter in

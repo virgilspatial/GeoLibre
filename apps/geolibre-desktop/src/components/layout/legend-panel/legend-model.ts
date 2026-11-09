@@ -6,7 +6,10 @@
 import {
   effectiveVectorRules,
   isHexColor,
+  isStrokeDashPattern,
   proportionalSizeRange,
+  strokeDashPresetName,
+  strokeOpacityValue,
   styleValue,
   vectorColorExpression,
   type GeoLibreLayer,
@@ -37,11 +40,24 @@ export type LegendSwatch =
       fillOpacity: number;
       /** Outline colour, or null when the map draws none (width 0). */
       outline: string | null;
+      /** Outline opacity, 0..1 (Change 31). */
+      outlineOpacity: number;
+      /** A dashed or dotted outline, or null for solid (Change 31). */
+      outlineDash: "dashed" | "dotted" | null;
       pattern: LegendPattern | null;
       patternColor: string;
     }
   | { kind: "point"; color: string }
-  | { kind: "line"; color: string; /** px, 1..5 */ width: number };
+  | {
+      kind: "line";
+      color: string;
+      /** px, 1..5 */
+      width: number;
+      /** Line opacity, 0..1 (Change 31). */
+      opacity: number;
+      /** Dash and gap lengths in multiples of the width, or null for solid (Change 31). */
+      dash: number[] | null;
+    };
 
 export interface LegendClass {
   id: string;
@@ -122,6 +138,16 @@ function patternOf(style: LayerStyle): LegendPattern | null {
   return PATTERNS.has(pattern) ? (pattern as LegendPattern) : null;
 }
 
+/** The layer's dash pattern, or null for a solid line (GeoLibre #3360). */
+function dashOf(style: LayerStyle): number[] | null {
+  const dash = styleValue(style, "strokeDash");
+  return isStrokeDashPattern(dash) ? [...dash] : null;
+}
+
+function lineSwatch(style: LayerStyle, color: string, width: number): LegendSwatch {
+  return { kind: "line", color, width, opacity: strokeOpacityValue(style), dash: dashOf(style) };
+}
+
 function polygonSwatch(
   style: LayerStyle,
   fill: string,
@@ -133,6 +159,12 @@ function polygonSwatch(
     fill,
     fillOpacity: overrides.fillOpacity ?? styleValue(style, "fillOpacity"),
     outline: width > 0 ? (overrides.strokeColor ?? styleValue(style, "strokeColor")) : null,
+    outlineOpacity: strokeOpacityValue(style),
+    outlineDash: dashOf(style)
+      ? strokeDashPresetName(styleValue(style, "strokeDash")) === "dotted"
+        ? "dotted"
+        : "dashed"
+      : null,
     pattern: patternOf(style),
     patternColor: isHexColor(styleValue(style, "fillPatternColor"))
       ? styleValue(style, "fillPatternColor")
@@ -151,11 +183,11 @@ function swatchFor(
 ): LegendSwatch {
   if (shape === "circle") return { kind: "point", color };
   if (shape === "line") {
-    return {
-      kind: "line",
+    return lineSwatch(
+      style,
       color,
-      width: clampWidth(overrides.strokeWidth ?? styleValue(style, "strokeWidth")),
-    };
+      clampWidth(overrides.strokeWidth ?? styleValue(style, "strokeWidth")),
+    );
   }
   return polygonSwatch(style, color, overrides);
 }
@@ -275,11 +307,7 @@ export function legendLayer(layer: GeoLibreLayer): LegendLayer {
         (mode === "categorized" ? String(stop.value ?? "") : rangeLabel(bounds, index));
       const swatch =
         mode === "graduated" && shape === "line"
-          ? ({
-              kind: "line",
-              color: stop.color,
-              width: graduatedLineWidth(style, bounds[index]),
-            } as const)
+          ? lineSwatch(style, stop.color, graduatedLineWidth(style, bounds[index]))
           : swatchFor(shape, style, stop.color);
       return { id: `${index}`, label, swatch };
     });

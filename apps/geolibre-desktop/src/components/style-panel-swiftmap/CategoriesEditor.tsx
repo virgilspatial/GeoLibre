@@ -11,7 +11,14 @@ import {
   type Category,
   type GeometryKind,
 } from "./style-model";
-import { FieldSelect, RampField, TRANSPARENT, isNone, type Patch } from "./SymbolEditors";
+import {
+  FieldSelect,
+  LineStyleBlock,
+  RampField,
+  TRANSPARENT,
+  isNone,
+  type Patch,
+} from "./SymbolEditors";
 
 // SWIFTMAP (Change 27): the Categories editor, saved as GeoLibre rule-based
 // rules (one per value) so each category keeps its own outline.
@@ -27,12 +34,15 @@ export function CategoriesEditor({
   view,
   geometry,
   patch,
+  strokeOptions = true,
 }: {
   layer: GeoLibreLayer;
   style: LayerStyle;
   view: CategoriesView;
   geometry: GeometryKind;
   patch: Patch;
+  /** Line style and opacity under the list (Change 31); off for control-painted layers. */
+  strokeOptions?: boolean;
 }) {
   const { t } = useTranslation();
   const fields = layerFields(layer);
@@ -85,6 +95,7 @@ export function CategoriesEditor({
           />
         ) : null}
       </div>
+      {strokeOptions ? <LineStyleBlock style={style} geometry={geometry} patch={patch} /> : null}
     </div>
   );
 }

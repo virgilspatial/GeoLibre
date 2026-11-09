@@ -30,6 +30,27 @@ function patternBackground(pattern: LegendPattern, color: string): CSSProperties
   }
 }
 
+/** The longest dash pattern repeat drawn in the 18px swatch, so 1.5 repeats show. */
+const MAX_DASH_PERIOD = 12;
+
+/**
+ * SWIFTMAP (Change 31): a dashed line as a repeating gradient. The map scales
+ * dash lengths by the line width; the swatch does too, but shrinks a pattern
+ * whose repeat would outgrow the swatch (a long dash would read as solid).
+ */
+export function dashedLineBackground(color: string, dash: readonly number[], width: number): string {
+  const total = dash.reduce((sum, length) => sum + length, 0);
+  const unit = Math.max(0.5, Math.min(width, MAX_DASH_PERIOD / total));
+  const stops: string[] = [];
+  let at = 0;
+  dash.forEach((length, index) => {
+    const end = at + length * unit;
+    stops.push(`${index % 2 === 0 ? color : "transparent"} ${at}px ${end}px`);
+    at = end;
+  });
+  return `repeating-linear-gradient(to right, ${stops.join(", ")})`;
+}
+
 /**
  * SWIFTMAP (Change 25): a legend swatch in the 18px column. Polygons are 14px
  * rounded squares, points 12px dots with a thin dark outline, lines the full
@@ -47,6 +68,7 @@ export function LegendSwatch({
 }) {
   const opacity = dimmed ? 0.4 : 1;
   let style: CSSProperties;
+  let dashedOutline: { color: string; dash: "dashed" | "dotted" } | null = null;
   if (swatch.kind === "point") {
     style = {
       width: 12,
@@ -57,7 +79,16 @@ export function LegendSwatch({
       boxShadow: "inset 0 0 0 1px rgba(9, 9, 11, 0.2)",
     };
   } else if (swatch.kind === "line") {
-    style = { width: 18, height: swatch.width, borderRadius: 2, background: swatch.color };
+    // Line opacity fades the whole swatch, so any CSS colour works (Change 31).
+    style = {
+      width: 18,
+      height: swatch.width,
+      borderRadius: swatch.dash ? 0 : 2,
+      background: swatch.dash
+        ? dashedLineBackground(swatch.color, swatch.dash, swatch.width)
+        : swatch.color,
+      opacity: opacity * swatch.opacity,
+    };
   } else {
     // A pattern replaces the fill on the map, so only the lines show, at the
     // fill opacity. A flat fill keeps a floor so pale fills still read.
@@ -73,16 +104,63 @@ export function LegendSwatch({
       margin: "0 2px",
       borderRadius: 3,
       ...fill,
-      ...(swatch.outline ? { boxShadow: `inset 0 0 0 1px ${swatch.outline}` } : {}),
+      ...(swatch.outline && !swatch.outlineDash
+        ? { boxShadow: `inset 0 0 0 1px ${outlineColor(swatch.outline, swatch.outlineOpacity)}` }
+        : {}),
     };
+    if (swatch.outline && swatch.outlineDash) {
+      dashedOutline = {
+        color: outlineColor(swatch.outline, swatch.outlineOpacity),
+        dash: swatch.outlineDash,
+      };
+    }
   }
   return (
     <span
       aria-hidden="true"
       data-testid="legend-swatch"
       data-kind={swatch.kind}
-      className="block shrink-0"
-      style={{ ...style, opacity }}
-    />
+      data-dash={dashKind(swatch) ?? undefined}
+      className="relative block shrink-0"
+      style={{ opacity, ...style }}
+    >
+      {dashedOutline ? <DashedSquare {...dashedOutline} /> : null}
+    </span>
   );
+}
+
+/** The outline colour at the outline opacity. */
+function outlineColor(outline: string, alpha: number): string {
+  return alpha < 1 ? rgba(outline, alpha) : outline;
+}
+
+/**
+ * SWIFTMAP (Change 31, review round 1): a dashed or dotted polygon outline as
+ * an SVG square. A CSS dashed or dotted border on a 14px square showed only as
+ * corners and specks, so the swatch looked plainly filled; a dash array sets
+ * the spacing. 2px on whole pixels, so the dots stay crisp.
+ */
+function DashedSquare({ color, dash }: { color: string; dash: "dashed" | "dotted" }) {
+  return (
+    <svg className="absolute inset-0" width={14} height={14} viewBox="0 0 14 14" aria-hidden="true">
+      <rect
+        x={1}
+        y={1}
+        width={12}
+        height={12}
+        rx={2}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeDasharray={dash === "dotted" ? "2 2" : "4 2"}
+      />
+    </svg>
+  );
+}
+
+/** Whether the swatch draws a dash, for the tests and e2e (`data-dash`). */
+function dashKind(swatch: Swatch): string | null {
+  if (swatch.kind === "line") return swatch.dash ? "dashed" : null;
+  if (swatch.kind === "polygon") return swatch.outline ? swatch.outlineDash : null;
+  return null;
 }
