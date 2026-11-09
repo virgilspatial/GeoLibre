@@ -19,7 +19,7 @@ test("flies to the point cloud on the first load of a session", async ({ page })
   const status = page.locator("footer");
   await expect(status).toContainText("Zoom: 2.00");
 
-  await openAddDataSource(page, "LiDAR layer");
+  await openAddDataSource(page, "LiDAR");
   await page
     .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })
     .fill(COPC_URL);

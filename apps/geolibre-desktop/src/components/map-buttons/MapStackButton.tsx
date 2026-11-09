@@ -27,13 +27,13 @@ interface MapButtonTooltipProps {
   children: ReactNode;
 }
 
-/** The dark stock tooltip, 12px to the start side of a map button. */
+/** The dark stock tooltip, 6px to the start side of a map button (Change 35). */
 export function MapButtonTooltip({ label, suppressed = false, children }: MapButtonTooltipProps) {
   const [open, setOpen] = useState(false);
   return (
     <Tooltip open={open && !suppressed} onOpenChange={setOpen}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side={startSide()} sideOffset={12}>
+      <TooltipContent side={startSide()} sideOffset={6}>
         {label}
       </TooltipContent>
     </Tooltip>

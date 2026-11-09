@@ -230,7 +230,7 @@ test("DuckDB query layers render on Mapbox and the panel remounts after a render
   test.setTimeout(300_000);
   await openMapboxProject(page, info.project.use.baseURL!, "light");
 
-  await openSource(page, "DuckDB layer");
+  await openSource(page, "DuckDB");
   // The control's panel is appended to the map container, not to the control
   // element, so locate its fields at page level.
   const panel = page.getByText("Add DuckDB layer", { exact: true });
@@ -285,12 +285,12 @@ test("DuckDB query layers render on Mapbox and the panel remounts after a render
   // The map tears the panel down with the old engine; reopening it must mount
   // on the new map and redraw the cached results, in both directions.
   await switchRenderer(page, "MapLibre");
-  await openSource(page, "DuckDB layer");
+  await openSource(page, "DuckDB");
   await expect(panel).toBeVisible();
   await expect.poll(duckdbRowsDrawn, { timeout: 60_000 }).toBe(DUCKDB_ROWS);
   await page.getByRole("button", { name: "Close panel", exact: true }).click();
   await switchRenderer(page, "Mapbox");
-  await openSource(page, "DuckDB layer");
+  await openSource(page, "DuckDB");
   await expect(panel).toBeVisible();
   await expect.poll(duckdbRowsDrawn, { timeout: 60_000 }).toBe(DUCKDB_ROWS);
   await expect(layerRow(page, "nyc_census_blocks")).not.toContainText("No Mapbox");

@@ -28,7 +28,7 @@ test.describe("LiDAR point-cloud canvas stacking", () => {
   }) => {
     await waitForMap(page);
 
-    await openAddDataSource(page, "LiDAR layer");
+    await openAddDataSource(page, "LiDAR");
     await expect(page.locator(WRAPPER)).toHaveCount(1);
 
     const stack = await page.evaluate((wrapper) => {

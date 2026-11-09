@@ -147,7 +147,7 @@ test("a Zarr store added through the panel mounts as a custom layer on the Mapbo
   await bindMapboxEngine(page);
   await expect(railButton(page, "Add Data")).toBeEnabled();
 
-  await openAddDataSource(page, "Zarr layer");
+  await openAddDataSource(page, "Zarr");
   await page.getByRole("textbox", { name: "https://example.com/data.zarr" }).fill(STORE);
   await page.getByRole("textbox", { name: "e.g., temperature" }).fill("temperature");
   await page.getByRole("button", { name: "Add Layer", exact: true }).click();

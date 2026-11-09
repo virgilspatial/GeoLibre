@@ -78,7 +78,7 @@ for (const theme of ["light", "dark"] as const) {
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await bindEngine(page);
 
-    await openSource(page, "PMTiles layer");
+    await openSource(page, "PMTiles");
     await page
       .getByRole("textbox", { name: "https://example.com/tiles.pmtiles", exact: true })
       .fill(PMTILES);
@@ -97,7 +97,7 @@ for (const theme of ["light", "dark"] as const) {
     });
     await page.screenshot({ path: info.outputPath(`pmtiles-${theme}.png`) });
 
-    await openSource(page, "3D Tiles layer");
+    await openSource(page, "3D Tiles");
     await page.getByRole("textbox", { name: "Tileset URL", exact: true }).fill(TILES);
     await page.getByRole("textbox", { name: "Layer name", exact: true }).fill("AGI HQ");
     await page.getByRole("spinbutton", { name: "Altitude offset", exact: true }).fill("-300");
@@ -121,7 +121,7 @@ for (const theme of ["light", "dark"] as const) {
     await page.waitForTimeout(1000); // Allow the newly selected 3D tiles to draw after the camera jump.
     await page.screenshot({ path: info.outputPath(`tiles-${theme}.png`) });
 
-    await openSource(page, "LiDAR layer");
+    await openSource(page, "LiDAR");
     await page
       .getByRole("textbox", { name: "https://example.com/pointcloud.laz", exact: true })
       .fill(COPC);
@@ -179,7 +179,7 @@ for (const theme of ["light", "dark"] as const) {
     await expect(layerRow(page, "Earthquakes PMTiles")).toBeVisible();
     await expect(layerRow(page, "AGI HQ")).toBeVisible();
     await expect(layerRow(page, "1.2-with-color.copc.laz")).toBeVisible({ timeout: 60_000 });
-    await openSource(page, "LiDAR layer");
+    await openSource(page, "LiDAR");
     await expect(page.getByText("1,065 points", { exact: true })).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Close panel", exact: true }).click();
     await page.evaluate(() =>
@@ -207,7 +207,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(railButton(page, "Add Data")).toBeEnabled();
     }
     await bindEngine(page);
-    await openSource(page, "LiDAR layer");
+    await openSource(page, "LiDAR");
     await expect(page.getByText("1,065 points", { exact: true })).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Close panel", exact: true }).click();
     await page.evaluate(() =>
@@ -265,7 +265,7 @@ for (const theme of ["light", "dark"]) {
     await page.getByRole("menuitem", { name: "Rendering engine", exact: true }).hover();
     await page.getByRole("menuitemradio", { name: "Mapbox", exact: true }).click();
     await bindEngine(page);
-    await openSource(page, "PMTiles layer");
+    await openSource(page, "PMTiles");
     await page
       .getByRole("textbox", { name: "https://example.com/tiles.pmtiles", exact: true })
       .fill("https://r2-public.protomaps.com/protomaps-sample-datasets/tilezen.pmtiles");

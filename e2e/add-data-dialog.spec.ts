@@ -108,16 +108,17 @@ test("More sources lists the Stage 0 groups without search", async ({ page }) =>
   await expect(dialog.getByRole("searchbox")).toHaveCount(0);
   for (const name of [
     "CAD drawing (DXF)",
-    "LandXML layer",
+    "LandXML",
     "Historical imagery",
     "Overture Maps",
-    "LiDAR layer",
-    "DuckDB layer",
+    "LiDAR",
+    "DuckDB",
   ]) {
     await expect(dialog.getByRole("button", { name, exact: true })).toBeVisible();
   }
-  // Desktop-only and unconfirmed sources stay out of the browser build.
-  for (const name of [/PostgreSQL/, /SQL Server/, /Iceberg/, /MBTiles/, /Gaussian/, /DWG/]) {
+  // Desktop-only and unconfirmed sources stay out of the browser build, and
+  // KML / KMZ is left to Upload and From a link (Change 35).
+  for (const name of [/PostgreSQL/, /SQL Server/, /Iceberg/, /MBTiles/, /Gaussian/, /DWG/, /KML/]) {
     await expect(dialog.getByRole("button", { name })).toHaveCount(0);
   }
 });

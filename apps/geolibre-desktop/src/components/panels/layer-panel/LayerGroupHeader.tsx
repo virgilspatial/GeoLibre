@@ -216,7 +216,7 @@ export function LayerGroupHeader({
                 </span>
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" sideOffset={6} className="rounded-lg px-2.5 py-1.5 text-xs font-medium">
+            <TooltipContent side="top" sideOffset={6}>
               {group.name}
             </TooltipContent>
           </Tooltip>

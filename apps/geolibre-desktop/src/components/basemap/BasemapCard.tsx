@@ -352,7 +352,9 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
                   />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="top">{t("swiftmapBasemap.noLabels")}</TooltipContent>
+              <TooltipContent side="top" sideOffset={6}>
+                {t("swiftmapBasemap.noLabels")}
+              </TooltipContent>
             </Tooltip>
           )}
         </div>

@@ -93,7 +93,6 @@ interface LayerRowProps {
 }
 
 /** The mockup's toolbar tooltip: 12px medium text, opening above the button. */
-const toolTipClass = "rounded-lg px-2.5 py-1.5 text-xs font-medium";
 
 function ToolButton({
   label,
@@ -129,7 +128,7 @@ function ToolButton({
           </Button>
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={8} className={toolTipClass}>
+      <TooltipContent side="top" sideOffset={6}>
         {label}
       </TooltipContent>
     </Tooltip>
@@ -451,7 +450,7 @@ export function LayerRow({
                       </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
-                  <TooltipContent side="top" sideOffset={8} className={toolTipClass}>
+                  <TooltipContent side="top" sideOffset={6}>
                     {t("layerPanel.actions")}
                   </TooltipContent>
                 </Tooltip>
