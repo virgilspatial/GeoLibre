@@ -7,9 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@geolibre/ui";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { notify } from "../../lib/notify";
+import { applySwiftmapFallback } from "./regional-fallback";
 
 /**
  * Asks before an opened project's regional basemap (tiles served from mainland
@@ -24,7 +25,16 @@ import { notify } from "../../lib/notify";
 export function RegionalBasemapPrompt() {
   const { t } = useTranslation();
   const hold = useAppStore((s) => s.regionalBasemapHold);
-  const resolveHold = useAppStore((s) => s.resolveRegionalBasemapHold);
+  const resolveRegionalBasemapHold = useAppStore((s) => s.resolveRegionalBasemapHold);
+  // SWIFTMAP (Change 32): every way out that doesn't load the regional
+  // basemap leaves Swiftmap's default (Light), not GeoLibre's fallback.
+  const resolveHold = useCallback(
+    (load: boolean, options?: { remember?: boolean }) => {
+      resolveRegionalBasemapHold(load, options);
+      if (!load) applySwiftmapFallback();
+    },
+    [resolveRegionalBasemapHold],
+  );
   const basemap = hold ? getRegionalBasemapByStyleUrl(hold.styleUrl) : undefined;
 
   // A deployment block needs no answer: say why the basemap differs, once.
