@@ -30,6 +30,7 @@ import {
   storySlideCoverColor,
 } from "../../lib/storymap-constants";
 import { applyStoryViewAndWait } from "./storymap-engine";
+import { useLightBasemapWhileOpen } from "../basemap/auto-basemap";
 
 interface StoryMapHandoutDialogProps {
   open: boolean;
@@ -195,6 +196,9 @@ export function StoryMapHandoutDialog({
   mapControllerRef,
 }: StoryMapHandoutDialogProps) {
   const { t } = useTranslation();
+  // SWIFTMAP (Change 33): the handout PDF is always Light (an Auto map is held
+  // on Light while the dialog is open).
+  useLightBasemapWhileOpen(open);
   const chapters = story.chapters;
   // Chapters plus the optional start/closing slides, in export order.
   const screens = useMemo(() => buildScreens(story), [story]);

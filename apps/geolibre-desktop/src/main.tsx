@@ -76,6 +76,7 @@ import { KeychainWaitScreen } from "./components/common/KeychainWaitScreen";
 import { applySwiftmapDefaultBasemap } from "./components/map/swiftmap-basemap";
 import { installSwiftmapBasemaps } from "./components/basemap/basemap-registry";
 import { installSwiftmapBasemapSwap } from "./components/basemap/basemap-swap";
+import { installAutoBasemap } from "./components/basemap/auto-basemap";
 import { applyTemporaryDesktopSettings } from "./hooks/useDesktopSettings";
 import {
   desktopSettingsUrl,
@@ -104,6 +105,8 @@ seedSwiftmapControlDefaults();
 // switches between them in place, without blanking the map.
 installSwiftmapBasemaps();
 installSwiftmapBasemapSwap();
+// SWIFTMAP (Change 33): the Auto basemap follows the theme.
+installAutoBasemap();
 // SWIFTMAP (Change 23): Protomaps Light for the first map when a build-time key
 // is set, before React renders, so Liberty never flashes up first.
 applySwiftmapDefaultBasemap();

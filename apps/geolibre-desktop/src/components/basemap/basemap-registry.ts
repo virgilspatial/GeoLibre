@@ -1,6 +1,7 @@
 import { getProtomapsApiKey, useAppStore } from "@geolibre/core";
 import type * as maplibregl from "maplibre-gl";
-import { parseSwiftmapBasemap } from "./basemap-catalog";
+import { autoFlavor } from "./auto-flavor";
+import { parseSwiftmapBasemap, type SwiftmapBasemap } from "./basemap-catalog";
 import { buildSwiftmapBasemapStyle } from "./basemap-styles";
 
 // SWIFTMAP (Change 28): puts the style for a Swiftmap basemap sentinel into
@@ -20,6 +21,24 @@ function registry(): Map<string, maplibregl.StyleSpecification> {
   };
   if (!scope[REGISTRY_KEY]) scope[REGISTRY_KEY] = new Map();
   return scope[REGISTRY_KEY];
+}
+
+/**
+ * Change 33: the style Auto's link held before it was last rebuilt, which is
+ * what the map still draws when the theme changes. The swap hook swaps from it.
+ */
+const previousAuto = new Map<string, maplibregl.StyleSpecification>();
+
+/** The style Auto's link held before its last rebuild, or null. */
+export function previousAutoStyle(url: string): maplibregl.StyleSpecification | null {
+  return previousAuto.get(url) ?? null;
+}
+
+/** What a sentinel draws: Auto is Light or Dark, by the theme (auto-flavor.ts). */
+function resolved(basemap: SwiftmapBasemap): SwiftmapBasemap {
+  return basemap.kind === "auto"
+    ? { kind: "protomaps", flavor: autoFlavor(), labels: basemap.labels }
+    : basemap;
 }
 
 /** The registered style for a Swiftmap sentinel, or null. */
@@ -43,7 +62,11 @@ export function ensureSwiftmapBasemap(
 ): boolean {
   const basemap = parseSwiftmapBasemap(url);
   if (!url || !basemap) return false;
-  const style = buildSwiftmapBasemapStyle(basemap, getProtomapsApiKey(env));
+  const style = buildSwiftmapBasemapStyle(resolved(basemap), getProtomapsApiKey(env));
+  if (basemap.kind === "auto") {
+    const current = registry().get(url);
+    if (current) previousAuto.set(url, current);
+  }
   if (!style) {
     registry().delete(url);
     return false;

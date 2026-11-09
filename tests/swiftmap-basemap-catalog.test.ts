@@ -92,7 +92,7 @@ describe("Swiftmap basemap picker rows", () => {
   });
 
   it("lists Liberty only without a key", () => {
-    assert.deepEqual(pickerChoices(true), ["light", "grey", "dark", "aerial", "none"]);
+    assert.deepEqual(pickerChoices(true), ["light", "grey", "dark", "auto", "aerial", "none"]);
     assert.deepEqual(pickerChoices(false), ["liberty", "aerial", "none"]);
   });
 
@@ -119,6 +119,31 @@ describe("Swiftmap basemap picker rows", () => {
       "styles.example.com",
     );
     assert.equal(legacyBasemapName("geolibre://offline-basemap/extract/1"), null);
+  });
+});
+
+// SWIFTMAP (Change 33): the Auto basemap's link, row and labels.
+describe("Swiftmap Auto basemap link", () => {
+  it("is a sentinel of its own, with labels off in the query", () => {
+    assert.equal(swiftmapBasemapUrl({ kind: "auto", labels: true }), `${S}auto`);
+    assert.equal(swiftmapBasemapUrl({ kind: "auto", labels: false }), `${S}auto?labels=off`);
+    assert.deepEqual(parseSwiftmapBasemap(`${S}auto?labels=off`), { kind: "auto", labels: false });
+  });
+
+  it("is the Auto row, picked with the current labels setting", () => {
+    assert.equal(currentChoice(`${S}auto`), "auto");
+    assert.equal(choiceUrl("auto", false), `${S}auto?labels=off`);
+  });
+
+  it("switches labels like Light and Dark, with a key", () => {
+    assert.deepEqual(labelsState(`${S}auto`, true), { available: true, on: true });
+    assert.deepEqual(labelsState(`${S}auto`, false), { available: false, on: true });
+    assert.equal(withLabels(`${S}auto`, false), `${S}auto?labels=off`);
+  });
+
+  it("registers nothing without a key (the map shows Liberty)", () => {
+    assert.equal(ensureSwiftmapBasemap(`${S}auto`, NO_KEY_ENV), false);
+    assert.equal(getOfflineBasemapStyle(`${S}auto`), null);
   });
 });
 

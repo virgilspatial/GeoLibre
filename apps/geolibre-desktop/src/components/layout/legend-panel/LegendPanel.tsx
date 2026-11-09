@@ -15,6 +15,7 @@ import {
 } from "./legend-model";
 import { queryInView } from "./legend-in-view";
 import { LegendSwatch } from "./LegendSwatch";
+import { useLegendBacking } from "./legend-backing";
 import { TruncatedText } from "./TruncatedText";
 import { useLegendStore } from "./legendStore";
 
@@ -191,6 +192,7 @@ function ModeToggle() {
 }
 
 function LegendBlock({ row }: { row: LegendRow }) {
+  const backing = useLegendBacking();
   const { t } = useTranslation();
   const { layer, outOfRange: dimmed, classes } = row;
   const heading = layer.classes.length > 0;
@@ -207,7 +209,9 @@ function LegendBlock({ row }: { row: LegendRow }) {
           classes.length > 0 ? "pb-0" : "pb-1",
         )}
       >
-        {!heading && layer.swatch ? <LegendSwatch swatch={layer.swatch} dimmed={dimmed} /> : null}
+        {!heading && layer.swatch ? (
+          <LegendSwatch swatch={layer.swatch} dimmed={dimmed} backing={backing} />
+        ) : null}
         <span className="flex min-w-0 flex-1 flex-col">
           <TruncatedText
             text={layer.name}
@@ -228,7 +232,7 @@ function LegendBlock({ row }: { row: LegendRow }) {
               data-testid="legend-class"
               className="flex h-[22px] items-center gap-2.5 text-[13px]"
             >
-              <LegendSwatch swatch={item.swatch} category />
+              <LegendSwatch swatch={item.swatch} category backing={backing} />
               <TruncatedText text={item.label} className="flex-1" />
             </li>
           ))}

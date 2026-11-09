@@ -3616,6 +3616,7 @@
     "light": "Light",
     "grey": "Grey",
     "dark": "Dark",
+    "auto": "Auto",
     "aerial": "Aerial (NSW)",
     "none": "None",
     "liberty": "Liberty",
