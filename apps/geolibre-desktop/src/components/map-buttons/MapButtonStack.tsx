@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "re
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { usePluginRegistry } from "../../hooks/usePlugins";
+import { setAutoBasemapReapply } from "../basemap/auto-basemap";
 import {
   CompassIcon,
   FullScreenIcon,
@@ -53,6 +54,16 @@ export function MapButtonStack({ engine, ready, shown }: MapButtonStackProps) {
   useLayoutEffect(() => {
     setPane(findPrimaryPane());
   }, [gridCells]);
+
+  // Change 33: when the theme changes an Auto basemap's flavour, the map
+  // applies the same link again (swapped in place by Swiftmap's hook).
+  useEffect(
+    () =>
+      setAutoBasemapReapply(() =>
+        engine.current?.setStyle(useAppStore.getState().basemapStyleUrl),
+      ),
+    [engine],
+  );
 
   // Mark the pane so index.css hides GeoLibre's own buttons there, and move its
   // top-right corner below the stack.

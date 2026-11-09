@@ -74,6 +74,8 @@ export function buildSwiftmapBasemapStyle(
   basemap: SwiftmapBasemap,
   protomapsKey: string | undefined,
 ): maplibregl.StyleSpecification | null {
+  // Auto is resolved to Light or Dark by the registry before it gets here (Change 33).
+  if (basemap.kind === "auto") return null;
   if (basemap.kind === "protomaps") {
     if (!protomapsKey) return null;
     return {

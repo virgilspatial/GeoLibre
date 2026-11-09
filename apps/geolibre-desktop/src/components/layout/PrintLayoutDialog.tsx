@@ -51,6 +51,7 @@ import { InfoBlockEditor } from "./print-layout/InfoBlockEditor";
 import { LegendEditor } from "./print-layout/LegendEditor";
 import { PreviewPane } from "./print-layout/PreviewPane";
 import { ExportActions } from "./print-layout/ExportActions";
+import { useLightBasemapWhileOpen } from "../basemap/auto-basemap";
 
 interface PrintLayoutDialogProps {
   open: boolean;
@@ -74,6 +75,9 @@ export function PrintLayoutDialog({
   mapControllerRef,
 }: PrintLayoutDialogProps) {
   const { t } = useTranslation();
+  // SWIFTMAP (Change 33): PDFs are always Light, so an Auto map is held on
+  // Light while the dialog is open (its preview captures the live map).
+  useLightBasemapWhileOpen(open);
   // Layers are only read while the dialog is open; it stays mounted closed (to
   // keep the layout being composed) without re-rendering on layer edits.
   const layers = useLayersWhen(open);

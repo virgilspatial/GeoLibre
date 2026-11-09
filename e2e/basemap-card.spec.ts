@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { waitForMap } from "./helpers";
+import { bindMapLibreMap, waitForMap } from "./helpers";
 
 // SWIFTMAP (Change 28): the Basemap card and picker that replaced GeoLibre's
 // Background row. The e2e build has no Protomaps key (as on CI), so the list
@@ -136,6 +136,42 @@ test("with a Protomaps key: Light by default, and Show labels switches labels", 
   await expect.poll(() => rememberedBasemap(page)).toBe(`${SWIFTMAP}aerial`);
   await expect(card).toContainText("BasemapAerial (NSW)");
   await page.keyboard.press("Escape");
+});
+
+// SWIFTMAP (Change 33): Auto is Light in light mode and Dark in dark mode. The
+// theme toggle swaps the drawn style without changing the saved basemap.
+test("Auto follows the theme without changing the saved basemap", async ({ page }) => {
+  await waitForMap(page);
+  await page.evaluate(() => {
+    window.__GEOLIBRE_RUNTIME_ENV__ = {
+      ...window.__GEOLIBRE_RUNTIME_ENV__,
+      VITE_PROTOMAPS_API_KEY: "e2e-placeholder",
+    };
+    window.dispatchEvent(new CustomEvent("geolibre:runtime-env-change"));
+  });
+  await bindMapLibreMap(page);
+  const background = () =>
+    page.evaluate(() => {
+      type Styled = { getStyle(): { layers: { type: string; paint?: Record<string, unknown> }[] } };
+      const map = window.__geolibreTestMap as unknown as Styled | undefined;
+      const layer = map?.getStyle().layers.find((item) => item.type === "background");
+      return String(layer?.paint?.["background-color"] ?? "");
+    });
+  const card = basemapCard(page);
+  await card.click();
+  await picker(page).getByRole("button", { name: "Auto", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(card).toContainText("Auto");
+  await expect.poll(() => rememberedBasemap(page)).toBe(`${SWIFTMAP}auto`);
+  const light = await background();
+
+  // Playwright starts in light mode.
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect.poll(background).not.toBe(light);
+  await expect(card).toContainText("Auto");
+  expect(await rememberedBasemap(page)).toBe(`${SWIFTMAP}auto`);
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect.poll(background).toBe(light);
 });
 
 test("viewers get the card too", async ({ page }) => {

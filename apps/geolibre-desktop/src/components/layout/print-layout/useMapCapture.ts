@@ -151,7 +151,37 @@ export function useMapCapture({
       // viewport capture: the atlas auto-drive effect recaptures the current
       // page on this same transition, and the extra capture would flash an
       // incorrect preview first.
-      if (!atlasActiveRef.current) recapture();
+      if (!atlasActiveRef.current) {
+        /* SWIFTMAP (Change 33): capture once the map has finished loading, not
+           mid-load. Opening can change the basemap (an Auto map is held on
+           Light while the dialog is open), so ask for one more frame and take
+           the snapshot on the next idle, with the same refs and fallback as
+           applyScale's idle recapture, so a newer capture cancels it. */
+        if (map) {
+          const handler = () => {
+            map.off("idle", handler);
+            idleRecaptureRef.current = null;
+            if (idleFallbackRef.current !== null) {
+              window.clearTimeout(idleFallbackRef.current);
+              idleFallbackRef.current = null;
+            }
+            void recapture();
+          };
+          idleRecaptureRef.current = handler;
+          map.on("idle", handler);
+          idleFallbackRef.current = window.setTimeout(() => {
+            idleFallbackRef.current = null;
+            if (idleRecaptureRef.current === handler) {
+              map.off("idle", handler);
+              idleRecaptureRef.current = null;
+              void recapture();
+            }
+          }, 2000);
+          map.triggerRepaint();
+        } else {
+          void recapture();
+        }
+      }
     } else if (!open && wasOpenRef.current && !drawingRef.current) {
       captureRequest.current++;
       // Closing for good (not to draw): take the extent box off the map.

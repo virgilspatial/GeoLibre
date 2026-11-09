@@ -17,6 +17,7 @@ import {
 import { Check, ChevronRight, Link2, Map as MapIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { useAutoFlavor } from "./auto-flavor";
 import { applyBasemap } from "./basemap-actions";
 import {
   choiceUrl,
@@ -85,7 +86,10 @@ function useDescribe(hasKey: boolean): (url: string) => BasemapInfo {
     // Without a key a Swiftmap Protomaps basemap can't be built, and the map
     // falls back to Liberty, so say what is actually drawn.
     const parsed = parseSwiftmapBasemap(url);
-    const choice = !hasKey && parsed?.kind === "protomaps" ? "liberty" : currentChoice(url);
+    const choice =
+      !hasKey && (parsed?.kind === "protomaps" || parsed?.kind === "auto")
+        ? "liberty"
+        : currentChoice(url);
     if (choice) return { choice, name: t(`swiftmapBasemap.${choice}`) };
     const name =
       legacyBasemapName(url) ??
@@ -101,6 +105,20 @@ function useDescribe(hasKey: boolean): (url: string) => BasemapInfo {
  * image. The current basemap is marked on its whole row, not here.
  */
 function Thumbnail({ choice }: { choice: BasemapChoiceId | null }) {
+  if (choice === "auto") return <AutoThumbnail />;
+  return <PlainThumbnail choice={choice} />;
+}
+
+/**
+ * Change 33 (review round 2): the card shows what's drawn, so Auto shows
+ * Light's or Dark's thumbnail by the theme; the picker keeps the split one.
+ */
+function CardThumbnail({ choice }: { choice: BasemapChoiceId | null }) {
+  const flavor = useAutoFlavor();
+  return <PlainThumbnail choice={choice === "auto" ? flavor : choice} />;
+}
+
+function PlainThumbnail({ choice }: { choice: BasemapChoiceId | null }) {
   const src = choice ? THUMBNAILS[choice] : undefined;
   return (
     <span
@@ -115,6 +133,24 @@ function Thumbnail({ choice }: { choice: BasemapChoiceId | null }) {
       ) : choice === "none" ? null : (
         <MapIcon className="size-4 text-muted-foreground" />
       )}
+      <span className="pointer-events-none absolute inset-0 rounded-md border border-border" />
+    </span>
+  );
+}
+
+/**
+ * Change 33: Auto's picker thumbnail, split corner to corner: Light at the top
+ * left, Dark at the bottom right, a hard edge. Both are the same map area.
+ */
+function AutoThumbnail() {
+  return (
+    <span aria-hidden="true" className="relative flex size-10 shrink-0 overflow-hidden rounded-md">
+      <img src={lightThumb} alt="" className="size-full object-cover" />
+      <img
+        src={darkThumb}
+        alt=""
+        className="absolute inset-0 size-full object-cover [clip-path:polygon(100%_0,100%_100%,0_100%)]"
+      />
       <span className="pointer-events-none absolute inset-0 rounded-md border border-border" />
     </span>
   );
@@ -223,7 +259,7 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
               // in the layer rows' eye column.
               className="flex w-full items-center gap-2.5 rounded-lg border border-input py-1.5 ps-1.5 pe-2.25 text-start transition-colors hover:bg-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-row-hover"
             >
-              <Thumbnail choice={info.choice} />
+              <CardThumbnail choice={info.choice} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[11px] text-muted-foreground">
                   {labelsOff ? t("swiftmapBasemap.captionNoLabels") : t("swiftmapBasemap.basemap")}

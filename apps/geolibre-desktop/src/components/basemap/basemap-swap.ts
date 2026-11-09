@@ -1,7 +1,7 @@
 import type * as maplibregl from "maplibre-gl";
 import { pointBelowLabelsAt } from "../style-panel-swiftmap/below-labels";
 import { parseSwiftmapBasemap } from "./basemap-catalog";
-import { registeredSwiftmapStyle } from "./basemap-registry";
+import { previousAutoStyle, registeredSwiftmapStyle } from "./basemap-registry";
 
 // SWIFTMAP (Change 28, 7c review 1): switches between Swiftmap's basemaps on
 // the live map instead of reloading the whole style, so turning labels on or
@@ -160,13 +160,16 @@ export function swiftmapBasemapSwap(
   previousUrl: string,
   nextUrl: string,
 ): boolean {
-  if (previousUrl === nextUrl) return false;
   const inPlace = (url: string) => {
     const kind = parseSwiftmapBasemap(url)?.kind;
-    return kind === "protomaps" || kind === "aerial";
+    return kind === "protomaps" || kind === "aerial" || kind === "auto";
   };
   if (!inPlace(previousUrl) || !inPlace(nextUrl)) return false;
-  const previous = registeredSwiftmapStyle(previousUrl);
+  // The same link again is Auto after a theme change (Change 33): swap from the
+  // flavour still drawn to the one now registered under it.
+  const same = previousUrl === nextUrl;
+  if (same && parseSwiftmapBasemap(nextUrl)?.kind !== "auto") return false;
+  const previous = same ? previousAutoStyle(nextUrl) : registeredSwiftmapStyle(previousUrl);
   const next = registeredSwiftmapStyle(nextUrl);
   if (!previous || !next) return false;
   try {

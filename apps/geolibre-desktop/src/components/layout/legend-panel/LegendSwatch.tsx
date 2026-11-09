@@ -60,11 +60,17 @@ export function LegendSwatch({
   swatch,
   dimmed = false,
   category = false,
+  backing = null,
 }: {
   swatch: Swatch;
   dimmed?: boolean;
   /** A category under a heading: its flat fill floor is 55%, a single layer's 45% (mockup). */
   category?: boolean;
+  /**
+   * Change 33: the basemap's land colour, drawn under a polygon's fill so it
+   * blends as on the map; null keeps the panel behind it.
+   */
+  backing?: string | null;
 }) {
   const opacity = dimmed ? 0.4 : 1;
   let style: CSSProperties;
@@ -92,18 +98,21 @@ export function LegendSwatch({
   } else {
     // A pattern replaces the fill on the map, so only the lines show, at the
     // fill opacity. A flat fill keeps a floor so pale fills still read.
+    // A gradient, not a colour, so the basemap backing can sit underneath.
+    const flat = rgba(swatch.fill, Math.max(swatch.fillOpacity, category ? 0.55 : 0.45));
     const fill = swatch.pattern
       ? patternBackground(
           swatch.pattern,
           rgba(swatch.patternColor, Math.max(swatch.fillOpacity, 0.6)),
         )
-      : { background: rgba(swatch.fill, Math.max(swatch.fillOpacity, category ? 0.55 : 0.45)) };
+      : { backgroundImage: `linear-gradient(${flat}, ${flat})` };
     style = {
       width: 14,
       height: 14,
       margin: "0 2px",
       borderRadius: 3,
       ...fill,
+      ...(backing ? { backgroundColor: backing } : {}),
       ...(swatch.outline && !swatch.outlineDash
         ? { boxShadow: `inset 0 0 0 1px ${outlineColor(swatch.outline, swatch.outlineOpacity)}` }
         : {}),

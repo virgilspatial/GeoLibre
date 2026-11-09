@@ -28,11 +28,13 @@ export type SwiftmapProtomapsFlavor = (typeof SWIFTMAP_PROTOMAPS_FLAVORS)[number
 
 export type SwiftmapBasemap =
   | { kind: "protomaps"; flavor: SwiftmapProtomapsFlavor; labels: boolean }
+  /** Change 33: Light in light mode, Dark in dark mode (auto-basemap.ts resolves it). */
+  | { kind: "auto"; labels: boolean }
   | { kind: "aerial"; labels: boolean }
   | { kind: "tiles"; tileUrl: string; scheme: "xyz" | "tms" };
 
 /** The picker's rows, in order. `liberty` is listed only without a Protomaps key. */
-export type BasemapChoiceId = "light" | "grey" | "dark" | "aerial" | "none" | "liberty";
+export type BasemapChoiceId = "light" | "grey" | "dark" | "auto" | "aerial" | "none" | "liberty";
 
 const CHOICE_FLAVOR = { light: "light", grey: "grayscale", dark: "dark" } as const;
 
@@ -47,7 +49,7 @@ export function swiftmapBasemapUrl(basemap: SwiftmapBasemap): string {
     if (basemap.scheme === "tms") params.set("scheme", "tms");
     return `${SWIFTMAP_BASEMAP_PREFIX}tiles?${params.toString()}`;
   }
-  const name = basemap.kind === "aerial" ? "aerial" : basemap.flavor;
+  const name = basemap.kind === "protomaps" ? basemap.flavor : basemap.kind;
   return `${SWIFTMAP_BASEMAP_PREFIX}${name}${basemap.labels ? "" : "?labels=off"}`;
 }
 
@@ -60,6 +62,7 @@ export function parseSwiftmapBasemap(url: string | undefined): SwiftmapBasemap |
   const params = new URLSearchParams(queryAt === -1 ? "" : rest.slice(queryAt + 1));
   const labels = params.get("labels") !== "off";
   if (name === "aerial") return { kind: "aerial", labels };
+  if (name === "auto") return { kind: "auto", labels };
   if (isFlavor(name)) return { kind: "protomaps", flavor: name, labels };
   if (name === "tiles") {
     const tileUrl = params.get("url");
@@ -81,6 +84,7 @@ export function currentChoice(url: string): BasemapChoiceId | null {
   if (url === DEFAULT_BASEMAP) return "liberty";
   const parsed = parseSwiftmapBasemap(url);
   if (parsed?.kind === "aerial") return "aerial";
+  if (parsed?.kind === "auto") return "auto";
   const flavor = parsed?.kind === "protomaps" ? parsed.flavor : hostedProtomapsFlavor(url);
   if (flavor === "light") return "light";
   if (flavor === "grayscale") return "grey";
@@ -91,7 +95,7 @@ export function currentChoice(url: string): BasemapChoiceId | null {
 /** The rows the picker lists: Protomaps' three need a key, Liberty stands in without one. */
 export function pickerChoices(hasProtomapsKey: boolean): BasemapChoiceId[] {
   return hasProtomapsKey
-    ? ["light", "grey", "dark", "aerial", "none"]
+    ? ["light", "grey", "dark", "auto", "aerial", "none"]
     : ["liberty", "aerial", "none"];
 }
 
@@ -102,7 +106,9 @@ export function labelsState(
 ): { available: boolean; on: boolean } {
   const parsed = parseSwiftmapBasemap(url);
   if (parsed?.kind === "protomaps") return { available: hasProtomapsKey, on: parsed.labels };
-  if (parsed?.kind === "aerial") return { available: hasProtomapsKey, on: parsed.labels };
+  if (parsed?.kind === "aerial" || parsed?.kind === "auto") {
+    return { available: hasProtomapsKey, on: parsed.labels };
+  }
   if (hostedProtomapsFlavor(url)) return { available: hasProtomapsKey, on: true };
   return { available: false, on: false };
 }
@@ -110,7 +116,7 @@ export function labelsState(
 /** The same basemap with labels on or off; unchanged where labels can't be switched. */
 export function withLabels(url: string, on: boolean): string {
   const parsed = parseSwiftmapBasemap(url);
-  if (parsed?.kind === "protomaps" || parsed?.kind === "aerial") {
+  if (parsed?.kind === "protomaps" || parsed?.kind === "aerial" || parsed?.kind === "auto") {
     return swiftmapBasemapUrl({ ...parsed, labels: on });
   }
   const flavor = hostedProtomapsFlavor(url);
@@ -123,6 +129,7 @@ export function choiceUrl(choice: BasemapChoiceId, labels: boolean): string {
   if (choice === "none") return BLANK_BASEMAP;
   if (choice === "liberty") return DEFAULT_BASEMAP;
   if (choice === "aerial") return swiftmapBasemapUrl({ kind: "aerial", labels });
+  if (choice === "auto") return swiftmapBasemapUrl({ kind: "auto", labels });
   return swiftmapBasemapUrl({ kind: "protomaps", flavor: CHOICE_FLAVOR[choice], labels });
 }
 
