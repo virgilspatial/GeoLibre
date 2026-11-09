@@ -216,3 +216,83 @@ test("searches, selects, shows cards and duplicates from the keyboard", async ({
   const order = await layerOrder(page);
   expect(order.indexOf("Heritage items copy")).toBe(order.indexOf("Heritage items") - 1);
 });
+
+/** Bottom-to-top index of each layer's lowest style layer on the live map, by layer id. */
+async function drawIndex(page: Page, layerIds: string[]): Promise<number[]> {
+  return page.evaluate((ids) => {
+    const container = document.querySelector("main .maplibregl-map");
+    if (!container) return [];
+    const key = Object.keys(container).find((k) => k.startsWith("__reactFiber"));
+    type Hook = { memoizedState?: { current?: unknown }; next?: Hook };
+    type Fiber = { return?: Fiber; alternate?: Fiber; memoizedState?: Hook };
+    let fiber = key ? (container as unknown as Record<string, Fiber>)[key] : undefined;
+    let style: { layers: { id: string }[] } | null = null;
+    while (fiber && !style) {
+      for (const side of [fiber, fiber.alternate]) {
+        let hook = side?.memoizedState;
+        while (hook && !style) {
+          const held = hook.memoizedState?.current as { getMap?: () => { getStyle(): typeof style } } | undefined;
+          if (typeof held?.getMap === "function" && held.getMap()) style = held.getMap().getStyle();
+          hook = hook.next;
+        }
+      }
+      fiber = fiber.return;
+    }
+    const order = style?.layers.map((l) => l.id) ?? [];
+    return ids.map((id) => order.findIndex((styleId) => styleId.includes(id)));
+  }, layerIds);
+}
+
+/**
+ * SWIFTMAP (Change 36): "Draw points above lines and polygons", on by default,
+ * draws a point layer above a polygon layer the panel puts on top; the switch
+ * in Layer options (⋯ in the Layers header) brings back the panel's order.
+ */
+test("draws points above polygons until Layer options turns it off", async ({ page }) => {
+  await waitForMap(page);
+  const point = JSON.stringify({
+    type: "FeatureCollection",
+    features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [151.2, -33.9] } }],
+  });
+  const polygon = JSON.stringify({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Polygon", coordinates: [[[151, -34], [151.4, -34], [151.4, -33.8], [151, -33.8], [151, -34]]] },
+      },
+    ],
+  });
+  await dropGeoJson(page, "sites", point);
+  await expect(layerRow(page, "sites")).toBeVisible();
+  await dropGeoJson(page, "zones", polygon);
+  await expect(layerRow(page, "zones")).toBeVisible();
+  // The panel puts the polygon on top.
+  expect(await layerOrder(page)).toEqual(["zones", "sites"]);
+  const ids = await Promise.all(
+    ["zones", "sites"].map((name) => layerRow(page, name).getAttribute("data-layer-id")),
+  );
+  const layerIds = ids.map((id) => id ?? "");
+
+  await expect
+    .poll(async () => {
+      const [zones, sites] = await drawIndex(page, layerIds);
+      return zones >= 0 && sites > zones;
+    })
+    .toBe(true);
+
+  await page.getByRole("button", { name: "Layer options", exact: true }).click();
+  const item = page.getByRole("menuitemcheckbox", { name: "Draw points above lines and polygons" });
+  await expect(item).toHaveAttribute("aria-checked", "true");
+  await item.click();
+  await expect(item).toHaveAttribute("aria-checked", "false");
+  await page.keyboard.press("Escape");
+
+  await expect
+    .poll(async () => {
+      const [zones, sites] = await drawIndex(page, layerIds);
+      return sites >= 0 && zones > sites;
+    })
+    .toBe(true);
+});

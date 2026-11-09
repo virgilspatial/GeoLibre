@@ -3630,6 +3630,11 @@
     "add": "Add",
     "newProjectDescription": "Name the project. You can change the basemap afterwards in the Layers panel."
   },
+  "swiftmapDrawOrder": {
+    "options": "Layer options",
+    "byShape": "Draw points above lines and polygons",
+    "hint": "The map draws points above lines and polygons, whatever their order here. You can turn this off in Layer options (⋯ in the Layers header)."
+  },
   "swiftmapLayers": {
     "addData": "Add data",
     "dropHint": "or drop files on the map",
