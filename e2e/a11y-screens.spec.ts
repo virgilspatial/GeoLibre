@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { expectAccessible } from "./a11y";
 import {
+  addDataButton,
   bindMapLibreMap,
   dropGeoJson,
   layerRow,
@@ -58,12 +59,23 @@ async function waitForStyleLoaded(page: Page): Promise<void> {
   });
 }
 
-/** Adds an XYZ raster layer through its Add Data dialog. */
+/**
+ * Adds an XYZ raster layer. SWIFTMAP (Change 41): Add Data opens from the
+ * Layers panel's + (Change 34); "From a link" detects the template and hands
+ * it to GeoLibre's Add XYZ layer dialog, where the layer is named.
+ */
 async function addXyzLayer(page: Page, name: string, template: string): Promise<void> {
-  await openMenuItem(page, "Add Data", "XYZ layer");
+  await addDataButton(page).click();
+  const addData = page.getByRole("dialog", { name: "Add Data" });
+  await addData.getByRole("tab", { name: "From a link" }).click();
+  await addData.getByRole("textbox", { name: "Service or file URL" }).fill(template);
+  await expect(addData.getByText("Raster tiles, detected from the URL")).toBeVisible();
+  await addData.getByRole("button", { name: "Add layer" }).click();
   const dialog = page.getByRole("dialog", { name: "Add XYZ layer" });
+  await expect(dialog.getByRole("textbox", { name: "XYZ template or TileJSON URL" })).toHaveValue(
+    template,
+  );
   await dialog.getByRole("textbox", { name: "Layer name" }).fill(name);
-  await dialog.getByRole("textbox", { name: "XYZ template or TileJSON URL" }).fill(template);
   await dialog.getByRole("button", { name: "Add layer" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(layerRow(page, name)).toBeVisible();
