@@ -3,17 +3,23 @@ import { afterEach, describe, it } from "node:test";
 import { DEFAULT_LAYER_STYLE, type GeoLibreLayer } from "@geolibre/core";
 import { createMapController, type MapController } from "../packages/map/src/map-controller";
 import { orderByShape } from "../apps/geolibre-desktop/src/components/draw-order/draw-order";
+import { liftLabels } from "../apps/geolibre-desktop/src/components/draw-order/label-order";
 
 // SWIFTMAP (Change 36): guards the two engine edits in map-controller.ts.
 // 1. syncLayers places style layers in the order Swiftmap registers on
 //    globalThis (`__swiftmapDrawOrder`), and keeps the panel order otherwise.
 // 2. getBeforeStyleLayerId keeps a layer with its own `beforeId` (Draw below
 //    basemap labels) under that layer even when a normal layer sits above it.
-// If a GeoLibre release changes or bypasses either, these fail: re-apply the
-// tagged lines in map-controller.ts.
+// 3. (Change 38) syncLayers calls `__swiftmapAfterPlacement` after placing the
+//    layers, so Swiftmap can lift the labels above every layer's shapes.
+// If a GeoLibre release changes or bypasses any of them, these fail: re-apply
+// the tagged lines in map-controller.ts.
 
 type DrawOrder = (layers: GeoLibreLayer[]) => GeoLibreLayer[];
-const registry = globalThis as { __swiftmapDrawOrder?: DrawOrder };
+const registry = globalThis as {
+  __swiftmapDrawOrder?: DrawOrder;
+  __swiftmapAfterPlacement?: (map: never, drawn: GeoLibreLayer[]) => void;
+};
 
 /**
  * A small stand-in for a MapLibre map: tracks style layers bottom to top
@@ -95,6 +101,7 @@ function lowest(order: string[], layerId: string): number {
 
 afterEach(() => {
   delete registry.__swiftmapDrawOrder;
+  delete registry.__swiftmapAfterPlacement;
 });
 
 describe("MapController.syncLayers follows Swiftmap's draw order", () => {
@@ -135,5 +142,30 @@ describe("a layer drawn below another style layer stays there", () => {
     const label = order.indexOf("place_label");
     assert.ok(lowest(order, "zones") < label, order.join(", "));
     assert.ok(lowest(order, "sites") > label, order.join(", "));
+  });
+});
+
+describe("labels always on top (Change 38)", () => {
+  const labelled = { ...DEFAULT_LAYER_STYLE, labels: { ...DEFAULT_LAYER_STYLE.labels, enabled: true, field: "name" } };
+
+  it("leaves a layer's labels with its shapes when no pass is registered", () => {
+    registry.__swiftmapDrawOrder = (layers) => orderByShape(layers);
+    const { map, order } = fakeMap(["bg"]);
+    controllerOn(map).syncLayers([polygon("zones", { style: labelled }), point("sites")]);
+    assert.ok(order.includes("layer-zones-label"), `the label exists: ${order.join(", ")}`);
+    assert.ok(order.indexOf("layer-zones-label") < order.indexOf("layer-sites-circle"), order.join(", "));
+  });
+
+  it("calls the registered pass after placement, which lifts the labels above every shape", () => {
+    registry.__swiftmapDrawOrder = (layers) => orderByShape(layers);
+    registry.__swiftmapAfterPlacement = (map, drawn) =>
+      liftLabels(map as unknown as Parameters<typeof liftLabels>[0], drawn);
+    const { map, order } = fakeMap(["bg"]);
+    const controller = controllerOn(map);
+    controller.syncLayers([polygon("zones", { style: labelled }), point("sites")]);
+    assert.ok(order.indexOf("layer-zones-label") > order.indexOf("layer-sites-circle"), order.join(", "));
+    // A later pass (a style reload, any change) lifts them again.
+    controller.syncLayers([point("sites"), polygon("zones", { style: labelled })]);
+    assert.ok(order.indexOf("layer-zones-label") > order.indexOf("layer-sites-circle"), order.join(", "));
   });
 });

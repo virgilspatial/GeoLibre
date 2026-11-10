@@ -240,6 +240,8 @@ type SwiftmapBasemapSwap = (map: maplibregl.Map, previousUrl: string, nextUrl: s
    may differ from the Layers panel's (points above lines above polygons).
    Registered by Swiftmap on globalThis. */
 type SwiftmapDrawOrder = (layers: GeoLibreLayer[]) => GeoLibreLayer[];
+/* SWIFTMAP (Change 38): runs after placement, so Swiftmap can lift the labels. */
+type SwiftmapAfterPlacement = (map: maplibregl.Map, drawn: GeoLibreLayer[]) => void;
 
 export class MapController implements MapEngine {
   readonly kind = "maplibre" as const;
@@ -1302,6 +1304,8 @@ export class MapController implements MapEngine {
     for (let index = drawn.length - 1; index >= 0; index -= 1) {
       syncLayer(map, drawn[index], this.getBeforeStyleLayerId(drawn, index));
     }
+    /* SWIFTMAP (Change 38): lifts the layers' labels above every layer's shapes. */
+    (globalThis as { __swiftmapAfterPlacement?: SwiftmapAfterPlacement }).__swiftmapAfterPlacement?.(map, drawn);
     this.layerIds = nextIds;
     this.syncedLayers = layers;
     // Saving a presentation annotation (or changing another layer) syncs the
