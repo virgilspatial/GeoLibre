@@ -1,3 +1,4 @@
+/// <reference path="./jsts.d.ts" />
 import jsts from "@turf/jsts";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { planarArea } from "./planar-area";

@@ -32,7 +32,8 @@ const collection = (...geometries: (Geometry | null)[]): FeatureCollection => ({
   features: geometries.map((geometry, index): Feature => ({
     type: "Feature",
     properties: { id: index },
-    geometry,
+    // Features without geometry are valid GeoJSON, and the tools skip them.
+    geometry: geometry as Geometry,
   })),
 });
 
