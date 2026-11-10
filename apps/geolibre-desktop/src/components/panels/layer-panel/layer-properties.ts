@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import type { GeoLibreLayer } from "@geolibre/core";
 import type { RasterInfo } from "../../../lib/raster-info";
+import { isAnalysisResult, lineageRows, measuredInRow, originOf } from "../../analysis/origin";
 
 /**
  * SWIFTMAP: the rows of the Layers panel's Properties card (Change 17): what
@@ -13,6 +14,8 @@ import type { RasterInfo } from "../../../lib/raster-info";
 export interface LayerPropertyRow {
   label: string;
   value: string;
+  /** A full-width muted line in place of a label and value ("Origin not recorded"). */
+  note?: boolean;
 }
 
 /** File extensions, lower case, and the format name shown for them. */
@@ -154,11 +157,18 @@ export function layerPropertyRows(
   language: string,
   raster: RasterInfo | "loading" | null = null,
 ): LayerPropertyRow[] {
-  const rows: LayerPropertyRow[] = [
-    { label: t("layerPanel.propSource"), value: sourceValue(layer, t) },
-  ];
-  const format = formatValue(layer);
-  if (format) rows.push({ label: t("layerPanel.propFormat"), value: format });
+  const analysis = isAnalysisResult(layer);
+  const origin = analysis ? originOf(layer) : null;
+  const rows: LayerPropertyRow[] = [];
+  if (origin) {
+    rows.push(...lineageRows(origin, t, language));
+  } else if (analysis) {
+    rows.push({ label: "", value: t("swiftmapAnalysis.prop.originMissing"), note: true });
+  } else {
+    rows.push({ label: t("layerPanel.propSource"), value: sourceValue(layer, t) });
+    const format = formatValue(layer);
+    if (format) rows.push({ label: t("layerPanel.propFormat"), value: format });
+  }
   const features = layer.geojson?.features;
   if (Array.isArray(features)) {
     rows.push({
@@ -168,6 +178,7 @@ export function layerPropertyRows(
   }
   const crs = crsValue(layer, t, raster);
   if (crs) rows.push({ label: t("layerPanel.propCrs"), value: crs });
+  if (origin) rows.push(measuredInRow(origin, t));
   const synced = layer.connection?.lastSyncedAt;
   const syncedDate = synced ? new Date(synced) : null;
   if (syncedDate && !Number.isNaN(syncedDate.getTime())) {

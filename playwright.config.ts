@@ -49,6 +49,8 @@ const CORE_SPECS = [
   "style-panel.spec.ts",
   // SWIFTMAP (Change 28): the Basemap card that replaced GeoLibre's Background row.
   "basemap-card.spec.ts",
+  // SWIFTMAP (Change 37): the Analysis panel and Buffer, run in the real worker.
+  "analysis-panel.spec.ts",
   // Moved to `features` once core reached ~11 min wall-clock (~25 min of test
   // time): set-view, paste-style, style-manager and identify-restore. Each
   // covers one dialog or interaction, not something every user hits, and

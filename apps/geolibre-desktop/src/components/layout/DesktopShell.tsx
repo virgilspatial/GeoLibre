@@ -106,6 +106,7 @@ import { SectionErrorBoundary, SilentErrorBoundary } from "../common/error-bound
 import { LayerPanel } from "../panels/LayerPanel";
 import { useLayerRefresh } from "../panels/layer-panel/useLayerRefresh";
 import { ViewerLayerPanel } from "../panels/ViewerLayerPanel";
+import { AnalysisPanel } from "../analysis/AnalysisPanel";
 import { FloatingPanels } from "../panels/FloatingPanels";
 import { SunPanel } from "../panels/SunPanel";
 import { RouteAnimationPanel } from "../panels/RouteAnimationPanel";
@@ -738,6 +739,7 @@ export function DesktopShell({
                   legend={
                     <LegendPanel getMap={getLegendMap} mapReadyGeneration={mapReadyGeneration} />
                   }
+                  analysis={layoutOptions.viewer ? null : <AnalysisPanel />}
                   startClosed={layoutOptions.panelsCollapsed}
                   autoClose={storymapPresenting || autoCollapsedPanel === "layers"}
                   layers={
