@@ -1,4 +1,4 @@
-import { cn } from "@geolibre/ui";
+import { Button, cn } from "@geolibre/ui";
 import { Bug, CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,6 +10,7 @@ import {
   type NotificationKind,
 } from "../../lib/notify";
 import { reportIssue } from "../../lib/report-issue";
+import { useNotificationAnchor } from "./notification-anchor";
 
 const KIND_ICON: Record<NotificationKind, typeof Info> = {
   success: CircleCheck,
@@ -18,33 +19,66 @@ const KIND_ICON: Record<NotificationKind, typeof Info> = {
   error: CircleAlert,
 };
 
-const KIND_ACCENT: Record<NotificationKind, string> = {
-  success: "border-s-emerald-500",
-  info: "border-s-primary",
-  warning: "border-s-amber-500",
-  error: "border-s-destructive",
-};
-
+// SWIFTMAP (Change 41): success and info icons in the text colour; warning
+// and error keep amber and red, on the icon only. No coloured side bar.
 const KIND_ICON_CLASS: Record<NotificationKind, string> = {
-  success: "text-emerald-600 dark:text-emerald-400",
-  info: "text-primary",
+  success: "text-foreground",
+  info: "text-foreground",
   warning: "text-amber-600 dark:text-amber-400",
   error: "text-destructive dark:text-red-400",
 };
 
+/**
+ * SWIFTMAP (Change 41): a message as a card like shadcn's Alert: icon, a
+ * medium-weight title, an optional muted line, and its action as a small
+ * outlined button on the title row (an action and Report issue together get a
+ * row of their own). The × fades in on hover or focus, and always shows on a
+ * message that stays until it is closed.
+ */
 function NotificationToast({ notification }: { notification: AppNotification }) {
   const { t } = useTranslation();
   const Icon = KIND_ICON[notification.kind];
   const close = () => dismissNotification(notification.id);
+  const staysOpen = notification.durationMs === null;
+  const buttons = [
+    notification.action ? (
+      <Button
+        key="action"
+        type="button"
+        variant="outline"
+        size="xs"
+        className="bg-transparent"
+        onClick={() => {
+          notification.action?.onClick();
+          close();
+        }}
+      >
+        {notification.action.label}
+      </Button>
+    ) : null,
+    notification.diagnostic ? (
+      <Button
+        key="report"
+        type="button"
+        variant="outline"
+        size="xs"
+        className="bg-transparent"
+        onClick={() => reportIssue(notification.diagnostic ?? null)}
+      >
+        <Bug aria-hidden="true" />
+        {t("notifications.reportIssue")}
+      </Button>
+    ) : null,
+  ].filter(Boolean);
+  const buttonsOwnRow = buttons.length > 1;
   return (
     <div
       data-testid="notification"
       data-kind={notification.kind}
       data-notification-id={notification.id}
       className={cn(
-        "pointer-events-auto flex w-full items-start gap-3 rounded-md border border-s-4 bg-background px-3 py-2.5 text-sm text-foreground shadow-lg",
+        "group/toast pointer-events-auto flex w-full items-start gap-2.5 rounded-[8px] border border-border bg-popover px-3 py-2.5 text-[13px] text-popover-foreground shadow-md dark:bg-row-hover",
         "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2",
-        KIND_ACCENT[notification.kind],
       )}
     >
       <Icon
@@ -52,55 +86,47 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
         className={cn("mt-0.5 h-4 w-4 shrink-0", KIND_ICON_CLASS[notification.kind])}
       />
       <div className="min-w-0 flex-1">
-        <p className="break-words font-medium">
-          {notification.message}
-          {notification.count > 1 ? (
-            <span className="ms-1.5 rounded bg-muted px-1 py-0.5 text-xs font-normal text-muted-foreground">
-              {t("notifications.repeated", { count: notification.count })}
-            </span>
+        <div className="flex items-start gap-2">
+          <p className="min-w-0 flex-1 break-words py-0.5 font-medium leading-5">
+            {notification.message}
+            {notification.count > 1 ? (
+              <span className="ms-1.5 rounded bg-muted px-1 py-0.5 text-xs font-normal text-muted-foreground">
+                {t("notifications.repeated", { count: notification.count })}
+              </span>
+            ) : null}
+          </p>
+          {!buttonsOwnRow && buttons.length > 0 ? (
+            <div className="flex shrink-0 items-center pt-0.5">{buttons}</div>
           ) : null}
-        </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            data-testid="notification-dismiss"
+            data-always-visible={staysOpen ? "" : undefined}
+            aria-label={t("notifications.dismiss")}
+            title={t("notifications.dismiss")}
+            className={cn(
+              "-me-1 mt-0.5 shrink-0 text-muted-foreground hover:text-foreground",
+              !staysOpen &&
+                "opacity-0 transition-opacity focus-visible:opacity-100 group-hover/toast:opacity-100 group-focus-within/toast:opacity-100 [@media(hover:none)]:opacity-100",
+            )}
+            onClick={close}
+          >
+            <X aria-hidden="true" className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         {notification.description ? (
           <p className="mt-0.5 break-words text-xs text-muted-foreground">
             {notification.description}
           </p>
         ) : null}
-        {notification.action || notification.diagnostic ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {notification.action ? (
-              <button
-                type="button"
-                className="rounded border px-2 py-0.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
-                onClick={() => {
-                  notification.action?.onClick();
-                  close();
-                }}
-              >
-                {notification.action.label}
-              </button>
-            ) : null}
-            {notification.diagnostic ? (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs hover:bg-accent hover:text-accent-foreground"
-                onClick={() => reportIssue(notification.diagnostic ?? null)}
-              >
-                <Bug aria-hidden="true" className="h-3 w-3" />
-                {t("notifications.reportIssue")}
-              </button>
-            ) : null}
+        {buttonsOwnRow ? (
+          <div data-testid="notification-buttons" className="mt-2 flex flex-wrap justify-end gap-2">
+            {buttons}
           </div>
         ) : null}
       </div>
-      <button
-        type="button"
-        aria-label={t("notifications.dismiss")}
-        title={t("notifications.dismiss")}
-        className="-me-1 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-        onClick={close}
-      >
-        <X aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
     </div>
   );
 }
@@ -116,6 +142,7 @@ export function NotificationRegion() {
   const notifications = useNotificationStore((state) => state.notifications);
   const regionRef = useRef<HTMLElement>(null);
   const hoveredRef = useRef(false);
+  const anchor = useNotificationAnchor(notifications.length > 0, regionRef);
   const errors = notifications.filter((item) => item.kind === "error");
   const others = notifications.filter((item) => item.kind !== "error");
 
@@ -139,7 +166,13 @@ export function NotificationRegion() {
       ref={regionRef}
       aria-label={t("notifications.regionLabel")}
       data-testid="notification-region"
-      className="pointer-events-none fixed bottom-10 end-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      // SWIFTMAP (Change 41): the lowest card covers the attribution (i), measured;
+      // GeoLibre's fixed corner when there is no map to anchor to.
+      style={anchor ?? undefined}
+      className={cn(
+        "pointer-events-none fixed z-[60] flex flex-col gap-2",
+        !anchor && "bottom-10 end-4 w-[min(24rem,calc(100vw-2rem))]",
+      )}
       onMouseEnter={() => {
         hoveredRef.current = true;
         syncPaused();
