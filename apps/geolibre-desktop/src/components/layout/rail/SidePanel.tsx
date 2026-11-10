@@ -27,6 +27,11 @@ interface SidePanelProps {
   layers: ReactNode;
   /** The Legend panel (Change 25), shown while Legend is the active panel. */
   legend?: ReactNode;
+  /**
+   * The Analysis panel (Change 37), shown while Analysis is the active panel.
+   * Null for viewers, who see "Coming in a later update." until branch 8.
+   */
+  analysis?: ReactNode;
   /** Start closed (GeoLibre's "panels collapsed" layouts). */
   startClosed?: boolean;
   /**
@@ -48,6 +53,7 @@ interface SidePanelProps {
 export function SidePanel({
   layers,
   legend = null,
+  analysis = null,
   startClosed = false,
   autoClose = false,
 }: SidePanelProps) {
@@ -83,7 +89,8 @@ export function SidePanel({
     >
       {layers}
       {active === "legend" ? legend : null}
-      {active === "analysis" ? (
+      {active === "analysis" ? analysis : null}
+      {active === "analysis" && !analysis ? (
         <section
           aria-labelledby="side-panel-title"
           className="flex w-full flex-col border-b bg-background px-3 py-3.5 md:h-full md:w-[var(--layer-panel-width)] md:border-e md:border-b-0"

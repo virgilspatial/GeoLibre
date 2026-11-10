@@ -83,16 +83,27 @@ export function LayerPropertiesCard({ layer }: { layer: GeoLibreLayer }) {
     };
   }, [url]);
   const rows = layerPropertyRows(layer, t, i18n.language, raster);
-  return (
-    <dl
-      className={`${cardClass} grid grid-cols-[auto_minmax(0,1fr)] gap-x-3.5 gap-y-1.5 text-xs`}
-    >
-      {rows.map((row) => (
-        <div key={row.label} className="contents">
-          <dt className="text-muted-foreground">{row.label}</dt>
-          <dd className="break-words font-mono text-[11.5px]">{row.value}</dd>
-        </div>
-      ))}
+  const notes = rows.filter((row) => row.note);
+  const list = (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3.5 gap-y-1.5 text-xs">
+      {rows
+        .filter((row) => !row.note)
+        .map((row) => (
+          <div key={row.label} className="contents">
+            <dt className="text-muted-foreground">{row.label}</dt>
+            <dd className="break-words font-mono text-[11.5px]">{row.value}</dd>
+          </div>
+        ))}
     </dl>
+  );
+  return (
+    <div className={`${cardClass} flex flex-col gap-1.5`}>
+      {notes.map((row) => (
+        <p key={row.value} data-testid="layer-properties-note" className="text-xs text-muted-foreground">
+          {row.value}
+        </p>
+      ))}
+      {list}
+    </div>
   );
 }

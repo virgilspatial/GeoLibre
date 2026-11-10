@@ -3652,6 +3652,79 @@
     "placesGroup": "Addresses and places",
     "nothingMatches": "Nothing matches \"{{query}}\"."
   },
+  "swiftmapAnalysis": {
+    "back": "Back to tools",
+    "screeningToolkit": "Screening toolkit",
+    "recent": "Recent",
+    "searchLabel": "Search analysis tools",
+    "searchPlaceholder": "Search analysis tools…",
+    "clearSearch": "Clear search",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "noResults": "No tools match “{{query}}”.",
+    "comingSoon": "Coming soon",
+    "tools": {
+      "buffer": "Buffer",
+      "clip": "Clip",
+      "intersect": "Intersect",
+      "constraintSummary": "Constraint summary",
+      "areaByZone": "Area by zone",
+      "dissolve": "Dissolve"
+    },
+    "units": {
+      "m": "m",
+      "km": "km"
+    },
+    "unitOptions": {
+      "m": "metres",
+      "km": "km"
+    },
+    "settingsDissolved": "{{distance}}, dissolved",
+    "buffer": {
+      "description": "Creates areas a set distance around features. Useful for setbacks and proximity checks.",
+      "input": "Input layer",
+      "noLayers": "No vector layers in this map",
+      "distance": "Distance",
+      "unit": "Distance unit",
+      "dissolve": "Dissolve overlapping areas",
+      "outputName": "Output layer name"
+    },
+    "run": "Run",
+    "running": "Running…",
+    "cancel": "Cancel",
+    "block": {
+      "noInput": "Add a vector layer to the map to buffer it.",
+      "tiles": "This layer is drawn from map tiles, which hold only part of its data. Add it as features to analyse it.",
+      "partial": "Only part of this layer is loaded, so it can’t be analysed.",
+      "tooLarge": "Too large to analyse in the browser.",
+      "noGeometry": "This layer has no geometry to buffer.",
+      "nameTaken": "A layer called “{{name}}” already exists. Choose another name."
+    },
+    "slow": "This may take a minute.",
+    "zoneWarning": "This layer reaches more than 1° outside {{zone}}, so measurements near its edges are less accurate.",
+    "added_one": "{{count}} feature added as “{{name}}”.",
+    "added_other": "{{count}} features added as “{{name}}”.",
+    "replaced_one": "{{count}} feature replaced “{{name}}”.",
+    "replaced_other": "{{count}} features replaced “{{name}}”.",
+    "replaces": "Replaces the existing “{{name}}”.",
+    "showInLayers": "Show in Layers",
+    "cancelled": "Cancelled. Nothing was added.",
+    "failed": {
+      "noFeatures": "The buffer produced no features. Nothing was added.",
+      "noGeometry": "This layer has no geometry to buffer.",
+      "badDistance": "The distance must be more than 0.",
+      "other": "Buffer failed: {{message}}"
+    },
+    "prop": {
+      "createdWith": "Created with",
+      "input_one": "Input",
+      "input_other": "Inputs",
+      "settings": "Settings",
+      "created": "Created",
+      "measuredIn": "Measured in",
+      "originMissing": "Origin not recorded"
+    }
+  },
   "swiftmapLegend": {
     "modes": "Legend contents",
     "inView": "In view",
