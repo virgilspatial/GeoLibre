@@ -47,13 +47,24 @@ test("reorders layers and removes one through the confirm dialog", async ({ page
     .poll(async () => (await layerOrder(page)).filter((n) => ["aaa", "bbb"].includes(n)))
     .toEqual([bottom, top]);
 
-  // Remove one layer through the confirm dialog; the other must survive.
+  // SWIFTMAP (Change 40): Undo restores a dropped GeoJSON layer in full, so
+  // the ⋯ menu's Remove layer takes it at once and says so, with Undo.
   await openLayerActions(page, "aaa");
   await page.getByRole("menuitem", { name: /^Remove layer/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Remove layer?" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Remove layer?" })).toHaveCount(0);
+  await expect(layerRow(page, "aaa")).toHaveCount(0);
+  await expect(layerRow(page, "bbb")).toBeVisible();
+  const removed = page.getByText("Removed “aaa”.");
+  await expect(removed).toBeVisible();
+  await page
+    .getByTestId("notification-region")
+    .getByRole("button", { name: "Undo", exact: true })
+    .click();
+  await expect(layerRow(page, "aaa")).toBeVisible();
+  await expect(removed).toHaveCount(0);
 
+  // The toolbar's bin does the same.
+  await layerRow(page, "aaa").getByRole("button", { name: "Remove layer", exact: true }).click();
   await expect(layerRow(page, "aaa")).toHaveCount(0);
   await expect(layerRow(page, "bbb")).toBeVisible();
 });
