@@ -1,15 +1,28 @@
 import { act, fireEvent, render, screen, useAppStore, within } from "./helpers/dom";
 import assert from "node:assert/strict";
 import { describe, it, type TestContext } from "node:test";
-import { createElement } from "react";
+import { createElement, useEffect, useState } from "react";
 import { geojsonLayer } from "./helpers/layer-fixtures";
 
 // Loaded after the harness so its CSS imports and Vite globals are handled.
 const { LayerPanel } = await import("../apps/geolibre-desktop/src/components/panels/LayerPanel");
+const { useNotificationStore } = await import("../apps/geolibre-desktop/src/lib/notify");
+const { SwiftmapStylePanel } =
+  await import("../apps/geolibre-desktop/src/components/style-panel-swiftmap/SwiftmapStylePanel");
 const { useLayerRefresh } =
   await import("../apps/geolibre-desktop/src/components/panels/layer-panel/useLayerRefresh");
 
 const noop = () => {};
+
+/** A COG drawn by GeoLibre's raster control: Undo can't redraw it (Change 40). */
+const cogLayer = geojsonLayer({
+  id: "dem",
+  name: "Elevation",
+  type: "cog",
+  geojson: undefined,
+  source: { url: "https://example.com/dem.tif" },
+  metadata: { sourceKind: "maplibre-gl-raster", externalNativeLayer: true, customLayerType: "raster" },
+});
 
 /** Render the Layers panel with the same shell-owned refresh hook. */
 function LayerPanelHarness() {
@@ -506,9 +519,42 @@ describe("LayerPanel", () => {
     assert.deepEqual(rowNames(), ["Rivers", "Parks"]);
   });
 
-  it("deletes the active layer with Delete and confirms the removal prompt with Delete", () => {
+  // SWIFTMAP (Change 40): layers Undo restores go at once, with a message.
+  it("removes a GeoJSON layer from the toolbar's bin at once, with Undo in a message", () => {
     useAppStore.setState({
-      layers: [geojsonLayer({ id: "parks", name: "Parks" })],
+      layers: [
+        geojsonLayer({ id: "rivers", name: "Rivers" }),
+        geojsonLayer({ id: "parks", name: "Parks" }),
+      ],
+      selectedLayerId: "parks",
+    });
+    renderLayerPanel();
+
+    const toolbar = within(row("Parks")).getByRole("toolbar");
+    const buttons = within(toolbar).getAllByRole("button");
+    // Zoom, Identify and Style, then the bin and the ⋯ on the right.
+    assert.equal(buttons.length, 5);
+    assert.deepEqual(
+      buttons.slice(3).map((button) => button.getAttribute("aria-label")),
+      ["Remove layer", "Layer actions"],
+    );
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Remove layer" }));
+
+    assert.equal(layer("parks"), undefined);
+    assert.equal(screen.queryByRole("dialog", { name: "Remove layer?" }), null);
+    const message = useNotificationStore.getState().notifications.at(-1);
+    assert.equal(message?.message, "Removed “Parks”.");
+    act(() => message?.action?.onClick());
+    assert.equal(layer("parks")?.name, "Parks");
+    assert.equal(useAppStore.getState().selectedLayerId, "parks");
+  });
+
+  it("removes a GeoJSON layer with Delete and from the ⋯ menu without the prompt", async () => {
+    useAppStore.setState({
+      layers: [
+        geojsonLayer({ id: "rivers", name: "Rivers" }),
+        geojsonLayer({ id: "parks", name: "Parks" }),
+      ],
       selectedLayerId: "parks",
     });
     renderLayerPanel();
@@ -516,23 +562,81 @@ describe("LayerPanel", () => {
     fireEvent.keyDown(within(row("Parks")).getByRole("button", { name: "Parks" }), {
       key: "Delete",
     });
+    assert.equal(layer("parks"), undefined);
+    assert.equal(screen.queryByRole("dialog", { name: "Remove layer?" }), null);
+
+    fireEvent.click(within(row("Rivers")).getByRole("button", { name: "Rivers" }));
+    fireEvent.keyDown(within(row("Rivers")).getByRole("button", { name: "Layer actions" }), {
+      key: "Enter",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Remove layer/ }));
+    assert.equal(layer("rivers"), undefined);
+    assert.equal(screen.queryByRole("dialog", { name: "Remove layer?" }), null);
+  });
+
+  it("asks first before removing a layer Undo can't restore, from the bin, Delete or the ⋯ menu", async () => {
+    useAppStore.setState({ layers: [cogLayer], selectedLayerId: "dem" });
+    renderLayerPanel();
+    const dialog = () => screen.queryByRole("dialog", { name: "Remove layer?" });
+    const cancel = () => fireEvent.click(within(dialog()!).getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(within(row("Elevation")).getByRole("button", { name: "Remove layer" }));
+    assert.ok(dialog());
+    cancel();
+    fireEvent.keyDown(within(row("Elevation")).getByRole("button", { name: "Elevation" }), {
+      key: "Delete",
+    });
+    assert.ok(dialog());
+    cancel();
+    fireEvent.keyDown(within(row("Elevation")).getByRole("button", { name: "Layer actions" }), {
+      key: "Enter",
+    });
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^Remove layer/ }));
+    assert.ok(dialog());
+    assert.equal(layer("dem")?.name, "Elevation");
+    assert.equal(useNotificationStore.getState().notifications.length, 0);
+  });
+
+  it("shows the bin to editors only", () => {
+    useAppStore.setState({
+      layers: [geojsonLayer({ id: "parks", name: "Parks" })],
+      selectedLayerId: "parks",
+      collaboration: {
+        ...useAppStore.getState().collaboration,
+        isActive: true,
+        clientId: null,
+        role: "guest",
+        mode: "view-only",
+      },
+    });
+    renderLayerPanel();
+
+    const toolbar = within(row("Parks")).getByRole("toolbar");
+    assert.equal(within(toolbar).queryByRole("button", { name: "Remove layer" }), null);
+    assert.ok(within(toolbar).getByRole("button", { name: "Layer actions" }));
+  });
+
+  it("deletes the active layer with Delete and confirms the removal prompt with Delete", () => {
+    useAppStore.setState({ layers: [cogLayer], selectedLayerId: "dem" });
+    renderLayerPanel();
+
+    fireEvent.keyDown(within(row("Elevation")).getByRole("button", { name: "Elevation" }), {
+      key: "Delete",
+    });
     const dialog = screen.getByRole("dialog", { name: "Remove layer?" });
-    assert.equal(layer("parks")?.name, "Parks");
+    assert.equal(layer("dem")?.name, "Elevation");
     assert.equal(document.activeElement, within(dialog).getByRole("button", { name: "Remove" }));
 
     fireEvent.keyDown(within(dialog).getByRole("button", { name: "Remove" }), { key: "Delete" });
-    assert.equal(layer("parks"), undefined);
+    assert.equal(layer("dem"), undefined);
     assert.equal(screen.queryByRole("dialog", { name: "Remove layer?" }), null);
   });
 
   it("requires an unmodified, non-repeating Delete to confirm layer removal", () => {
-    useAppStore.setState({
-      layers: [geojsonLayer({ id: "parks", name: "Parks" })],
-      selectedLayerId: "parks",
-    });
+    useAppStore.setState({ layers: [cogLayer], selectedLayerId: "dem" });
     renderLayerPanel();
 
-    fireEvent.keyDown(within(row("Parks")).getByRole("button", { name: "Parks" }), {
+    fireEvent.keyDown(within(row("Elevation")).getByRole("button", { name: "Elevation" }), {
       key: "Delete",
     });
     const dialog = screen.getByRole("dialog", { name: "Remove layer?" });
@@ -542,10 +646,92 @@ describe("LayerPanel", () => {
     fireEvent.keyDown(remove, { key: "Delete", shiftKey: true });
     fireEvent.keyDown(within(dialog).getByRole("button", { name: "Cancel" }), { key: "Delete" });
     fireEvent.keyDown(dialog, { key: "Delete" });
-    assert.equal(layer("parks")?.name, "Parks");
+    assert.equal(layer("dem")?.name, "Elevation");
 
     fireEvent.keyDown(remove, { key: "Delete" });
-    assert.equal(layer("parks"), undefined);
+    assert.equal(layer("dem"), undefined);
+  });
+
+  // SWIFTMAP (Change 40): with no dialog in the way, Delete must only act on
+  // a layer row, never while typing or working in another panel.
+  describe("Delete removes a layer only from its row", () => {
+    const seedParks = () => {
+      useAppStore.setState({
+        layers: [
+          geojsonLayer({ id: "rivers", name: "Rivers" }),
+          geojsonLayer({ id: "parks", name: "Parks" }),
+        ],
+        selectedLayerId: "parks",
+      });
+    };
+
+    it("removes from the selected row's name and from its toolbar", () => {
+      seedParks();
+      renderLayerPanel();
+      fireEvent.keyDown(within(row("Parks")).getByRole("button", { name: "Parks" }), {
+        key: "Delete",
+      });
+      assert.equal(layer("parks"), undefined);
+
+      fireEvent.click(within(row("Rivers")).getByRole("button", { name: "Rivers" }));
+      fireEvent.keyDown(within(row("Rivers")).getByRole("button", { name: "Zoom to layer" }), {
+        key: "Delete",
+      });
+      assert.equal(layer("rivers"), undefined);
+    });
+
+    it("never removes from the search box", () => {
+      seedParks();
+      renderLayerPanel();
+      const search = screen.getByRole("searchbox");
+      fireEvent.change(search, { target: { value: "Par" } });
+      fireEvent.keyDown(search, { key: "Delete" });
+      assert.equal(layer("parks")?.name, "Parks");
+    });
+
+    it("never removes from the rename field", () => {
+      seedParks();
+      renderLayerPanel();
+      fireEvent.doubleClick(within(row("Parks")).getByRole("button", { name: "Parks" }));
+      const field = within(row("Parks")).getByRole("textbox", { name: "Rename Parks" });
+      fireEvent.keyDown(field, { key: "Delete" });
+      assert.equal(layer("parks")?.name, "Parks");
+    });
+
+    it("never removes from the Style panel", () => {
+      seedParks();
+      // The Style panel opens when its request changes after mounting, as the
+      // toolbar's palette does it.
+      function WithStylePanel() {
+        const [request, setRequest] = useState(0);
+        useEffect(() => setRequest(1), []);
+        return createElement(
+          "div",
+          null,
+          createElement(LayerPanelHarness),
+          createElement(SwiftmapStylePanel, { mapControllerRef: { current: null }, openRequest: request }),
+        );
+      }
+      render(createElement(WithStylePanel));
+      const stylePanel = screen.getByTestId("swiftmap-style-panel");
+      const targets = within(stylePanel).queryAllByRole("button");
+      assert.ok(targets.length > 0, "the Style panel has controls to press Delete on");
+      for (const target of [...targets, ...within(stylePanel).queryAllByRole("slider")]) {
+        fireEvent.keyDown(target, { key: "Delete" });
+      }
+      assert.equal(layer("parks")?.name, "Parks");
+    });
+
+    it("never removes from the panel header or another layer's row", () => {
+      seedParks();
+      renderLayerPanel();
+      fireEvent.keyDown(screen.getByRole("button", { name: "New group" }), { key: "Delete" });
+      fireEvent.keyDown(within(row("Rivers")).getByRole("button", { name: "Rivers" }), {
+        key: "Delete",
+      });
+      assert.equal(layer("parks")?.name, "Parks");
+      assert.equal(layer("rivers")?.name, "Rivers");
+    });
   });
 
   it("ignores Delete pressed outside the layer panel", () => {

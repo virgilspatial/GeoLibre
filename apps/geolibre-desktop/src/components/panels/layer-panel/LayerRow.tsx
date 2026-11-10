@@ -38,12 +38,14 @@ import {
   MousePointerClick,
   Palette,
   PencilRuler,
+  Trash,
   ZoomIn,
 } from "lucide-react";
 import { layerFilteredHintKey } from "../../../lib/layer-filter-hint";
 import { getLayerRefreshConfig } from "../../../lib/layer-refresh";
 import { notify } from "../../../lib/notify";
 import { hasNativeIdentifyLayers, type LayerRefreshStatus } from "./layer-panel-utils";
+import { layerShortcutLabel } from "./layer-shortcuts";
 import {
   LAYER_MENU_COLLISION_PADDING,
   LayerActionsMenuItems,
@@ -96,14 +98,20 @@ interface LayerRowProps {
 
 function ToolButton({
   label,
+  tooltip = label,
   pressed,
   disabled,
+  danger,
   onClick,
   children,
 }: {
   label: string;
+  /** The tooltip, when it says more than the accessible name (a shortcut). */
+  tooltip?: string;
   pressed?: boolean;
   disabled?: boolean;
+  /** The icon turns destructive red on hover and keyboard focus (Change 40). */
+  danger?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -121,6 +129,7 @@ function ToolButton({
             className={cn(
               "h-7 w-7 rounded-md",
               pressed && "bg-foreground text-background hover:bg-foreground/90 hover:text-background",
+              danger && "hover:text-destructive focus-visible:text-destructive",
             )}
             onClick={onClick}
           >
@@ -129,7 +138,7 @@ function ToolButton({
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6}>
-        {label}
+        {tooltip}
       </TooltipContent>
     </Tooltip>
   );
@@ -138,7 +147,8 @@ function ToolButton({
 /**
  * SWIFTMAP: one layer in the Layers panel (Change 17). At rest the row is the
  * layer's name and its eye; selecting it adds the toolbar (Zoom to layer,
- * Identify, Style, ⋯) and, from the ⋯ menu, the Opacity or Properties card.
+ * Identify, Style, then Remove layer and ⋯ on the right, Change 40) and, from
+ * the ⋯ menu, the Opacity or Properties card.
  * No drag handle: the name line is what a drag grabs (Change 18, useRowDrag).
  */
 export function LayerRow({
@@ -182,8 +192,15 @@ export function LayerRow({
   const selectLayer = useAppStore((s) => s.selectLayer);
   const setIdentifyLayer = useAppStore((s) => s.setIdentifyLayer);
   const identifyLayerIds = useAppStore((s) => s.identifyLayerIds);
-  const { mapControllerRef, beginRename, onOpenStylePanel, onOpenRasterStylePanel, openCard } =
-    menu;
+  const {
+    mapControllerRef,
+    beginRename,
+    onOpenStylePanel,
+    onOpenRasterStylePanel,
+    openCard,
+    runAction,
+    isMac,
+  } = menu;
   // A layer inside a hidden group dims too, but keeps its own eye state.
   const layerRendered = effectiveLayerRenderState(layer, groupById).visible;
   const groupHidden = layer.visible && !layerRendered;
@@ -409,7 +426,20 @@ export function LayerRow({
             >
               <Palette className="h-4 w-4" />
             </ToolButton>
-            <div className="ms-auto">
+            <div className="ms-auto flex items-center gap-1">
+              {/* SWIFTMAP (Change 40): Remove layer beside the ⋯, editors only. */}
+              {layerEditable ? (
+                <ToolButton
+                  label={t("layerPanel.removeLayer")}
+                  tooltip={t("layerPanel.removeLayerTooltip", {
+                    shortcut: layerShortcutLabel("remove", isMac),
+                  })}
+                  danger
+                  onClick={() => runAction("remove", layer)}
+                >
+                  <Trash className="h-4 w-4" />
+                </ToolButton>
+              ) : null}
               <DropdownMenu
                 open={menuOpen}
                 onOpenChange={(open) => {

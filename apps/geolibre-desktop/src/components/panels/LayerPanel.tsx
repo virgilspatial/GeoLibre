@@ -53,6 +53,7 @@ import {
 } from "./layer-panel/RefreshSettingsDialog";
 import { RemoveGroupDialog, removeGroupAndContents } from "./layer-panel/RemoveGroupDialog";
 import { RemoveLayerDialog } from "./layer-panel/RemoveLayerDialog";
+import { removeLayerWithUndo, undoRestoresLayer } from "./layer-panel/layer-removal";
 import {
   buildLayerTree,
   childrenAt,
@@ -154,6 +155,12 @@ function isShortcutExcludedTarget(target: EventTarget | null): boolean {
       '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [role="combobox"], input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
     ),
   );
+}
+
+/** Whether a key press comes from inside the row of the layer with this id. */
+function isInLayerRow(target: EventTarget | null, layerId: string): boolean {
+  if (!(target instanceof Element)) return false;
+  return target.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId === layerId;
 }
 
 export function LayerPanel({
@@ -608,9 +615,12 @@ export function LayerPanel({
         setExportOpen(true);
         return;
       case "remove":
-        // GeoLibre's confirmation stays: Undo can't bring back every layer
-        // type in full (decided 2 Nov 2026, Change 17).
-        if (editable) setLayerPendingRemoval(layer);
+        // The bin, the ⋯ item and Delete all land here (Change 40): removed at
+        // once with an Undo message when Undo restores the layer in full,
+        // otherwise GeoLibre's confirmation (Change 17).
+        if (!editable) return;
+        if (undoRestoresLayer(layer)) removeLayerWithUndo(layer, t);
+        else setLayerPendingRemoval(layer);
         return;
     }
   };
@@ -630,6 +640,9 @@ export function LayerPanel({
     if (!layer) return;
     const shortcut = matchLayerShortcut(event.nativeEvent, isMac);
     if (!shortcut) return;
+    // Delete removes at once now (Change 40), so it acts only from the selected
+    // layer's own row, never from the header or another layer's row.
+    if (shortcut === "remove" && !isInLayerRow(event.target, layer.id)) return;
     event.preventDefault();
     runAction(shortcut, layer);
   };
