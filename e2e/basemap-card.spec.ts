@@ -56,24 +56,24 @@ test("the Basemap card picks basemaps and tile links", async ({ page }) => {
   await expect(list.getByText("No labels available")).toHaveCount(0);
   await labels.hover();
   await expect(page.getByRole("tooltip")).toContainText("No labels available");
-  const liberty = list.getByRole("button", { name: "Liberty" });
-  await expect(liberty).toHaveAttribute("aria-pressed", "true");
+  const liberty = list.getByRole("radio", { name: "Liberty" });
+  await expect(liberty).toHaveAttribute("aria-checked", "true");
   await expect(liberty).toBeFocused();
   for (const gone of ["Positron", "White", "Black", "Moon", "Mars"]) {
-    await expect(list.getByRole("button", { name: new RegExp(gone) })).toHaveCount(0);
+    await expect(list.getByRole("radio", { name: new RegExp(gone) })).toHaveCount(0);
   }
 
-  const aerial = list.getByRole("button", { name: /^Aerial/ });
+  const aerial = list.getByRole("radio", { name: /^Aerial/ });
   await aerial.click();
   await expect(list).toBeVisible();
-  await expect(aerial).toHaveAttribute("aria-pressed", "true");
+  await expect(aerial).toHaveAttribute("aria-checked", "true");
   await expect(card).toContainText("Aerial (NSW)");
   await expect(card).not.toContainText("NSW only");
   await expect.poll(() => rememberedBasemap(page)).toBe(`${SWIFTMAP}aerial`);
   // Aerial's labels come from Protomaps, so without a key there are none.
   await expect(labels).toBeDisabled();
 
-  await list.getByRole("button", { name: "None" }).click();
+  await list.getByRole("radio", { name: "None" }).click();
   await expect(card).toContainText("None");
   await expect.poll(() => rememberedBasemap(page)).toBe("");
 
@@ -87,8 +87,8 @@ test("the Basemap card picks basemaps and tile links", async ({ page }) => {
   await list.getByRole("button", { name: "Add" }).click();
   await expect(card).toContainText("SiteImagery");
   // The custom basemap is listed, ringed, while the picker stays open.
-  await expect(list.getByRole("button", { name: "SiteImagery" })).toHaveAttribute(
-    "aria-pressed",
+  await expect(list.getByRole("radio", { name: "SiteImagery" })).toHaveAttribute(
+    "aria-checked",
     "true",
   );
 
@@ -126,10 +126,10 @@ test("with a Protomaps key: Light by default, and Show labels switches labels", 
 
   // A pick keeps the setting; Aerial's hybrid labels follow the same switch.
   for (const name of ["Light", "Grey", "Dark", "Aerial", "None"]) {
-    await expect(list.getByRole("button", { name: new RegExp(`^${name}`) })).toBeVisible();
+    await expect(list.getByRole("radio", { name: new RegExp(`^${name}`) })).toBeVisible();
   }
-  await expect(list.getByRole("button", { name: "Liberty" })).toHaveCount(0);
-  await list.getByRole("button", { name: /^Aerial/ }).click();
+  await expect(list.getByRole("radio", { name: "Liberty" })).toHaveCount(0);
+  await list.getByRole("radio", { name: /^Aerial/ }).click();
   await expect.poll(() => rememberedBasemap(page)).toBe(`${SWIFTMAP}aerial?labels=off`);
   await expect(card).toContainText("Basemap · No labelsAerial (NSW)");
   await labels.click();
@@ -159,7 +159,7 @@ test("Auto follows the theme without changing the saved basemap", async ({ page 
     });
   const card = basemapCard(page);
   await card.click();
-  await picker(page).getByRole("button", { name: "Auto", exact: true }).click();
+  await picker(page).getByRole("radio", { name: "Auto", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(card).toContainText("Auto");
   await expect.poll(() => rememberedBasemap(page)).toBe(`${SWIFTMAP}auto`);
@@ -179,7 +179,7 @@ test("viewers get the card too", async ({ page }) => {
   const card = basemapCard(page);
   await expect(card).toBeVisible();
   await card.click();
-  await picker(page).getByRole("button", { name: "None" }).click();
+  await picker(page).getByRole("radio", { name: "None" }).click();
   await expect(card).toContainText("None");
 });
 

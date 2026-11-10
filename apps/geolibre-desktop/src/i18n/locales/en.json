@@ -3628,7 +3628,7 @@
     "useTileLink": "Use a tile link…",
     "tileLink": "Tile link",
     "tileLinkPlaceholder": "https://…/{z}/{x}/{y}.png",
-    "tileLinkHint": "XYZ tiles, an ArcGIS MapServer link or a style link.",
+    "tileLinkHint": "XYZ tiles, ArcGIS MapServer or style link.",
     "tileLinkInvalid": "Enter an XYZ tile link ({z}/{x}/{y}), an ArcGIS MapServer link or a style link.",
     "add": "Add",
     "newProjectDescription": "Name the project. You can change the basemap afterwards in the Layers panel."

@@ -14,11 +14,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@geolibre/ui";
-import { Check, ChevronRight, Link2, Map as MapIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ChevronsUpDown, Link2, Map as MapIcon } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useAutoFlavor } from "./auto-flavor";
 import { applyBasemap } from "./basemap-actions";
+import { nextGridIndex } from "./basemap-grid-keys";
 import {
   choiceUrl,
   currentChoice,
@@ -104,9 +105,9 @@ function useDescribe(hasKey: boolean): (url: string) => BasemapInfo {
  * A 40px thumbnail with a plain 1px grey border, drawn inside the box over the
  * image. The current basemap is marked on its whole row, not here.
  */
-function Thumbnail({ choice }: { choice: BasemapChoiceId | null }) {
-  if (choice === "auto") return <AutoThumbnail />;
-  return <PlainThumbnail choice={choice} />;
+function Thumbnail({ choice, className }: { choice: BasemapChoiceId | null; className?: string }) {
+  if (choice === "auto") return <AutoThumbnail className={className} />;
+  return <PlainThumbnail choice={choice} className={className} />;
 }
 
 /**
@@ -118,14 +119,22 @@ function CardThumbnail({ choice }: { choice: BasemapChoiceId | null }) {
   return <PlainThumbnail choice={choice === "auto" ? flavor : choice} />;
 }
 
-function PlainThumbnail({ choice }: { choice: BasemapChoiceId | null }) {
+function PlainThumbnail({
+  choice,
+  className,
+}: {
+  choice: BasemapChoiceId | null;
+  className?: string;
+}) {
   const src = choice ? THUMBNAILS[choice] : undefined;
   return (
     <span
       aria-hidden="true"
       className={cn(
         "relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md",
-        src ? undefined : choice === "none" ? "bg-background" : "bg-muted",
+        // Round 1: None is the rail's own fill, with nothing on it.
+        src ? undefined : choice === "none" ? "bg-sidebar" : "bg-muted",
+        className,
       )}
     >
       {src ? (
@@ -142,9 +151,12 @@ function PlainThumbnail({ choice }: { choice: BasemapChoiceId | null }) {
  * Change 33: Auto's picker thumbnail, split corner to corner: Light at the top
  * left, Dark at the bottom right, a hard edge. Both are the same map area.
  */
-function AutoThumbnail() {
+function AutoThumbnail({ className }: { className?: string }) {
   return (
-    <span aria-hidden="true" className="relative flex size-10 shrink-0 overflow-hidden rounded-md">
+    <span
+      aria-hidden="true"
+      className={cn("relative flex size-10 shrink-0 overflow-hidden rounded-md", className)}
+    >
       <img src={lightThumb} alt="" className="size-full object-cover" />
       <img
         src={darkThumb}
@@ -153,6 +165,83 @@ function AutoThumbnail() {
       />
       <span className="pointer-events-none absolute inset-0 rounded-md border border-border" />
     </span>
+  );
+}
+
+/** The mockup's full-name tooltip: after about 450ms, only when the name is cut off. */
+const NAME_TOOLTIP_DELAY = 450;
+
+/**
+ * Change 42: one tile of the picker's grid, a radio. The thumbnail fills the
+ * column, so it scales with the panel; the current one has a two-tone ring
+ * inside its thumbnail's edge and a bold name. Hover only shows the pointer;
+ * keyboard focus rings the whole tile.
+ */
+function GridTile({
+  choice,
+  name,
+  selected,
+  tabbable,
+  onApply,
+  onKeyDown,
+  buttonRef,
+}: {
+  choice: BasemapChoiceId | null;
+  name: string;
+  selected: boolean;
+  tabbable: boolean;
+  onApply: () => void;
+  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  buttonRef: (element: HTMLButtonElement | null) => void;
+}) {
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const [tipOpen, setTipOpen] = useState(false);
+  return (
+    <Tooltip
+      open={tipOpen}
+      delayDuration={NAME_TOOLTIP_DELAY}
+      onOpenChange={(next) => {
+        const element = nameRef.current;
+        setTipOpen(next && !!element && element.scrollWidth > element.clientWidth);
+      }}
+    >
+      <TooltipTrigger asChild>
+        <button
+          ref={buttonRef}
+          type="button"
+          role="radio"
+          aria-checked={selected}
+          aria-label={name}
+          tabIndex={tabbable ? 0 : -1}
+          data-testid="basemap-tile"
+          data-choice={choice ?? "current"}
+          className="flex min-w-0 cursor-pointer flex-col items-stretch gap-1.5 rounded-[10px] p-0.5 pb-1 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onApply}
+          onKeyDown={onKeyDown}
+        >
+          <Thumbnail
+            choice={choice}
+            className={cn(
+              "aspect-square size-auto w-full rounded-[8px] [&>span:last-child]:rounded-[8px]",
+              // Round 3: the selected ring sits inside the edge, on the overlay
+              // above the image: 2px in the text colour, then 1px in the
+              // popover colour, then the map.
+              selected &&
+                "[&>span:last-child]:border-0 [&>span:last-child]:shadow-[inset_0_0_0_2px_hsl(var(--foreground)),inset_0_0_0_3px_hsl(var(--popover))]",
+            )}
+          />
+          <span
+            ref={nameRef}
+            className={cn("min-w-0 truncate px-0.5 text-xs", selected ? "font-semibold" : "font-medium")}
+          >
+            {name}
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6}>
+        {name}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -184,6 +273,11 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
   const [link, setLink] = useState("");
   const [linkError, setLinkError] = useState(false);
   const currentRef = useRef<HTMLButtonElement>(null);
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  // The side panel the card sits in: the popover stays inside it (Change 42).
+  const [boundary, setBoundary] = useState<Element | null>(null);
+  const headingId = useId();
   const switchId = useId();
   const linkId = useId();
 
@@ -198,12 +292,21 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
+      setBoundary(anchorRef.current?.closest("aside") ?? null);
       const current = describe(url).choice;
       setOpenedWith(current && choices.includes(current) ? null : url);
       setLink(tileLinkOf(url) ?? readStoredTileLink());
       setLinkOpen(false);
       setLinkError(false);
     }
+  };
+
+  const linkButtonRef = useRef<HTMLButtonElement>(null);
+  const closeLinkForm = () => {
+    setLinkOpen(false);
+    setLinkError(false);
+    // The "Use a tile link…" button is back once the form unmounts.
+    requestAnimationFrame(() => linkButtonRef.current?.focus());
   };
 
   const submitLink = (event: FormEvent<HTMLFormElement>) => {
@@ -221,6 +324,8 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
     }
     setOpenedWith(next);
     apply(next);
+    // Round 1: the link is in the grid now, so the form gives way to it.
+    closeLinkForm();
   };
 
   const rows: { key: string; url: string; info: BasemapInfo }[] = choices.map((choice) => {
@@ -234,6 +339,7 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
     rowInfo.choice !== null && info.choice !== null
       ? rowInfo.choice === info.choice
       : rowUrl === url;
+  const anySelected = rows.some((row) => isSelected(row.url, row.info));
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -243,6 +349,7 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
           list scrolls beneath the card. */}
       <PopoverAnchor asChild>
         <div
+          ref={anchorRef}
           data-divider={divider || undefined}
           className={cn(
             "border-t p-3 transition-colors duration-150",
@@ -266,62 +373,67 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
                 </span>
                 <span className="block truncate text-[13px] font-medium">{info.name}</span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:rotate-180" />
+              <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
             </button>
           </PopoverTrigger>
         </div>
       </PopoverAnchor>
       <PopoverContent
-        side="right"
-        align="end"
-        // 8px clear of the panel's 1px border, and the same 8px above the
-        // status bar.
-        sideOffset={9}
-        alignOffset={8}
-        collisionPadding={8}
-        className="w-62 p-1.5"
-        aria-label={t("swiftmapBasemap.basemap")}
+        // Change 42: upward from the card, inside the side panel with the
+        // card's own 12px gaps; the body scrolls if the panel is too short.
+        side="top"
+        align="start"
+        sideOffset={0}
+        alignOffset={12}
+        collisionPadding={12}
+        collisionBoundary={boundary}
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[calc(var(--radix-popover-trigger-width)-24px)] flex-col p-0"
+        aria-labelledby={headingId}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          currentRef.current?.focus();
+          (currentRef.current ?? tileRefs.current[0])?.focus();
+        }}
+        // Round 1: Esc closes the tile link form first, the popover next time.
+        onEscapeKeyDown={(event) => {
+          if (!linkOpen) return;
+          event.preventDefault();
+          closeLinkForm();
         }}
       >
-        <p className="px-1.5 pb-1 pt-0.5 text-xs font-medium text-muted-foreground">
+        <p id={headingId} className="shrink-0 px-2.5 pb-2 pt-3 text-[13px] font-semibold text-foreground">
           {t("swiftmapBasemap.basemap")}
         </p>
-        <div className="flex flex-col gap-0.5">
-          {rows.map((row) => {
-            const selected = isSelected(row.url, row.info);
-            return (
-              <button
-                key={row.key}
-                ref={selected ? currentRef : undefined}
-                type="button"
-                aria-pressed={selected}
-                // Every row, the current one included, only gets the hover
-                // fill; the current one has a check and a bold name.
-                className="flex w-full items-center gap-2.5 rounded-[10px] p-1.5 text-start transition-colors hover:bg-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => apply(row.url)}
-              >
-                <Thumbnail choice={row.info.choice} />
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-[13px]",
-                    selected ? "font-semibold" : "font-medium",
-                  )}
-                >
-                  {row.info.name}
-                </span>
-                {/* On every row, shown only on the current one, so names
-                    never shift. Its end lines up with the switch below. */}
-                <Check
-                  aria-hidden="true"
-                  className={cn("size-4 shrink-0 text-foreground", !selected && "invisible")}
+        <div data-testid="basemap-picker-body" className="min-h-0 overflow-y-auto px-2 pb-2 pt-0.5">
+          <div
+            role="radiogroup"
+            aria-labelledby={headingId}
+            className="grid grid-cols-3 gap-1.5"
+          >
+            {rows.map((row, index) => {
+              const selected = isSelected(row.url, row.info);
+              return (
+                <GridTile
+                  key={row.key}
+                  choice={row.info.choice}
+                  name={row.info.name}
+                  selected={selected}
+                  tabbable={selected || (!anySelected && index === 0)}
+                  buttonRef={(element) => {
+                    tileRefs.current[index] = element;
+                    if (selected) currentRef.current = element;
+                  }}
+                  onApply={() => apply(row.url)}
+                  onKeyDown={(event) => {
+                    const rtl = getComputedStyle(event.currentTarget).direction === "rtl";
+                    const next = nextGridIndex(event.key, index, rows.length, rtl);
+                    if (next === null) return;
+                    event.preventDefault();
+                    tileRefs.current[next]?.focus();
+                  }}
                 />
-              </button>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         <Separator className="my-1.5" />
         <div className="flex items-center justify-between gap-2 px-1.5 py-1">
           <Label
@@ -364,47 +476,53 @@ export function BasemapCard({ viewer = false, divider = false, className }: Base
             <Label htmlFor={linkId} className="text-xs">
               {t("swiftmapBasemap.tileLink")}
             </Label>
-            <div className="flex gap-1.5">
-              <Input
-                id={linkId}
-                autoFocus
-                type="text"
-                inputMode="url"
-                className="h-8 text-xs"
-                placeholder={t("swiftmapBasemap.tileLinkPlaceholder")}
-                value={link}
-                aria-invalid={linkError || undefined}
-                aria-describedby={`${linkId}-hint`}
-                onChange={(event) => {
-                  setLink(event.target.value);
-                  setLinkError(false);
-                }}
-              />
-              <Button type="submit" size="sm" className="h-8" disabled={!link.trim()}>
-                {t("swiftmapBasemap.add")}
-              </Button>
-            </div>
+            {/* Round 2: stacked at every width; the field takes the full width. */}
+            <Input
+              id={linkId}
+              autoFocus
+              type="text"
+              inputMode="url"
+              className="h-8 w-full text-xs"
+              placeholder={t("swiftmapBasemap.tileLinkPlaceholder")}
+              value={link}
+              aria-invalid={linkError || undefined}
+              aria-describedby={`${linkId}-hint`}
+              onChange={(event) => {
+                setLink(event.target.value);
+                setLinkError(false);
+              }}
+            />
             <p
               id={`${linkId}-hint`}
               className={cn(
-                "text-[11px]",
+                "text-pretty text-[11px]",
                 linkError ? "text-destructive" : "text-muted-foreground",
               )}
               role={linkError ? "alert" : undefined}
             >
               {linkError ? t("swiftmapBasemap.tileLinkInvalid") : t("swiftmapBasemap.tileLinkHint")}
             </p>
+            <div className="flex justify-end gap-1.5 pt-0.5">
+              <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={closeLinkForm}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" size="sm" className="h-8" disabled={!link.trim()}>
+                {t("swiftmapBasemap.add")}
+              </Button>
+            </div>
           </form>
         ) : (
           <button
+            ref={linkButtonRef}
             type="button"
             className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-start text-[13px] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setLinkOpen(true)}
           >
-            <Link2 className="size-4 text-muted-foreground" />
+            <Link2 className="size-4 text-foreground" />
             {t("swiftmapBasemap.useTileLink")}
           </button>
         )}
+        </div>
       </PopoverContent>
     </Popover>
   );
