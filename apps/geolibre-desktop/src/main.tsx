@@ -77,6 +77,7 @@ import { applySwiftmapDefaultBasemap } from "./components/map/swiftmap-basemap";
 import { installSwiftmapBasemaps } from "./components/basemap/basemap-registry";
 import { installSwiftmapBasemapSwap } from "./components/basemap/basemap-swap";
 import { installSwiftmapDrawOrder } from "./components/draw-order/draw-order";
+import { installSwiftmapLabelOrder } from "./components/draw-order/label-order";
 import { installAutoBasemap } from "./components/basemap/auto-basemap";
 import { applyTemporaryDesktopSettings } from "./hooks/useDesktopSettings";
 import {
@@ -108,6 +109,8 @@ installSwiftmapBasemaps();
 installSwiftmapBasemapSwap();
 // SWIFTMAP (Change 36): the map draws points above lines above polygons.
 installSwiftmapDrawOrder();
+// SWIFTMAP (Change 38): and draws every layer's labels above all the shapes.
+installSwiftmapLabelOrder();
 // SWIFTMAP (Change 33): the Auto basemap follows the theme.
 installAutoBasemap();
 // SWIFTMAP (Change 23): Protomaps Light for the first map when a build-time key
