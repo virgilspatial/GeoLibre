@@ -3,7 +3,8 @@ import type { AnalysisToolId } from "./origin";
 /**
  * SWIFTMAP (Change 37): the Analysis panel's toolset: the Screening toolkit
  * only (`design-decisions.md`, "Analysis toolset"). Buffer works in 6b1; the
- * others arrive in 6b2 and 6b3 and show as "Coming soon" until then.
+ * others arrive in 6b2 and 6b3 and show as "Coming soon" until then. Clip,
+ * Intersect and Dissolve work since Change 43 (6b2).
  */
 export interface AnalysisTool {
   id: AnalysisToolId;
@@ -12,11 +13,11 @@ export interface AnalysisTool {
 
 export const ANALYSIS_TOOLS: readonly AnalysisTool[] = [
   { id: "buffer", available: true },
-  { id: "clip", available: false },
-  { id: "intersect", available: false },
+  { id: "clip", available: true },
+  { id: "intersect", available: true },
   { id: "constraintSummary", available: false },
   { id: "areaByZone", available: false },
-  { id: "dissolve", available: false },
+  { id: "dissolve", available: true },
 ];
 
 /** The tools whose name contains the query (case-insensitive), in toolkit order. */

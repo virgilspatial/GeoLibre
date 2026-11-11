@@ -1,7 +1,13 @@
 import type { TFunction } from "i18next";
 import type { GeoLibreLayer } from "@geolibre/core";
 import type { RasterInfo } from "../../../lib/raster-info";
-import { isAnalysisResult, lineageRows, measuredInRow, originOf } from "../../analysis/origin";
+import {
+  isAnalysisResult,
+  lineageRows,
+  measuredInRow,
+  originOf,
+  precisionRow,
+} from "../../analysis/origin";
 
 /**
  * SWIFTMAP: the rows of the Layers panel's Properties card (Change 17): what
@@ -179,6 +185,8 @@ export function layerPropertyRows(
   const crs = crsValue(layer, t, raster);
   if (crs) rows.push({ label: t("layerPanel.propCrs"), value: crs });
   if (origin) rows.push(measuredInRow(origin, t));
+  const precision = origin ? precisionRow(origin, t) : null;
+  if (precision) rows.push(precision);
   const synced = layer.connection?.lastSyncedAt;
   const syncedDate = synced ? new Date(synced) : null;
   if (syncedDate && !Number.isNaN(syncedDate.getTime())) {

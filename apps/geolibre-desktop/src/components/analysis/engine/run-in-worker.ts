@@ -1,17 +1,13 @@
-import type { FeatureCollection } from "geojson";
-import type { AnalysisErrorCode, BufferSettings, ToolResult } from "./buffer";
+import type { AnalysisErrorCode, ToolResult } from "./common";
+import type { AnalysisRequest } from "./run-tool";
+
+export type { AnalysisRequest } from "./run-tool";
 
 /**
  * SWIFTMAP (Change 37): starting an analysis run in its own worker, and
  * cancelling it. Each run gets a fresh worker, terminated when it settles or is
  * cancelled, so a cancelled run can never add anything.
  */
-export type AnalysisRequest = {
-  tool: "buffer";
-  input: FeatureCollection;
-  settings: BufferSettings;
-};
-
 export type AnalysisResponse =
   | { ok: true; result: ToolResult }
   | { ok: false; code: AnalysisErrorCode | "failed"; message: string };

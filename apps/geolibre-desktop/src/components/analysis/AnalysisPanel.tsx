@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ANALYSIS_TOOLS, searchTools, type AnalysisTool } from "./analysis-tools";
 import { useAnalysisStore } from "./analysisStore";
 import { BufferForm } from "./BufferForm";
+import { DissolveForm, OverlayForm } from "./OverlayForms";
 import type { AnalysisToolId } from "./origin";
 
 /**
@@ -33,11 +34,26 @@ export function AnalysisPanel() {
         className="-me-3 min-h-0 flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block"
       >
         <div className="flex min-h-full flex-col pe-3 pb-3.5">
-          {tool === "buffer" ? <BufferForm /> : <ToolList />}
+          <ToolBody tool={tool} />
         </div>
       </ScrollArea>
     </section>
   );
+}
+
+function ToolBody({ tool }: { tool: AnalysisToolId | null }) {
+  switch (tool) {
+    case "buffer":
+      return <BufferForm />;
+    case "clip":
+    case "intersect":
+      // Keyed, so switching between the two starts with fresh field ids.
+      return <OverlayForm key={tool} tool={tool} />;
+    case "dissolve":
+      return <DissolveForm />;
+    default:
+      return <ToolList />;
+  }
 }
 
 function ToolHeader({ tool }: { tool: AnalysisToolId }) {

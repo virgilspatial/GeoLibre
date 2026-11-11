@@ -3683,6 +3683,10 @@
       "km": "km"
     },
     "settingsDissolved": "{{distance}}, dissolved",
+    "settingsClip": "Clipped to {{name}}",
+    "settingsIntersect": "Intersected with {{name}}",
+    "settingsDissolveBy": "By {{field}}",
+    "settingsDissolveAll": "All features merged",
     "buffer": {
       "description": "Creates areas a set distance around features. Useful for setbacks and proximity checks.",
       "input": "Input layer",
@@ -3692,6 +3696,20 @@
       "dissolve": "Dissolve overlapping areas",
       "outputName": "Output layer name"
     },
+    "clip": {
+      "description": "Keeps the parts of features that fall inside a boundary. Useful for cutting data to a site or study area.",
+      "second": "Clip to"
+    },
+    "intersect": {
+      "description": "Finds where features overlap areas in another layer and combines the attributes of both. Useful for seeing which zones features fall in.",
+      "second": "Intersect with"
+    },
+    "dissolve": {
+      "description": "Merges polygons into one, or into one per value of a field. Useful for combining lots or zones.",
+      "field": "Dissolve by",
+      "noField": "None (merge all)"
+    },
+    "noPolygonLayers": "No polygon layers in this map",
     "run": "Run",
     "running": "Running…",
     "cancel": "Cancel",
@@ -3699,12 +3717,29 @@
       "noInput": "Add a vector layer to the map to buffer it.",
       "tiles": "This layer is drawn from map tiles, which hold only part of its data. Add it as features to analyse it.",
       "partial": "Only part of this layer is loaded, so it can’t be analysed.",
+      "tilesNamed": "“{{name}}” is drawn from map tiles, which hold only part of its data. Add it as features to analyse it.",
+      "partialNamed": "Only part of “{{name}}” is loaded, so it can’t be analysed.",
+      "sameLayer": "Choose two different layers.",
       "tooLarge": "Too large to analyse in the browser.",
       "noGeometry": "This layer has no geometry to buffer.",
-      "nameTaken": "A layer called “{{name}}” already exists. Choose another name."
+      "nameTaken": "A layer called “{{name}}” already exists. Choose another name.",
+      "clip": {
+        "noInput": "Add a vector layer and a polygon layer to the map to clip.",
+        "noGeometry": "These layers have no geometry to clip."
+      },
+      "intersect": {
+        "noInput": "Add a vector layer and a polygon layer to the map to intersect.",
+        "noGeometry": "These layers have no geometry to intersect."
+      },
+      "dissolve": {
+        "noInput": "Add a polygon layer to the map to dissolve it.",
+        "noGeometry": "This layer has no geometry to dissolve."
+      }
     },
     "slow": "This may take a minute.",
     "zoneWarning": "This layer reaches more than 1° outside {{zone}}, so measurements near its edges are less accurate.",
+    "zoneWarningMany": "These layers reach more than 1° outside {{zone}}, so measurements near their edges are less accurate.",
+    "polygonsOnly": "Only the polygons in “{{name}}” are used.",
     "added_one": "{{count}} feature added as “{{name}}”.",
     "added_other": "{{count}} features added as “{{name}}”.",
     "replaced_one": "{{count}} feature replaced “{{name}}”.",
@@ -3714,9 +3749,11 @@
     "cancelled": "Cancelled. Nothing was added.",
     "failed": {
       "noFeatures": "The buffer produced no features. Nothing was added.",
+      "noOverlap": "No features overlap. Nothing was added.",
+      "noPolygons": "There are no polygons to use. Nothing was added.",
       "noGeometry": "This layer has no geometry to buffer.",
       "badDistance": "The distance must be more than 0.",
-      "other": "Buffer failed: {{message}}"
+      "other": "{{tool}} failed: {{message}}"
     },
     "prop": {
       "createdWith": "Created with",
@@ -3725,6 +3762,8 @@
       "settings": "Settings",
       "created": "Created",
       "measuredIn": "Measured in",
+      "precision": "Precision",
+      "precision1mm": "Rounded to 1 mm to complete the overlay",
       "originMissing": "Origin not recorded"
     }
   },
