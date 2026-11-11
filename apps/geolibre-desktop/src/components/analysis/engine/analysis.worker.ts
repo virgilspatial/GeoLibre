@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
-import { AnalysisError, runBuffer } from "./buffer";
-import type { AnalysisRequest, AnalysisResponse } from "./run-in-worker";
+import { AnalysisError } from "./common";
+import type { AnalysisResponse } from "./run-in-worker";
+import { runTool, type AnalysisRequest } from "./run-tool";
 
 /**
  * SWIFTMAP (Change 37): runs analysis tools off the main thread, so the map
@@ -9,14 +10,9 @@ import type { AnalysisRequest, AnalysisResponse } from "./run-in-worker";
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 scope.onmessage = (event: MessageEvent<AnalysisRequest>) => {
-  const request = event.data;
   let response: AnalysisResponse;
   try {
-    switch (request.tool) {
-      case "buffer":
-        response = { ok: true, result: runBuffer(request.input, request.settings) };
-        break;
-    }
+    response = { ok: true, result: runTool(event.data) };
   } catch (error) {
     response = {
       ok: false,

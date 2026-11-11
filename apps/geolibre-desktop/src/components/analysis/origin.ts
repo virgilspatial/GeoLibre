@@ -22,16 +22,32 @@ export type AnalysisToolId =
   | "areaByZone"
   | "dissolve";
 
+/** A run's input layer; `role` (Change 43) tells a clip or overlay layer from the input. */
+export interface OriginInput {
+  layerId: string;
+  name: string;
+  featureCount: number;
+  role?: "input" | "clip" | "overlay";
+}
+
+/** Each tool's settings (Change 43): Clip and Intersect have none of their own. */
+export type OriginSettings =
+  | (BufferSettings & { segments: number })
+  | { field: string | null }
+  | Record<string, never>;
+
 export interface AnalysisOrigin {
   version: 1;
   tool: AnalysisToolId;
-  inputs: { layerId: string; name: string; featureCount: number }[];
-  settings: BufferSettings & { segments: number };
+  inputs: OriginInput[];
+  settings: OriginSettings;
   crs: { epsg: number; name: string; label: string };
   /** Whether the inputs reached more than 1° outside the zone. */
   zoneWarning: boolean;
   /** ISO 8601. */
   createdAt: string;
+  /** Set when the overlay only succeeded with coordinates rounded to 1 mm (Change 43). */
+  precisionFallback?: "1 mm";
 }
 
 export function buildOrigin(options: {
@@ -40,6 +56,7 @@ export function buildOrigin(options: {
   settings: AnalysisOrigin["settings"];
   zone: AnalysisZone;
   zoneWarning: boolean;
+  precisionFallback?: "1 mm";
   now?: Date;
 }): AnalysisOrigin {
   return {
@@ -50,6 +67,7 @@ export function buildOrigin(options: {
     crs: { epsg: options.zone.epsg, name: options.zone.name, label: options.zone.label },
     zoneWarning: options.zoneWarning,
     createdAt: (options.now ?? new Date()).toISOString(),
+    ...(options.precisionFallback ? { precisionFallback: options.precisionFallback } : {}),
   };
 }
 
@@ -83,12 +101,25 @@ export interface LineageRow {
   value: string;
 }
 
-/** "100 m, dissolved" */
-export function settingsSummary(
-  settings: AnalysisOrigin["settings"],
-  t: TFunction,
-  language: string,
-) {
+/**
+ * The Settings row: "100 m, dissolved" (Buffer), "Clipped to Site boundary",
+ * "Intersected with Zones", "By Zone" or "All features merged" (Dissolve).
+ */
+export function settingsSummary(origin: AnalysisOrigin, t: TFunction, language: string): string {
+  const second = origin.inputs.find((input) => input.role === "clip" || input.role === "overlay");
+  switch (origin.tool) {
+    case "clip":
+      return t("swiftmapAnalysis.settingsClip", { name: second?.name ?? "" });
+    case "intersect":
+      return t("swiftmapAnalysis.settingsIntersect", { name: second?.name ?? "" });
+    case "dissolve": {
+      const field = (origin.settings as { field?: unknown }).field;
+      return typeof field === "string"
+        ? t("swiftmapAnalysis.settingsDissolveBy", { field })
+        : t("swiftmapAnalysis.settingsDissolveAll");
+    }
+  }
+  const settings = origin.settings as BufferSettings;
   const distance = `${new Intl.NumberFormat(language).format(settings.distance)} ${t(
     `swiftmapAnalysis.units.${settings.unit}`,
   )}`;
@@ -108,7 +139,7 @@ export function lineageRows(origin: AnalysisOrigin, t: TFunction, language: stri
     },
     {
       label: t("swiftmapAnalysis.prop.settings"),
-      value: settingsSummary(origin.settings, t, language),
+      value: settingsSummary(origin, t, language),
     },
     {
       label: t("swiftmapAnalysis.prop.created"),
@@ -117,6 +148,13 @@ export function lineageRows(origin: AnalysisOrigin, t: TFunction, language: stri
       ),
     },
   ];
+}
+
+/** The "Precision" row, shown after "Measured in" only when the 1 mm retry was needed. */
+export function precisionRow(origin: AnalysisOrigin, t: TFunction): LineageRow | null {
+  return origin.precisionFallback === "1 mm"
+    ? { label: t("swiftmapAnalysis.prop.precision"), value: t("swiftmapAnalysis.prop.precision1mm") }
+    : null;
 }
 
 /** The "Measured in" row, shown after CRS. */

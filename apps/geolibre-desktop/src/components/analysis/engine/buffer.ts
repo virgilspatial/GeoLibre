@@ -1,9 +1,15 @@
 /// <reference path="./jsts.d.ts" />
 import jsts from "@turf/jsts";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
+import { AnalysisError, round2, type ToolResult } from "./common";
+import { areaFieldName } from "./measure";
 import { planarArea } from "./planar-area";
 import { zoneProjection } from "./project";
-import { extentOf, zoneForExtent, zoneWarningFor, type AnalysisZone } from "./zone";
+import { extentOf, zoneForExtent, zoneWarningFor } from "./zone";
+
+// Shared since Change 43; re-exported for existing imports.
+export { AnalysisError, type AnalysisErrorCode, type ToolResult } from "./common";
+export { areaFieldName } from "./measure";
 
 /**
  * SWIFTMAP (Change 37): the Buffer tool. Projects the input into one analysis
@@ -23,37 +29,10 @@ export interface BufferSettings {
   dissolve: boolean;
 }
 
-export interface ToolResult {
-  collection: FeatureCollection;
-  zone: AnalysisZone;
-  /** Whether the inputs reach more than 1° outside the zone. */
-  zoneWarning: boolean;
-}
-
-/** Why a tool refused to run, for the message under Run. */
-export type AnalysisErrorCode = "noGeometry" | "badDistance" | "badGeometry";
-
-export class AnalysisError extends Error {
-  constructor(
-    readonly code: AnalysisErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = "AnalysisError";
-  }
-}
-
 /** The distance in metres. */
 export function distanceInMetres(settings: Pick<BufferSettings, "distance" | "unit">): number {
   return settings.unit === "km" ? settings.distance * 1000 : settings.distance;
 }
-
-/** The measured-area field a result carries, labelled with its zone, e.g. "Area m² (MGA 56)". */
-export function areaFieldName(zone: AnalysisZone): string {
-  return `Area m² (${zone.label})`;
-}
-
-const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /** Buffers every feature of `input`, or all of them as one when dissolving. */
 export function runBuffer(input: FeatureCollection, settings: BufferSettings): ToolResult {

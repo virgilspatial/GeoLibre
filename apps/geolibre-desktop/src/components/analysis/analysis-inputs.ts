@@ -97,3 +97,58 @@ export function sizeCheck(collections: FeatureCollection[]): SizeCheck {
   if (bytes > MAX_BYTES) return "tooLarge";
   return features > SLOW_FEATURES ? "slow" : "ok";
 }
+
+/** What shapes a collection holds (Change 43), cached per collection. */
+export interface ShapeInfo {
+  polygons: boolean;
+  /** Points, lines or anything else with a geometry. */
+  other: boolean;
+}
+
+const shapeCache = new WeakMap<FeatureCollection, ShapeInfo>();
+
+export function shapeInfo(collection: FeatureCollection): ShapeInfo {
+  let info = shapeCache.get(collection);
+  if (!info) {
+    info = { polygons: false, other: false };
+    for (const { geometry } of collection.features) {
+      if (!geometry) continue;
+      if (geometry.type === "Polygon" || geometry.type === "MultiPolygon") info.polygons = true;
+      else info.other = true;
+      if (info.polygons && info.other) break;
+    }
+    shapeCache.set(collection, info);
+  }
+  return info;
+}
+
+/**
+ * The layers listed where a tool needs polygons (Clip's clip layer,
+ * Intersect's overlay layer, Dissolve's input): loaded layers with at least
+ * one polygon, plus tile and partial layers, which are listed and refused.
+ */
+export function polygonInputs(layers: GeoLibreLayer[]): AnalysisInput[] {
+  return analysisInputs(layers).filter(
+    (input) => !input.layer.geojson || shapeInfo(input.layer.geojson).polygons,
+  );
+}
+
+/**
+ * The fields Dissolve can group by: those holding plain values (text,
+ * numbers, true/false), in the order first seen. `skip` drops our measured
+ * fields.
+ */
+export function plainFields(collection: FeatureCollection, skip: (name: string) => boolean): string[] {
+  const fields = new Map<string, boolean>();
+  for (const feature of collection.features) {
+    for (const [key, value] of Object.entries(feature.properties ?? {})) {
+      if (skip(key)) continue;
+      const plain =
+        value === null ||
+        value === undefined ||
+        ["string", "number", "boolean"].includes(typeof value);
+      fields.set(key, (fields.get(key) ?? true) && plain);
+    }
+  }
+  return [...fields].filter(([, plain]) => plain).map(([key]) => key);
+}
